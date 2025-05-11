@@ -1,16 +1,15 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("@openzeppelin/hardhat-upgrades");
 require("@nomicfoundation/hardhat-verify");
-
 require("dotenv").config();
-
-const { FTM_RPC_URL, SONIC_RPC_URL, PRIVATE_KEY, SONIC_PRIVATE_KEY } = process.env;
-
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: "0.8.28",
   networks: {
+    hardhat: {
+      // Local development network configuration
+    },
     sonicTestnet: {
       url: process.env.SONIC_RPC_URL,
       accounts: [process.env.PRIVATE_KEY],
@@ -19,7 +18,7 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
-      sonicTestnet: process.env.SONIC_SCAN_API_KEY, // maps to customChain below
+      sonicTestnet: process.env.SONIC_SCAN_API_KEY,
     },
     customChains: [
       {
