@@ -1,9 +1,12 @@
 import { useState } from "react";
-import type { TLSFormData } from "../../types/tls";
+import { HttpMethod, type TLSFormData } from "../../types/tls";
+import { getMethodColor } from "../common";
 
 interface TLSFormProps {
   onSubmit: (formData: TLSFormData) => void;
 }
+
+const httpMethodOptions = Object.values(HttpMethod);
 
 export function TLSForm({ onSubmit }: TLSFormProps) {
   const [form, setForm] = useState<TLSFormData>({
@@ -11,7 +14,7 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
     notaryUrl: "",
     proxyUrl: "",
     body: "",
-    method: "GET",
+    method: HttpMethod.GET,
   });
 
   const [touched, setTouched] = useState({
@@ -20,7 +23,7 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
     proxyUrl: false,
   });
 
-  const handleChange = (field: keyof TLSFormData, value: string) => {
+  const handleChange = <K extends keyof TLSFormData>(field: K, value: TLSFormData[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -31,21 +34,11 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
   const isInvalid = (field: keyof typeof touched) =>
     touched[field] && form[field].trim() === "";
 
-  const getMethodColor = (method: string) => {
-    switch (method) {
-      case "GET": return "bg-green-600";
-      case "POST": return "bg-blue-600";
-      case "PUT": return "bg-yellow-500";
-      case "DELETE": return "bg-red-600";
-      default: return "bg-gray-600";
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.url.trim() || !form.notaryUrl.trim() || !form.proxyUrl.trim()) return;
     onSubmit(form);
-    setForm({ url: "", notaryUrl: "", proxyUrl: "", body: "", method: "GET" });
+    setForm({ url: "", notaryUrl: "", proxyUrl: "", body: "", method: HttpMethod.GET });
     setTouched({ url: false, notaryUrl: false, proxyUrl: false });
   };
 
@@ -58,13 +51,14 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
         <div className="flex gap-2 items-center">
           <select
             value={form.method}
-            onChange={(e) => handleChange("method", e.target.value)}
+            onChange={(e) => handleChange("method", e.target.value as HttpMethod)}
             className={`h-[42px] px-4 border rounded-md text-sm font-semibold text-white focus:outline-none focus:ring-2 ${getMethodColor(form.method)}`}
           >
-            <option value="GET">GET</option>
-            <option value="POST">POST</option>
-            <option value="PUT">PUT</option>
-            <option value="DELETE">DELETE</option>
+            {httpMethodOptions.map((method) => (
+              <option key={method} value={method}>
+                {method}
+              </option>
+            ))}
           </select>
 
           <input
@@ -119,7 +113,7 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
       {/* Request Body */}
       <div>
         <label htmlFor="body" className="block text-sm font-medium text-gray-700">
-          Request Body {form.method === "GET" && "(disabled for GET)"}
+          Request Body {form.method === HttpMethod.GET && "(disabled for GET)"}
         </label>
         <textarea
           id="body"
@@ -127,9 +121,9 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
           onChange={(e) => handleChange("body", e.target.value)}
           rows={4}
           placeholder='{"key":"value"}'
-          disabled={form.method === "GET"}
+          disabled={form.method === HttpMethod.GET}
           className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono ${
-            form.method === "GET" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white"
+            form.method === HttpMethod.GET ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white"
           }`}
         />
       </div>

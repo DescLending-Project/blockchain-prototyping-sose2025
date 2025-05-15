@@ -33,10 +33,10 @@ export function TLSOutput({ result }: TLSOutputProps) {
       <div>
         <h2 className="text-lg font-semibold text-gray-700">Data</h2>
         <pre className="bg-gray-100 border rounded p-4 text-sm overflow-x-auto">
-          {JSON.stringify(result.data, null, 2)}
+          {JSON.stringify(result.request, null, 2)}
         </pre>
         <button
-          onClick={() => downloadJSON(result.data, "tls-data.json")}
+          onClick={() => downloadJSON(result.request, "tls-data.json")}
           className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Download Data

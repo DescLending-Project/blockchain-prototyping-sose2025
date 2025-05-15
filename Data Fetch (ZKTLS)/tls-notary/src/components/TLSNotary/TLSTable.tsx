@@ -1,4 +1,5 @@
 import type { ProofRecord } from "../../types/tls";
+import { getMethodColor } from "../common";
 
 interface TLSTableProps {
   entries: ProofRecord[];
@@ -6,6 +7,7 @@ interface TLSTableProps {
 }
 
 export function TLSTable({ entries, onSelect }: TLSTableProps) {
+  console.log("TLSTable", { entries });
   if (entries.length === 0) {
     return <div className="text-sm text-gray-500">No proof entries available.</div>;
   }
@@ -16,6 +18,7 @@ export function TLSTable({ entries, onSelect }: TLSTableProps) {
         <thead className="bg-gray-100 border-b">
           <tr>
             <th className="px-4 py-2 font-semibold">ID</th>
+            <th className="px-4 py-2 font-semibold">METHOD</th>
             <th className="px-4 py-2 font-semibold">URL</th>
             <th className="px-4 py-2 font-semibold">Status</th>
             <th className="px-4 py-2 font-semibold">Timestamp</th>
@@ -29,7 +32,8 @@ export function TLSTable({ entries, onSelect }: TLSTableProps) {
               className="border-b hover:bg-blue-50 cursor-pointer"
             >
               <td className="px-4 py-2">{entry.id}</td>
-              <td className="px-4 py-2 text-blue-600 underline">{entry.url}</td>
+              <td className="px-4 py-2 font-semibold" >{entry.request.method}</td>
+              <td className="px-4 py-2 text-blue-600 underline">{entry.request.url}</td>
               <td className="px-4 py-2">{entry.status}</td>
               <td className="px-4 py-2">{entry.timestamp || "—"}</td>
             </tr>

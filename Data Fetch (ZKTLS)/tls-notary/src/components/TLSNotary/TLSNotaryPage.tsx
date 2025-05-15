@@ -14,19 +14,36 @@ export function TLSNotaryPage() {
   }, []);
 
   const handleSubmit = async (formData: TLSFormData) => {
-    TLSNotaryService.submitRequest(formData);
+    await TLSNotaryService.submitRequest(formData);
     const updatedEntries = await TLSNotaryService.getProofEntries();
+    console.log("Updated entries:", updatedEntries);
     setEntries(updatedEntries);
   };
 
+const onDownload = (data: any, filename: string) => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
   return (
+    console.log("TLSNotaryPage", { entries }),
     <div className="space-y-6">
       <TLSForm onSubmit={handleSubmit} />
       <TLSTable entries={entries} onSelect={setSelectedEntry} />
 
       {selectedEntry && (
-        <TLSModal record={selectedEntry} onClose={() => setSelectedEntry(null)} />
-      )}
+  <TLSModal
+    record={selectedEntry}
+    onClose={() => setSelectedEntry(null)}
+    onDownload={onDownload}
+  />
+)}
+
     </div>
   );
 }

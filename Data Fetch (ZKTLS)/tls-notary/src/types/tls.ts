@@ -1,17 +1,34 @@
+export const HttpMethod = {
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  DELETE: "DELETE",
+} as const;
+
+export type HttpMethod = (typeof HttpMethod)[keyof typeof HttpMethod];
+
+
+export const ProofStatus = {
+  Pending: "Pending",
+  Verified: "Verified",
+  Failed: "Failed",
+} as const;
+
+export type ProofStatus = (typeof ProofStatus)[keyof typeof ProofStatus];
 export interface TLSFormData {
   url: string;
   notaryUrl: string;
   proxyUrl: string;
   body: string;
-  method: "GET" | "POST" | "PUT" | "DELETE";
+  method: HttpMethod;
 }
 
 export interface ProofRecord {
   id: string;
-  url: string;
-  status: "Pending" | "Verified" | "Failed";
+  request: TLSFormData;
+  status: ProofStatus;
   timestamp?: string;
 
-  proof: any; // Expand if structure is known
-  data: any;
+  proof: any;
+  response: any;
 }
