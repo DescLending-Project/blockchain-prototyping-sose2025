@@ -1,6 +1,9 @@
-import type { ProofRecord, TLSFormData } from "../types/tls";
+// services/ITLSNotaryService.ts
+import type { TLSFormData, ProofRecord } from "../types/tls";
 
 export interface ITLSNotaryService {
-  submitRequest(input: TLSFormData): Promise<ProofRecord>;
-  getProofEntries(): Promise<ProofRecord[]>;
+  sendRequest(input: TLSFormData): Promise<string>; // returns request ID
+  getAllProofs(): Promise<ProofRecord[]>;           // returns all tracked proofs
+  getProof(id: string): Promise<ProofRecord | null>; // returns a single proof by ID
+  subscribe(callback: (records: ProofRecord[]) => void): () => void; // listener for changes
 }

@@ -3,14 +3,51 @@ import type { ProofRecord, TLSFormData } from "../types/tls";
 import { nanoid } from "nanoid";
 import { ProofStatus, HttpMethod } from "../types/tls";
 
-
 export class MockTLSNotaryService implements ITLSNotaryService {
   private records: ProofRecord[] = [];
+  private subscribers: ((records: ProofRecord[]) => void)[] = [];
 
-  async submitRequest(input: TLSFormData): Promise<ProofRecord> {
+  private notifySubscribers() {
+    const snapshot = [...this.records];
+    this.subscribers.forEach((cb) => cb(snapshot));
+  }
+
+  subscribe(callback: (records: ProofRecord[]) => void): () => void {
+    this.subscribers.push(callback);
+    callback([...this.records]);
+    return () => {
+      this.subscribers = this.subscribers.filter((cb) => cb !== callback);
+    };
+  }
+
+  private async send(input: TLSFormData, id: string): Promise<ProofRecord> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const index = this.records.findIndex((r) => r.id === id);
+      if (index !== -1) {
+        const updated: ProofRecord = {
+          ...this.records[index],
+          status: ProofStatus.Verified,
+          proof: {
+            ...this.records[index].proof,
+            verified: true,
+          },
+        };
+        this.records[index] = updated;
+        resolve(updated);
+      } else {
+        throw new Error(`Record with ID ${id} not found during proof finalization.`);
+      }
+    }, 2000);
+  });
+}
+
+
+  async sendRequest(input: TLSFormData): Promise<string> {
     const { url, method, notaryUrl, proxyUrl, body } = input;
     const id = nanoid(8);
-    console.log("MockTLSNotaryService.submitRequest", { url, method, notaryUrl, proxyUrl, body });
+
+
     const record: ProofRecord = {
       id,
       request: input,
@@ -29,13 +66,20 @@ export class MockTLSNotaryService implements ITLSNotaryService {
     };
 
     this.records.unshift(record);
-    console.log("MockTLSNotaryService.submitRequest", { record });
+    this.notifySubscribers();
 
-    return this.records[this.records.length - 1];
+    this.send(input, id).then((updated) => {
+      this.notifySubscribers();
+    });
+
+    return id;
   }
 
-  async getProofEntries(): Promise<ProofRecord[]> {
-    console.log("MockTLSNotaryService.getProofEntries", { records: this.records });
-    return [...this.records]; // return a new array reference
+  async getProof(id: string): Promise<ProofRecord | null> {
+    return this.records.find((r) => r.id === id) ?? null;
+  }
+
+  async getAllProofs(): Promise<ProofRecord[]> {
+    return [...this.records];
   }
 }
