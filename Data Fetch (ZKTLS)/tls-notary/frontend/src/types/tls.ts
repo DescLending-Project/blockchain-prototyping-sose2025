@@ -19,6 +19,7 @@ export interface TLSFormData {
   url: string;
   notaryUrl: string;
   proxyUrl: string;
+  headers: string;
   body: string;
   method: HttpMethod;
 }

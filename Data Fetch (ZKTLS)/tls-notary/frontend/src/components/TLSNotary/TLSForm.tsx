@@ -14,6 +14,7 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
     notaryUrl: "",
     proxyUrl: "",
     body: "",
+    headers: "",
     method: HttpMethod.GET,
   });
 
@@ -38,7 +39,7 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
     e.preventDefault();
     if (!form.url.trim() || !form.notaryUrl.trim() || !form.proxyUrl.trim()) return;
     onSubmit(form);
-    setForm({ url: "", notaryUrl: "", proxyUrl: "", body: "", method: HttpMethod.GET });
+    setForm({ url: "", notaryUrl: "", proxyUrl: "", body: "", method: HttpMethod.GET, headers: "" });
     setTouched({ url: false, notaryUrl: false, proxyUrl: false });
   };
 
@@ -106,6 +107,22 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
           placeholder="wss://proxy.example.com"
           className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
             isInvalid("proxyUrl") ? "border-red-500" : "border-gray-300"
+          }`}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="headers" className="block text-sm font-medium text-gray-700">
+          Request Headers
+        </label>
+        <textarea
+          id="headers"
+          value={form.headers}
+          onChange={(e) => handleChange("headers", e.target.value)}
+          rows={4}
+          placeholder='{ "Content-Type": "application/json" }'
+          className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono ${
+             "bg-white"
           }`}
         />
       </div>
