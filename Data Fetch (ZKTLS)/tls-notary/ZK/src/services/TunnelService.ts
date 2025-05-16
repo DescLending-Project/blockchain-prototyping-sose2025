@@ -1,6 +1,6 @@
 import type { Tunnel, CreateTunnelRequest } from '../types/tls';
 
-const API_BASE = 'http://localhost:3001/tunnels';
+const API_BASE = 'http://localhost:3002/tunnels';
 
 export class TunnelService {
   async getAll(): Promise<Tunnel[]> {
@@ -16,7 +16,6 @@ export class TunnelService {
   }
 
   async create(tunnel: Omit<CreateTunnelRequest, 'id' | 'pid'>): Promise<Tunnel> {
-    console.log('Creating tunnel:', tunnel);
     const res = await fetch(API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

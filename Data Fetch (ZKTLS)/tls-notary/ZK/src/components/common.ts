@@ -14,6 +14,7 @@ export const getMethodColor = (method: HttpMethod): string => {
 
 // Status color mapping
 const statusColorMap: Record<ProofStatus, string> = {
+  [ProofStatus.Generated]: "bg-gray-600",
   [ProofStatus.Verified]: "bg-green-600",
   [ProofStatus.Pending]: "bg-yellow-500",
   [ProofStatus.Failed]: "bg-red-600",
@@ -24,11 +25,13 @@ export const getStatusColor = (status: ProofStatus): string => {
 };
 
 const statusDotMap: Record<ProofStatus, string> = {
+  [ProofStatus.Generated]: "⚪️",
   [ProofStatus.Verified]: "🟢",
   [ProofStatus.Pending]: "🟡",
   [ProofStatus.Failed]: "🔴",
 
 };
+
 
 export const getStatusDot = (status: ProofStatus): string => {
   return statusDotMap[status] ?? "⚪️";

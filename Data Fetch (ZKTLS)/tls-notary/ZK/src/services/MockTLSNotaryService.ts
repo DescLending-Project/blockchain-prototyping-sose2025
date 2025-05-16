@@ -1,9 +1,13 @@
 import type { ITLSNotaryService } from "./ITLSNotaryService";
 import type { ProofRecord, TLSFormData } from "../types/tls";
-import {TLSTunnelService} from "../utils/di"
+import { TLSTunnelService } from "../utils/di"
 import { nanoid } from "nanoid";
-import { ProofStatus, HttpMethod } from "../types/tls";
-import { generateProof } from "../script/generateProofs";
+import { ProofStatus, HttpMethod, VerifyProofResult } from "../types/tls";
+import { generateProof, verifyProof } from "../script/generateProofs";
+import {
+  Presentation as TPresentation,
+} from 'tlsn-js';
+import type { PresentationJSON } from 'tlsn-js/build/types';
 
 export class MockTLSNotaryService implements ITLSNotaryService {
   private records: ProofRecord[] = [];
@@ -22,6 +26,33 @@ export class MockTLSNotaryService implements ITLSNotaryService {
     };
   }
 
+  async verifyProof(record: ProofRecord): Promise<VerifyProofResult> {
+    if (!record.tlsCallResponse?.presentationJSON) {
+      throw new Error("No presentationJSON available for this proof record.");
+    }
+
+    const tmp = this.records.find((r) => r.id === record.id);
+    if (!tmp) {
+      throw new Error("Record not found");
+    }
+
+    tmp.status = ProofStatus.Pending;
+    this.notifySubscribers();
+
+    try {
+      const result = await verifyProof(record.request.notaryUrl, record.tlsCallResponse.presentationJSON);
+      tmp.verifyProofResult = result;
+      tmp.status = ProofStatus.Verified;
+      this.notifySubscribers();
+      return result;
+    } catch (error) {
+      console.error("Error verifying proof:", error);
+      tmp.status = ProofStatus.Failed;
+      this.notifySubscribers();
+      throw error;
+    }
+  }
+
 
   async sendRequest(input: TLSFormData): Promise<string> {
     const { url, notaryUrl, remoteDNS, remotePort, localPort, headers, body, method } = input;
@@ -31,10 +62,6 @@ export class MockTLSNotaryService implements ITLSNotaryService {
       remoteHost: remoteDNS,
       remotePort: parseInt(remotePort),
     }).then((tunnel) => {
-      console.log("Tunnel created:", tunnel);
-      console.log("headers", headers);
-      console.log("parsed headers", JSON.parse(headers));
-
       generateProof({
         notaryUrl,
         serverDNS: remoteDNS,
@@ -45,8 +72,13 @@ export class MockTLSNotaryService implements ITLSNotaryService {
           headers: JSON.parse(headers),
           body,
         },
-      }).then((proof) => {
-        console.log("Generated proof:", proof);
+      }).then((tlsCallResponse) => {
+        const record = this.records.find((r) => r.id === id);
+        if (record) {
+          record.tlsCallResponse = tlsCallResponse;
+          record.status = ProofStatus.Generated;
+          this.notifySubscribers();
+        }
 
       })
     }).catch((error) => {
@@ -58,15 +90,7 @@ export class MockTLSNotaryService implements ITLSNotaryService {
       request: input,
       status: ProofStatus.Pending,
       timestamp: new Date().toISOString(),
-      proof: {
-        verified: false,
-        method,
-        notaryUrl,
-      },
-      response: {
-        content: `Mock response from ${method} ${url}`,
-        body: method === HttpMethod.GET ? null : body,
-      },
+
     };
 
     this.records.unshift(record);

@@ -1,5 +1,5 @@
 import * as Comlink from 'comlink';
-import type { TLSCall } from '../types/tls';
+import type { TLSCall, TLSCallResponse, VerifyProofResult } from '../types/tls';
 import {
     Prover as TProver,
     Presentation as TPresentation,
@@ -15,8 +15,6 @@ import { HTTPParser } from 'http-parser-js';
 const { init, Prover, Presentation }: any = Comlink.wrap(
     new Worker(new URL('./worker.ts', import.meta.url)),
 );
-
-console.log('Worker set:', { init, Prover, Presentation });
 
 // Configuration constants
 //export const notaryUrl = 'https://notary.pse.dev/v0.1.0-alpha.10';
@@ -68,34 +66,27 @@ function parseHttpMessage(buffer: Buffer, type: 'request' | 'response') {
  * 
  * @returns {Promise<{presentation: TPresentation, presentationJSON: PresentationJSON}>}
  */
+
+
+
 export async function generateProof(
     call: TLSCall,
-): Promise<{
-    presentation: TPresentation,
-    presentationJSON: PresentationJSON
-}> {
+): Promise<TLSCallResponse> {
 
-    console.log('Generating proof for call:', call);
     // Initialize if not already initialized
     await init({
         loggingLevel: loggingLevel,
         wasmURL: '/tlsn/tlsn_wasm_bg.wasm', // adjust to actual name
 
     });
-    console.log('Worker initialized');
     const notary = NotaryServer.from(call.notaryUrl);
-    console.time('submit');
-    console.log('Submitting request to notary');
     const prover = (await new Prover({
         serverDns: call.serverDNS,
         maxRecvData: 2048,
     })) as TProver;
-    console.log('Setting up Prover');
     let sessionUrl = await notary.sessionUrl()
-    console.log('Session URL:', sessionUrl);
 
     await prover.setup(sessionUrl);
-    console.log('Prover setup done');
 
     const resp = await prover.sendRequest(call.websocketProxyUrl, {
         url: call.request.url,
@@ -103,19 +94,11 @@ export async function generateProof(
         headers: call.request.headers,
         body: call.request.body,
     });
-    console.log('Request sent');
 
-    console.timeEnd('submit');
-    console.log(resp);
 
-    console.time('transcript');
-    console.log('Waiting for transcript...');
     const transcript = await prover.transcript();
-    console.log('Transcript:', transcript);
     const { sent, recv } = transcript;
-    console.log(new Transcript({ sent, recv }));
-    console.timeEnd('transcript');
-    console.time('commit');
+
 
     const {
         info: recvInfo,
@@ -123,10 +106,7 @@ export async function generateProof(
         body: recvBody,
     } = parseHttpMessage(Buffer.from(recv), 'response');
 
-    console.log("Before parse")
     const body = JSON.parse(recvBody[0].toString());
-    console.log("After parse ", body)
-    console.log("Score: ", body.data.score.value)
 
     const commit: Commit = {
         sent: subtractRanges(
@@ -158,8 +138,6 @@ export async function generateProof(
         ],
     };
     const notarizationOutputs = await prover.notarize(commit);
-    console.timeEnd('commit');
-    console.time('proof');
 
     const presentation = (await new Presentation({
         attestationHex: notarizationOutputs.attestation,
@@ -169,13 +147,13 @@ export async function generateProof(
         reveal: commit,
     })) as TPresentation;
 
-    console.log(await presentation.serialize());
     const presentationJSON = await presentation.json();
-    console.timeEnd('proof');
 
     return {
-        presentation,
-        presentationJSON
+            responseBody: body,
+            presentation: presentation,
+            presentationJSON: presentationJSON,
+        
     };
 }
 
@@ -185,7 +163,9 @@ export async function generateProof(
  * @param presentationJSON The presentation JSON to verify
  * @returns The verification result
  */
-export async function verifyProof(notaryUrl: string, presentationJSON: PresentationJSON): Promise<any> {
+
+
+export async function verifyProof(notaryUrl: string, presentationJSON: PresentationJSON): Promise<VerifyProofResult> {
     const proof = (await new Presentation(
         presentationJSON.data,
     )) as TPresentation;

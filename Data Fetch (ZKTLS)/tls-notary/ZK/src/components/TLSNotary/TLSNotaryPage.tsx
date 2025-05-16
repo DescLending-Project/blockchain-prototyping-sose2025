@@ -12,7 +12,6 @@ export function TLSNotaryPage() {
 
   useEffect(() => {
     const unsubscribe = TLSNotaryService.subscribe((records: ProofRecord[]) => {
-      console.log("TLSNotaryPage.subscribe", { records });
       setEntries(records);
     });
 
@@ -22,9 +21,12 @@ export function TLSNotaryPage() {
   }, []);
 
   const handleSubmit = (formData: TLSFormData) => {
-    console.log("TLSNotaryPage.handleSubmit", { formData });
     TLSNotaryService.sendRequest(formData);
   };
+
+  const handleVerify = async (record: ProofRecord) => {
+    TLSNotaryService.verifyProof(record)
+  }
 
   const onDownload = (data: any, filename: string) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -45,6 +47,7 @@ export function TLSNotaryPage() {
           record={selectedEntry}
           onClose={() => setSelectedEntry(null)}
           onDownload={onDownload}
+          onVerify={handleVerify}
         />
       )}
     </div>

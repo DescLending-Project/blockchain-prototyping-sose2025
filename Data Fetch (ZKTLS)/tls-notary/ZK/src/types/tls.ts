@@ -1,3 +1,8 @@
+import {
+    Presentation as TPresentation,
+} from 'tlsn-js';
+import type { PresentationJSON } from 'tlsn-js/build/types';
+
 export const HttpMethod = {
   GET: "GET",
   POST: "POST",
@@ -9,6 +14,7 @@ export type HttpMethod = (typeof HttpMethod)[keyof typeof HttpMethod];
 
 
 export const ProofStatus = {
+  Generated: "Generated",
   Pending: "Pending",
   Verified: "Verified",
   Failed: "Failed",
@@ -22,9 +28,8 @@ export interface ProofRecord {
   request: TLSFormData;
   status: ProofStatus;
   timestamp?: string;
-
-  proof: any;
-  response: any;
+  tlsCallResponse? : TLSCallResponse;
+  verifyProofResult?: VerifyProofResult;
 }
 
 export interface CreateTunnelRequest {
@@ -65,4 +70,20 @@ export interface TLSCall {
         };
         body: string;
     }
+}
+
+
+export interface VerifyProofResult {
+    time: number;
+    verifyingKey: string;
+    notaryKey: string;
+    serverName: string;
+    sent: string;
+    recv: string;
+}
+
+export interface TLSCallResponse {
+    responseBody: any;
+    presentation: TPresentation;
+    presentationJSON: PresentationJSON;
 }
