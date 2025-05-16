@@ -1,7 +1,9 @@
 import type { ITLSNotaryService } from "./ITLSNotaryService";
 import type { ProofRecord, TLSFormData } from "../types/tls";
+import {TLSTunnelService} from "../utils/di"
 import { nanoid } from "nanoid";
 import { ProofStatus, HttpMethod } from "../types/tls";
+import { generateProof } from "../script/generateProofs";
 
 export class MockTLSNotaryService implements ITLSNotaryService {
   private records: ProofRecord[] = [];
@@ -20,7 +22,7 @@ export class MockTLSNotaryService implements ITLSNotaryService {
     };
   }
 
-  private async send(input: TLSFormData, id: string): Promise<ProofRecord> {
+  private async send(id: string): Promise<ProofRecord> {
   return new Promise((resolve) => {
     setTimeout(() => {
       const index = this.records.findIndex((r) => r.id === id);
@@ -44,9 +46,34 @@ export class MockTLSNotaryService implements ITLSNotaryService {
 
 
   async sendRequest(input: TLSFormData): Promise<string> {
-    const { url, method, notaryUrl, proxyUrl, body } = input;
+    const { url, notaryUrl, remoteDNS, remotePort, localPort, headers, body, method } = input;
     const id = nanoid(8);
+    TLSTunnelService.create({
+      localPort: parseInt(localPort),
+      remoteHost: remoteDNS,
+      remotePort: parseInt(remotePort),
+    }).then((tunnel) => {
+      console.log("Tunnel created:", tunnel);
+      console.log("headers", headers);
+      console.log("parsed headers", JSON.parse(headers));
 
+      generateProof({
+        notaryUrl,
+        serverDNS: remoteDNS,
+        websocketProxyUrl: tunnel.websocketProxyUrl,
+        request: {
+          url,
+          method,
+          headers: JSON.parse(headers),
+          body,
+        },
+      }).then((proof) => {
+        console.log("Generated proof:", proof);
+
+      })
+    }).catch((error) => {
+      console.error("Error creating tunnel:", error);
+    });
 
     const record: ProofRecord = {
       id,
@@ -57,7 +84,6 @@ export class MockTLSNotaryService implements ITLSNotaryService {
         verified: false,
         method,
         notaryUrl,
-        proxyUrl,
       },
       response: {
         content: `Mock response from ${method} ${url}`,
@@ -68,7 +94,7 @@ export class MockTLSNotaryService implements ITLSNotaryService {
     this.records.unshift(record);
     this.notifySubscribers();
 
-    this.send(input, id).then((updated) => {
+    this.send(id).then((_) => {
       this.notifySubscribers();
     });
 

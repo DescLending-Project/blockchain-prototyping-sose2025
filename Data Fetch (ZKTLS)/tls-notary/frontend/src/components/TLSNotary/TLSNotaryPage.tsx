@@ -21,6 +21,7 @@ export function TLSNotaryPage() {
   }, []);
 
   const handleSubmit = (formData: TLSFormData) => {
+    console.log("TLSNotaryPage.handleSubmit", { formData });
     TLSNotaryService.sendRequest(formData);
   };
 

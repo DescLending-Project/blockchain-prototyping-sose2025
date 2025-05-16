@@ -11,17 +11,21 @@ const httpMethodOptions = Object.values(HttpMethod);
 export function TLSForm({ onSubmit }: TLSFormProps) {
   const [form, setForm] = useState<TLSFormData>({
     url: "",
-    notaryUrl: "",
-    proxyUrl: "",
+    notaryUrl: "https://notary.pse.dev/v0.1.0-alpha.10",
+    remoteDNS: "openbanking-api-826260723607.europe-west3.run.app",
+    remotePort: "443",
+    localPort: "55688",
     body: "",
-    headers: "",
+    headers: '{ "Content-Type": "application/json", "secret": "test_secret" }',
     method: HttpMethod.GET,
   });
 
   const [touched, setTouched] = useState({
     url: false,
     notaryUrl: false,
-    proxyUrl: false,
+    remoteDNS: false,
+    remotePort: false,
+    localPort: false,
   });
 
   const handleChange = <K extends keyof TLSFormData>(field: K, value: TLSFormData[K]) => {
@@ -37,14 +41,80 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.url.trim() || !form.notaryUrl.trim() || !form.proxyUrl.trim()) return;
+    if (!form.url.trim() || !form.notaryUrl.trim()) return;
     onSubmit(form);
-    setForm({ url: "", notaryUrl: "", proxyUrl: "", body: "", method: HttpMethod.GET, headers: "" });
-    setTouched({ url: false, notaryUrl: false, proxyUrl: false });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+
+      {/* WebSocket Proxy URL */}
+      <div>
+        <label htmlFor="proxyUrl" className="block text-sm font-medium text-gray-700">
+          WebSocket Proxy URL
+        </label>
+
+      </div>
+
+      {/* Remote Host + Remote Port */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700">Remote DNS</label>
+          <input
+            type="text"
+            value={form.remoteDNS}
+            onChange={(e) => {
+              const dns = e.target.value;
+              handleChange("remoteDNS", dns);
+              handleChange("url", `https://${dns}/`);
+            }}
+            onBlur={() => handleBlur("remoteDNS")}
+            placeholder="example.com"
+            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${isInvalid("remoteDNS") ? "border-red-500" : "border-gray-300"
+              }`}
+          />
+
+
+        </div>
+        <div className="w-[120px]">
+          <label className="block text-sm font-medium text-gray-700">Remote Port</label>
+          <input
+            type="number"
+            value={form.remotePort}
+            onChange={(e) => handleChange("remotePort", e.target.value)}
+            onBlur={() => handleBlur("remotePort")}
+            placeholder="443"
+            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${isInvalid("remotePort") ? "border-red-500" : "border-gray-300"
+              }`}
+          />
+        </div>
+      </div>
+
+      {/* Localhost + Local Port */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700">Local Host</label>
+          <input
+            type="text"
+            value="127.0.0.1"
+            disabled
+            className="w-full px-4 py-2 border rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+          />
+        </div>
+        <div className="w-[120px]">
+          <label className="block text-sm font-medium text-gray-700">Local Port</label>
+          <input
+            type="number"
+            value={form.localPort}
+            onChange={(e) => handleChange("localPort", e.target.value)}
+            onBlur={() => handleBlur("localPort")}
+            placeholder="55688"
+            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${isInvalid("localPort") ? "border-red-500" : "border-gray-300"
+              }`}
+          />
+        </div>
+      </div>
+
 
       {/* Method + URL */}
       <div>
@@ -68,9 +138,8 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
             onChange={(e) => handleChange("url", e.target.value)}
             onBlur={() => handleBlur("url")}
             placeholder="https://example.com"
-            className={`flex-1 h-[42px] px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              isInvalid("url") ? "border-red-500" : "border-gray-300"
-            }`}
+            className={`flex-1 h-[42px] px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${isInvalid("url") ? "border-red-500" : "border-gray-300"
+              }`}
           />
         </div>
       </div>
@@ -87,30 +156,12 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
           onChange={(e) => handleChange("notaryUrl", e.target.value)}
           onBlur={() => handleBlur("notaryUrl")}
           placeholder="wss://notary.example.com"
-          className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            isInvalid("notaryUrl") ? "border-red-500" : "border-gray-300"
-          }`}
+          className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${isInvalid("notaryUrl") ? "border-red-500" : "border-gray-300"
+            }`}
         />
       </div>
 
-      {/* Proxy URL */}
-      <div>
-        <label htmlFor="proxyUrl" className="block text-sm font-medium text-gray-700">
-          WebSocket Proxy URL
-        </label>
-        <input
-          type="text"
-          id="proxyUrl"
-          value={form.proxyUrl}
-          onChange={(e) => handleChange("proxyUrl", e.target.value)}
-          onBlur={() => handleBlur("proxyUrl")}
-          placeholder="wss://proxy.example.com"
-          className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            isInvalid("proxyUrl") ? "border-red-500" : "border-gray-300"
-          }`}
-        />
-      </div>
-
+      {/* Request Headers */}
       <div>
         <label htmlFor="headers" className="block text-sm font-medium text-gray-700">
           Request Headers
@@ -121,9 +172,7 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
           onChange={(e) => handleChange("headers", e.target.value)}
           rows={4}
           placeholder='{ "Content-Type": "application/json" }'
-          className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono ${
-             "bg-white"
-          }`}
+          className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
         />
       </div>
 
@@ -139,9 +188,8 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
           rows={4}
           placeholder='{"key":"value"}'
           disabled={form.method === HttpMethod.GET}
-          className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono ${
-            form.method === HttpMethod.GET ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white"
-          }`}
+          className={`w-full px-4 py-2 border rounded-md font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.method === HttpMethod.GET ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white"
+            }`}
         />
       </div>
 

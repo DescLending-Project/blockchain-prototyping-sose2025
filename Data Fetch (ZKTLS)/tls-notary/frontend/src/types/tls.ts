@@ -15,14 +15,7 @@ export const ProofStatus = {
 } as const;
 
 export type ProofStatus = (typeof ProofStatus)[keyof typeof ProofStatus];
-export interface TLSFormData {
-  url: string;
-  notaryUrl: string;
-  proxyUrl: string;
-  headers: string;
-  body: string;
-  method: HttpMethod;
-}
+
 
 export interface ProofRecord {
   id: string;
@@ -32,4 +25,44 @@ export interface ProofRecord {
 
   proof: any;
   response: any;
+}
+
+export interface CreateTunnelRequest {
+  localPort: number;
+  remoteHost: string;
+  remotePort: number;
+}
+
+export interface Tunnel {
+  id?: number;
+  localPort: number;
+  remoteHost: string;
+  remotePort: number;
+  websocketProxyUrl: string;
+  pid?: number;
+}
+
+export interface TLSFormData {
+  url: string;
+  notaryUrl: string;
+  remoteDNS: string;
+  remotePort: string;
+  localPort: string;
+  headers: string;
+  body: string;
+  method: HttpMethod;
+}
+
+export interface TLSCall {
+    notaryUrl: string;
+    serverDNS : string;
+    websocketProxyUrl: string;
+    request : {
+        url: string;
+        method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+        headers: {
+            [key: string]: string;
+        };
+        body: string;
+    }
 }
