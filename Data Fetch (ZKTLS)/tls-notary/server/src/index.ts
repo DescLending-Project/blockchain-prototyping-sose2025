@@ -1,29 +1,21 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-
-
+import { config } from './config';;
+import { requestLogger } from './middleware/logger';
 import tunnelRouter from './routes/tunnels';
 
 const app = express();
-const port = process.env.PORT || 3002;
-app.use(cors());
+const port = config.port;
+
+app.use(cors({
+  origin: config.corsOrigin,
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logging Middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
-  console.log(`[INCOMING] ${req.method} ${req.url} - Body:`, req.body);
 
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log(`[OUTGOING] ${res.statusCode} ${req.method} ${req.url} - Duration: ${duration}ms`);
-  });
-
-  next();
-});
-
+app.use(requestLogger);
 app.use('/tunnels', tunnelRouter);
 
 
