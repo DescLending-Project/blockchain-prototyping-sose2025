@@ -1,0 +1,11 @@
+{
+  "name": "tls-notary",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+      "dev": "concurrently \"npm:start --prefix frontend\" \"npm:dev --prefix server\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
