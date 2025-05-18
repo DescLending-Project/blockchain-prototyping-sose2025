@@ -59,6 +59,17 @@ function parseHttpMessage(buffer: Buffer, type: 'request' | 'response') {
     };
 }
 
+
+function extractHeaderStrings(headers: string[]): string[] {
+    const headerStrings: string[] = [];
+    for (let i = 4; i < headers.length; i += 2) {
+        if (headers[i] && headers[i + 1]) {
+            headerStrings.push(`${headers[i]}: ${headers[i + 1]}\r\n`);
+        }
+    }
+    return headerStrings;
+}
+
 /**
  * Generate proof and presentation for TLS request
  * This function replicates the functionality of the onClick function in app.tsx
@@ -112,6 +123,17 @@ export async function generateProof(
     console.log('Raw recvBody:', rawBody);
     const body = JSON.parse(rawBody);
 
+    // Dynamically reveal all top-level fields in the JSON response
+    const revealFields = Object.entries(body).map(([key, value]) => {
+        if (typeof value === 'object' && value !== null) {
+            return `"${key}":${JSON.stringify(value)}`;
+        }
+        if (typeof value === 'string') {
+            return `"${key}":"${value}"`;
+        }
+        return `"${key}":${value}`;
+    });
+
     const commit: Commit = {
         sent: subtractRanges(
             { start: 0, end: sent.length },
@@ -124,23 +146,14 @@ export async function generateProof(
             ...mapStringToRange(
                 [
                     recvInfo,
-                    `${recvHeaders[4]}: ${recvHeaders[5]}\r\n`,
-                    `${recvHeaders[6]}: ${recvHeaders[7]}\r\n`,
-                    `${recvHeaders[8]}: ${recvHeaders[9]}\r\n`,
-                    `${recvHeaders[10]}: ${recvHeaders[11]}\r\n`,
-                    // `${recvHeaders[12]}: ${recvHeaders[13]}`,
-                    // `${recvHeaders[14]}: ${recvHeaders[15]}`,
-                    // `${recvHeaders[16]}: ${recvHeaders[17]}`,
-                    // `${recvHeaders[18]}: ${recvHeaders[19]}`,
-                    `"message":"${body.message}"`,
-                    `"userId":"${body.data.userId}"`,
-                    `"value":${body.data.score.value}`, // here no "" as the returned value is integer
-                    `"path":"${body.path}"`,
+                    ...extractHeaderStrings(recvHeaders),
+                    ...revealFields,
                 ],
                 Buffer.from(recv).toString('utf-8'),
             ),
         ],
     };
+
     const notarizationOutputs = await prover.notarize(commit);
 
     const presentation = (await new Presentation({
