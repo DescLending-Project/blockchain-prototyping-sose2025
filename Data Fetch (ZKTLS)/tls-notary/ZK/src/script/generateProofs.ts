@@ -60,6 +60,18 @@ function parseHttpMessage(buffer: Buffer, type: 'request' | 'response') {
 }
 
 
+/**
+ * Extracts HTTP header strings from a flat array of header names and values, starting from the fifth element.
+ * The function starts at the fifth element (index 4) because, in many HTTP libraries or protocols, the first few 
+ * elements of a headers array may contain metadata or non-header information (such as method, URL, or protocol version).
+ * By skipping the first four elements, the function ensures it only processes actual header name-value pairs.
+ * @param headers - An array of strings where even indices (starting from index 4) are header names and the following odd indices are their corresponding values.
+ * @returns An array of formatted header strings in the form "Header-Name: Header-Value\r\n".
+ *
+ * @remarks
+ * This function skips the first four elements of the input array and processes the rest in pairs.
+ * Only pairs where both the header name and value are present are included in the result.
+ */
 function extractHeaderStrings(headers: string[]): string[] {
     const headerStrings: string[] = [];
     for (let i = 4; i < headers.length; i += 2) {
@@ -82,6 +94,20 @@ function extractHeaderStrings(headers: string[]): string[] {
 
 let wasmInitialized = false;
 
+/**
+ * Generates a TLS proof for a given TLS call request using a notary server and prover.
+ *
+ * This function initializes the WASM module if necessary, sets up a prover session with the notary,
+ * sends the HTTP request through the prover, and parses the HTTP response. It dynamically reveals
+ * all top-level fields in the JSON response body for inclusion in the proof. The function then
+ * creates a commit object specifying which parts of the sent and received data are revealed,
+ * notarizes the commit, and constructs a presentation object containing the attestation and secrets.
+ *
+ * @param call - The TLS call request containing notary URL, server DNS, websocket proxy URL, and HTTP request details.
+ * @returns A promise that resolves to a TLS call response, including the parsed response body, the presentation object, and its JSON representation.
+ *
+ * @throws Will throw an error if the HTTP response body is not valid JSON or if any step in the proof generation fails.
+ */
 export async function generateProof(
     call: TLSCallRequest,
 ): Promise<TLSCallResponse> {
