@@ -33,6 +33,16 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const extractDomainFromUrl = (url: string): string => {
+    try {
+      const urlWithProtocol = url.startsWith('http') ? url : `https://${url}`;
+      const { hostname } = new URL(urlWithProtocol);
+      return hostname;
+    } catch (error) {
+      return url;
+    }
+  };
+
   const handleBlur = (field: keyof typeof touched) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
@@ -43,7 +53,14 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.url.trim() || !form.notaryUrl.trim()) return;
-    onSubmit(form);
+
+    const formData = { ...form };
+
+    if (formData.method === HttpMethod.GET) {
+      formData.body = "";
+    }
+
+    onSubmit(formData);
   };
 
   return (
@@ -70,6 +87,7 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
               handleChange('url', `https://${dns}/`);
             }}
             onBlur={() => handleBlur('remoteDNS')}
+            disabled
             placeholder="example.com"
             className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${isInvalid('remoteDNS') ? 'border-red-500' : 'border-gray-300'
               }`}
@@ -136,8 +154,15 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
           <input
             type="text"
             value={form.url}
-            onChange={(e) => handleChange('url', e.target.value)}
-            onBlur={() => handleBlur('url')}
+            onChange={(e) => {
+              const url = e.target.value;
+              handleChange('url', url);
+              const domain = extractDomainFromUrl(url);
+              if (domain) {
+                handleChange('remoteDNS', domain);
+              }
+            }}
+            onBlur={() => handleBlur("url")}
             placeholder="https://example.com"
             className={`flex-1 h-[42px] px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${isInvalid('url') ? 'border-red-500' : 'border-gray-300'
               }`}
