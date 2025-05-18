@@ -7,9 +7,7 @@ import tunnelRouter from './routes/tunnels';
 const app = express();
 const port = config.port;
 
-app.use(cors({
-  origin: config.corsOrigin,
-}));
+app.use(cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -17,7 +15,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(requestLogger);
 app.use('/tunnels', tunnelRouter);
-
 
 app.get('/', (_req: Request, res: Response) => {
   return res.send('Hello, Tunnel World!');
