@@ -82,16 +82,6 @@ function extractHeaderStrings(headers: string[]): string[] {
     return headerStrings;
 }
 
-/**
- * Generate proof and presentation for TLS request
- * This function replicates the functionality of the onClick function in app.tsx
- * but returns the presentation and proof instead of updating state
- * 
- * @returns {Promise<{presentation: TPresentation, presentationJSON: PresentationJSON}>}
- */
-
-
-
 let wasmInitialized = false;
 
 /**
@@ -123,7 +113,7 @@ export async function generateProof(
         serverDns: call.serverDNS,
         maxRecvData: 2048,
     })) as TProver;
-    let sessionUrl = await notary.sessionUrl()
+    const sessionUrl = await notary.sessionUrl();
 
     await prover.setup(sessionUrl);
 

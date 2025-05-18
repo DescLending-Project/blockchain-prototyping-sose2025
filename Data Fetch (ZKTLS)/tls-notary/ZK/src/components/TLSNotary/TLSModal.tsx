@@ -1,6 +1,6 @@
-import React from "react";
-import type { ProofRecord } from "../../types/tls";
-import { RequestStatus, HttpMethod } from "../../types/tls";
+import React from 'react';
+import type { ProofRecord } from '../../types/tls';
+import { RequestStatus, HttpMethod } from '../../types/tls';
 
 interface TLSModalProps {
   onClose: () => void;
@@ -34,7 +34,7 @@ export function TLSModal({ onClose, onDownload, onVerify, record }: TLSModalProp
             <div><strong>URL:</strong> {record.formData.url}</div>
             <div><strong>Method:</strong> {record.formData.method as HttpMethod}</div>
             <div><strong>Status:</strong> {record.status as RequestStatus}</div>
-            <div><strong>Timestamp:</strong> {record.timestamp || "—"}</div>
+            <div><strong>Timestamp:</strong> {record.timestamp || '—'}</div>
 
             <div>
               <h3 className="font-semibold text-gray-700 mt-4 mb-1">Request</h3>

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { TLSForm } from "./TLSForm";
-import { TLSTable } from "./TLSTable";
-import { TLSModal } from "./TLSModal";
-import { TLSNotaryService } from "../../utils/di";
-import type { ProofRecord, TLSFormData } from "../../types/tls";
-import React from "react";
+import { useEffect, useState } from 'react';
+import { TLSForm } from './TLSForm';
+import { TLSTable } from './TLSTable';
+import { TLSModal } from './TLSModal';
+import { TLSNotaryService } from '../../utils/di';
+import type { ProofRecord, TLSFormData } from '../../types/tls';
+import React from 'react';
 
 export function TLSNotaryPage() {
   const [entries, setEntries] = useState<ProofRecord[]>([]);
@@ -26,13 +26,13 @@ export function TLSNotaryPage() {
   };
 
   const handleVerify = async (record: ProofRecord) => {
-    TLSNotaryService.verifyProof(record)
-  }
+    TLSNotaryService.verifyProof(record);
+  };
 
   const onDownload = (data: any, filename: string) => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const link = document.createElement('a');
     link.href = url;
     link.download = filename;
     link.click();

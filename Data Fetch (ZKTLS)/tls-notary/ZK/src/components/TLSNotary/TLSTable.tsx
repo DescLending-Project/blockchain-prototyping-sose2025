@@ -1,6 +1,6 @@
-import React from "react";
-import type { ProofRecord } from "../../types/tls";
-import { getStatusDot } from "../common";
+import React from 'react';
+import type { ProofRecord } from '../../types/tls';
+import { getStatusDot } from '../common';
 
 interface TLSTableProps {
   entries: ProofRecord[];
@@ -38,7 +38,7 @@ export function TLSTable({ entries, onSelect }: TLSTableProps) {
                 <span>{getStatusDot(entry.status)}</span>
                 <span>{entry.status}</span>
               </td>
-              <td className="px-4 py-2">{entry.timestamp || "—"}</td>
+              <td className="px-4 py-2">{entry.timestamp || '—'}</td>
             </tr>
           ))}
         </tbody>

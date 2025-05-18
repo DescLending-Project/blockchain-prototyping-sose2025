@@ -1,6 +1,6 @@
-import React from "react";
-import { useState } from "react";
-import type { ReactNode } from "react";
+import React from 'react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 interface TabLayoutProps {
   tabs: { name: string; content: ReactNode }[];
@@ -16,7 +16,7 @@ export function TabLayout({ tabs }: TabLayoutProps) {
           <button
             key={index}
             className={`px-4 py-2 font-medium ${
-              index === activeTab ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"
+              index === activeTab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'
             }`}
             onClick={() => setActiveTab(index)}
           >

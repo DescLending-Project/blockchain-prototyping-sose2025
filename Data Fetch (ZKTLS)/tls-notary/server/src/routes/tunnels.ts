@@ -22,10 +22,10 @@ function generateTunnelId(localPort: number, remoteHost: string, remotePort: num
 async function isValidHost(host: string): Promise<boolean> {
   try {
     await dns.lookup(host);
-    return true
+    return true;
   } catch (error) {
     console.error(`Invalid host: ${host}`, error);
-    return false
+    return false;
   }
 }
 
@@ -73,7 +73,7 @@ tunnelRouter.post('/',
       console.error('Failed to start wstcp:', err);
       tunnels = tunnels.filter(t => t.id !== tunnelId);
       activeProcesses.delete(tunnelId);
-      return res.status(500).json({ error: "Failed to start tunnel" });
+      return res.status(500).json({ error: 'Failed to start tunnel' });
     });
 
     proc.on('exit', (code, signal) => {
