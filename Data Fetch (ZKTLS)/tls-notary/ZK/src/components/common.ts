@@ -1,4 +1,4 @@
-import { HttpMethod, ProofStatus } from "../types/tls";
+import { HttpMethod, RequestStatus } from "../types/tls";
 
 // Method color mapping
 const methodColorMap: Record<HttpMethod, string> = {
@@ -13,27 +13,30 @@ export const getMethodColor = (method: HttpMethod): string => {
 };
 
 // Status color mapping
-const statusColorMap: Record<ProofStatus, string> = {
-  [ProofStatus.Generated]: "bg-gray-600",
-  [ProofStatus.Verified]: "bg-green-600",
-  [ProofStatus.Pending]: "bg-yellow-500",
-  [ProofStatus.Failed]: "bg-red-600",
+const statusColorMap: Record<RequestStatus, string> = {
+  [RequestStatus.Error]: "bg-gray-600",
+  [RequestStatus.Sending]: "bg-blue-600",
+  [RequestStatus.Received]: "bg-purple-600",
+  [RequestStatus.Pending]: "bg-yellow-500",
+  [RequestStatus.Verified]: "bg-green-600",
+  [RequestStatus.Failed]: "bg-red-600",
 };
 
-export const getStatusColor = (status: ProofStatus): string => {
+export const getStatusColor = (status: RequestStatus): string => {
   return statusColorMap[status] ?? "bg-gray-600";
 };
 
-const statusDotMap: Record<ProofStatus, string> = {
-  [ProofStatus.Generated]: "⚪️",
-  [ProofStatus.Verified]: "🟢",
-  [ProofStatus.Pending]: "🟡",
-  [ProofStatus.Failed]: "🔴",
-
+const statusDotMap: Record<RequestStatus, string> = {
+  [RequestStatus.Error]: "⚪️",
+  [RequestStatus.Sending]: "🔵",
+  [RequestStatus.Received]: "🟣",
+  [RequestStatus.Pending]: "🟡",
+  [RequestStatus.Verified]: "🟢",
+  [RequestStatus.Failed]: "🔴",
 };
 
 
-export const getStatusDot = (status: ProofStatus): string => {
+export const getStatusDot = (status: RequestStatus): string => {
   return statusDotMap[status] ?? "⚪️";
 };
 

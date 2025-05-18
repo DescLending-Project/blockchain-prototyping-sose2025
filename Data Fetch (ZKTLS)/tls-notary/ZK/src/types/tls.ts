@@ -2,6 +2,7 @@ import {
     Presentation as TPresentation,
 } from 'tlsn-js';
 import type { PresentationJSON } from 'tlsn-js/build/types';
+import { TunnelCreateResponse, TunnelCreateRequest} from './dto';
 
 export const HttpMethod = {
   GET: "GET",
@@ -13,39 +14,16 @@ export const HttpMethod = {
 export type HttpMethod = (typeof HttpMethod)[keyof typeof HttpMethod];
 
 
-export const ProofStatus = {
-  Generated: "Generated",
+export const RequestStatus = {
+  Error : "Error",
+  Sending: "Sending",
+  Received : "Received",
   Pending: "Pending",
   Verified: "Verified",
   Failed: "Failed",
 } as const;
 
-export type ProofStatus = (typeof ProofStatus)[keyof typeof ProofStatus];
-
-
-export interface ProofRecord {
-  id: string;
-  request: TLSFormData;
-  status: ProofStatus;
-  timestamp?: string;
-  tlsCallResponse? : TLSCallResponse;
-  verifyProofResult?: VerifyProofResult;
-}
-
-export interface CreateTunnelRequest {
-  localPort: number;
-  remoteHost: string;
-  remotePort: number;
-}
-
-export interface Tunnel {
-  id?: number;
-  localPort: number;
-  remoteHost: string;
-  remotePort: number;
-  websocketProxyUrl: string;
-  pid?: number;
-}
+export type RequestStatus = (typeof RequestStatus)[keyof typeof RequestStatus];
 
 export interface TLSFormData {
   url: string;
@@ -58,7 +36,25 @@ export interface TLSFormData {
   method: HttpMethod;
 }
 
-export interface TLSCall {
+export interface ProofRecord {
+  id: string;
+  status: RequestStatus;
+  error? : any;
+  timestamp?: string;
+  formData: TLSFormData;
+  tunnelReq?: TunnelCreateRequest | any;
+  tunnelRes?: TunnelCreateResponse | any;
+  tlsCall?: TLSCallRequest;
+  tlsCallResponse? : TLSCallResponse;
+  verifyProofResult?: VerifyProofResult;
+}
+
+
+
+
+
+
+export interface TLSCallRequest {
     notaryUrl: string;
     serverDNS : string;
     websocketProxyUrl: string;
@@ -87,3 +83,5 @@ export interface TLSCallResponse {
     presentation: TPresentation;
     presentationJSON: PresentationJSON;
 }
+
+export { TunnelCreateResponse as Tunnel }

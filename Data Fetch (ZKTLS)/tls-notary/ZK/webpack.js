@@ -3,6 +3,8 @@ var webpack = require('webpack'),
     CopyWebpackPlugin = require('copy-webpack-plugin'),
     HtmlWebpackPlugin = require('html-webpack-plugin');
 
+require('dotenv').config();
+
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 
 var alias = {};
@@ -108,6 +110,10 @@ var options = {
         },
     },
     plugins: [
+         // ...other plugins...
+        new webpack.DefinePlugin({
+            'process.env.API_BASE': JSON.stringify(process.env.API_BASE),
+        }),
         new CopyWebpackPlugin({
             patterns: [
                 {
@@ -137,7 +143,7 @@ var options = {
     //  - https://github.com/GoogleChromeLabs/wasm-bindgen-rayon#setting-up
     //  - https://web.dev/i18n/en/coop-coep/
     devServer: {
-        port: 8092,
+        port: process.env.FRONTEND_PORT || 8080,
         host: 'localhost',
         hot: true,
         headers: {

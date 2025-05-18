@@ -32,8 +32,8 @@ export function TLSTable({ entries, onSelect }: TLSTableProps) {
               className="border-b hover:bg-blue-50 cursor-pointer"
             >
               <td className="px-4 py-2">{entry.id}</td>
-              <td className="px-4 py-2 font-semibold">{entry.request.method}</td>
-              <td className="px-4 py-2 text-blue-600 underline">{entry.request.url}</td>
+              <td className="px-4 py-2 font-semibold">{entry.formData.method}</td>
+              <td className="px-4 py-2 text-blue-600 underline">{entry.formData.url}</td>
               <td className="px-4 py-2 flex items-center gap-1">
                 <span>{getStatusDot(entry.status)}</span>
                 <span>{entry.status}</span>

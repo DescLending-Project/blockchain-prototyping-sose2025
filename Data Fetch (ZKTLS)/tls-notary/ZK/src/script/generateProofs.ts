@@ -1,5 +1,5 @@
 import * as Comlink from 'comlink';
-import type { TLSCall, TLSCallResponse, VerifyProofResult } from '../types/tls';
+import type { TLSCallRequest, TLSCallResponse, VerifyProofResult } from '../types/tls';
 import {
     Prover as TProver,
     Presentation as TPresentation,
@@ -70,7 +70,7 @@ function parseHttpMessage(buffer: Buffer, type: 'request' | 'response') {
 
 
 export async function generateProof(
-    call: TLSCall,
+    call: TLSCallRequest,
 ): Promise<TLSCallResponse> {
 
     // Initialize if not already initialized

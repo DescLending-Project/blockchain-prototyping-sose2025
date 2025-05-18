@@ -1,6 +1,6 @@
 import React from "react";
 import type { ProofRecord } from "../../types/tls";
-import { ProofStatus, HttpMethod } from "../../types/tls";
+import { RequestStatus, HttpMethod } from "../../types/tls";
 
 interface TLSModalProps {
   onClose: () => void;
@@ -13,6 +13,7 @@ export function TLSModal({ onClose, onDownload, onVerify, record }: TLSModalProp
   const responseBody = record.tlsCallResponse?.responseBody;
   const presentationJSON = record.tlsCallResponse?.presentationJSON;
   const verifyResult = record.verifyProofResult;
+  const error = record.error;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -30,15 +31,15 @@ export function TLSModal({ onClose, onDownload, onVerify, record }: TLSModalProp
 
           <div className="space-y-4 text-sm">
             <div><strong>ID:</strong> {record.id}</div>
-            <div><strong>URL:</strong> {record.request.url}</div>
-            <div><strong>Method:</strong> {record.request.method as HttpMethod}</div>
-            <div><strong>Status:</strong> {record.status as ProofStatus}</div>
+            <div><strong>URL:</strong> {record.formData.url}</div>
+            <div><strong>Method:</strong> {record.formData.method as HttpMethod}</div>
+            <div><strong>Status:</strong> {record.status as RequestStatus}</div>
             <div><strong>Timestamp:</strong> {record.timestamp || "—"}</div>
 
             <div>
               <h3 className="font-semibold text-gray-700 mt-4 mb-1">Request</h3>
               <pre className="bg-gray-100 p-3 rounded overflow-x-auto text-xs whitespace-pre-wrap">
-                {JSON.stringify(record.request, null, 2)}
+                {JSON.stringify(record.formData, null, 2)}
               </pre>
             </div>
 
@@ -68,6 +69,15 @@ export function TLSModal({ onClose, onDownload, onVerify, record }: TLSModalProp
                 </pre>
               </div>
             )}
+
+            {error && (record.status as RequestStatus) === RequestStatus.Error && (
+              <div>
+                <h3 className="font-semibold text-red-700 mt-4 mb-1">Error</h3>
+                <pre className="bg-red-100 p-3 rounded overflow-x-auto text-xs whitespace-pre-wrap text-red-900">
+                  {typeof error === 'string' ? error : JSON.stringify(error, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
         </div>
 
@@ -92,7 +102,7 @@ export function TLSModal({ onClose, onDownload, onVerify, record }: TLSModalProp
               <button
                 onClick={() => onVerify(record)}
                 className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded hover:bg-purple-700 disabled:opacity-50"
-                disabled={record.status !== ProofStatus.Generated}
+                disabled={record.status !== RequestStatus.Received}
               >
                 Verify Proof
               </button>

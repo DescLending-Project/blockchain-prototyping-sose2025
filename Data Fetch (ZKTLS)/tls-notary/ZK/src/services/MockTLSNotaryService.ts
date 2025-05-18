@@ -2,12 +2,15 @@ import type { ITLSNotaryService } from "./ITLSNotaryService";
 import type { ProofRecord, TLSFormData } from "../types/tls";
 import { TLSTunnelService } from "../utils/di"
 import { nanoid } from "nanoid";
-import { ProofStatus, HttpMethod, VerifyProofResult } from "../types/tls";
+import { RequestStatus, HttpMethod, VerifyProofResult, TLSCallRequest } from "../types/tls";
+import { TunnelCreateRequest } from "../types/dto";
+
 import { generateProof, verifyProof } from "../script/generateProofs";
 import {
   Presentation as TPresentation,
 } from 'tlsn-js';
 import type { PresentationJSON } from 'tlsn-js/build/types';
+import { TunnelService } from "./TunnelService";
 
 export class MockTLSNotaryService implements ITLSNotaryService {
   private records: ProofRecord[] = [];
@@ -27,8 +30,19 @@ export class MockTLSNotaryService implements ITLSNotaryService {
   }
 
   async verifyProof(record: ProofRecord): Promise<VerifyProofResult> {
+    console.log("Verifying proof for record:", record);
     if (!record.tlsCallResponse?.presentationJSON) {
       throw new Error("No presentationJSON available for this proof record.");
+    }
+
+    if(!record.tlsCall?.notaryUrl) {
+      throw new Error("No notaryUrl available for this proof record.");
+    }
+    if(!record.tlsCall) {
+      throw new Error("No tlsCall available for this proof record.");
+    }
+    if(!record.tlsCallResponse) {
+      throw new Error("No tlsCallResponse available for this proof record.");
     }
 
     const tmp = this.records.find((r) => r.id === record.id);
@@ -36,65 +50,99 @@ export class MockTLSNotaryService implements ITLSNotaryService {
       throw new Error("Record not found");
     }
 
-    tmp.status = ProofStatus.Pending;
+    if(!tmp.status || tmp.status !== RequestStatus.Received) {
+      throw new Error("Record is not in a valid state to verify proof");
+    }
+
+    tmp.status = RequestStatus.Pending;
     this.notifySubscribers();
 
     try {
-      const result = await verifyProof(record.request.notaryUrl, record.tlsCallResponse.presentationJSON);
+      const result = await verifyProof(record.tunnelRes.notaryUrl, record.tlsCallResponse.presentationJSON);
       tmp.verifyProofResult = result;
-      tmp.status = ProofStatus.Verified;
+      tmp.status = RequestStatus.Verified;
       this.notifySubscribers();
       return result;
     } catch (error) {
       console.error("Error verifying proof:", error);
-      tmp.status = ProofStatus.Failed;
+      tmp.error = error;
+      tmp.verifyProofResult = undefined;
+      tmp.status = RequestStatus.Failed;
       this.notifySubscribers();
       throw error;
     }
   }
 
 
+
   async sendRequest(input: TLSFormData): Promise<string> {
     const { url, notaryUrl, remoteDNS, remotePort, localPort, headers, body, method } = input;
     const id = nanoid(8);
-    TLSTunnelService.create({
-      localPort: parseInt(localPort),
-      remoteHost: remoteDNS,
-      remotePort: parseInt(remotePort),
-    }).then((tunnel) => {
-      generateProof({
+    const proofRecord : ProofRecord = {
+      id: id,
+      status : RequestStatus.Sending,
+      error : null,
+      timestamp: new Date().toISOString(),
+      formData : input,
+      tunnelReq : {
+        localPort: parseInt(localPort),
+        remoteHost: remoteDNS,
+        remotePort: parseInt(remotePort),
+      },
+    };
+    this.records.unshift(proofRecord);
+    this.notifySubscribers();
+
+    TLSTunnelService.create(proofRecord.tunnelReq)
+    .then((tunnelRes) => {
+      const record = this.records.find((r) => r.id === id);
+      if (!record) {
+        throw new Error("Record not found");
+      }
+      record.tunnelRes = tunnelRes;
+      record.status = RequestStatus.Sending;
+      record.tlsCall = {
         notaryUrl,
         serverDNS: remoteDNS,
-        websocketProxyUrl: tunnel.websocketProxyUrl,
+        websocketProxyUrl: tunnelRes.websocketProxyUrl,
         request: {
           url,
           method,
           headers: JSON.parse(headers),
           body,
         },
-      }).then((tlsCallResponse) => {
+      };
+      this.notifySubscribers();
+      generateProof(record.tlsCall)
+      .then((tlsCallResponse) => {
         const record = this.records.find((r) => r.id === id);
         if (record) {
           record.tlsCallResponse = tlsCallResponse;
-          record.status = ProofStatus.Generated;
+          record.status = RequestStatus.Received;
+          record.error = null;
           this.notifySubscribers();
+          TLSTunnelService.delete(record.tunnelRes.id)
         }
 
-      })
+      }).catch((error) => {
+        console.error("Error generating proof:", error);
+        const record = this.records.find((r) => r.id === id);
+        if (record) {
+          record.status = RequestStatus.Error;
+          record.error = error;
+          this.notifySubscribers();
+        }
+      });
     }).catch((error) => {
       console.error("Error creating tunnel:", error);
+      const record = this.records.find((r) => r.id === id);
+      if (record) {
+        record.status = RequestStatus.Error;
+        record.error = error;
+        this.notifySubscribers();
+      }
     });
 
-    const record: ProofRecord = {
-      id,
-      request: input,
-      status: ProofStatus.Pending,
-      timestamp: new Date().toISOString(),
-
-    };
-
-    this.records.unshift(record);
-    this.notifySubscribers();
 
     return id;
   }

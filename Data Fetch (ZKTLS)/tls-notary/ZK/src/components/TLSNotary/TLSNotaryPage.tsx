@@ -20,6 +20,7 @@ export function TLSNotaryPage() {
     };
   }, []);
 
+  
   const handleSubmit = (formData: TLSFormData) => {
     TLSNotaryService.sendRequest(formData);
   };
