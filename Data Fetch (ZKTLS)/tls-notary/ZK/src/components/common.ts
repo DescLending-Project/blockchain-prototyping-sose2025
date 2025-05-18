@@ -27,7 +27,7 @@ export const getStatusColor = (status: RequestStatus): string => {
 };
 
 const statusDotMap: Record<RequestStatus, string> = {
-  [RequestStatus.Error]: "⚪️",
+  [RequestStatus.Error]: "🔴",
   [RequestStatus.Sending]: "🔵",
   [RequestStatus.Received]: "🟣",
   [RequestStatus.Pending]: "🟡",

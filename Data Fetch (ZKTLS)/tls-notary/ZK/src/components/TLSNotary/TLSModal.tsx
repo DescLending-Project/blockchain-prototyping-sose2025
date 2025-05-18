@@ -70,11 +70,11 @@ export function TLSModal({ onClose, onDownload, onVerify, record }: TLSModalProp
               </div>
             )}
 
-            {error && (record.status as RequestStatus) === RequestStatus.Error && (
+            {error && ((record.status as RequestStatus) === RequestStatus.Error || (record.status as RequestStatus) === RequestStatus.Failed) && (
               <div>
                 <h3 className="font-semibold text-red-700 mt-4 mb-1">Error</h3>
                 <pre className="bg-red-100 p-3 rounded overflow-x-auto text-xs whitespace-pre-wrap text-red-900">
-                  {typeof error === 'string' ? error : JSON.stringify(error, null, 2)}
+                  {JSON.stringify(error, null, 2)}
                 </pre>
               </div>
             )}

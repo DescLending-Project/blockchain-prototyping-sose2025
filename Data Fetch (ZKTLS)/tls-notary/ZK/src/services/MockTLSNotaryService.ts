@@ -9,8 +9,6 @@ import { generateProof, verifyProof } from "../script/generateProofs";
 import {
   Presentation as TPresentation,
 } from 'tlsn-js';
-import type { PresentationJSON } from 'tlsn-js/build/types';
-import { TunnelService } from "./TunnelService";
 
 export class MockTLSNotaryService implements ITLSNotaryService {
   private records: ProofRecord[] = [];
@@ -56,9 +54,9 @@ export class MockTLSNotaryService implements ITLSNotaryService {
 
     tmp.status = RequestStatus.Pending;
     this.notifySubscribers();
-
+    console.log("Verifying proof with notaryUrl:", record.formData.notaryUrl);
     try {
-      const result = await verifyProof(record.tunnelRes.notaryUrl, record.tlsCallResponse.presentationJSON);
+      const result = await verifyProof(record.formData.notaryUrl, record.tlsCallResponse.presentationJSON);
       tmp.verifyProofResult = result;
       tmp.status = RequestStatus.Verified;
       this.notifySubscribers();
@@ -130,6 +128,7 @@ export class MockTLSNotaryService implements ITLSNotaryService {
         if (record) {
           record.status = RequestStatus.Error;
           record.error = error;
+          TLSTunnelService.delete(record.tunnelRes.id)
           this.notifySubscribers();
         }
       });

@@ -15,13 +15,6 @@ const root = createRoot(container!);
 root.render(<App />);
 
 function App() {
-    useEffect(() => {
-        (async () => {
-            console.log('Initializing...');
-            await init({ loggingLevel: 'Debug' });
-            console.log('Initialized');
-        })();
-    }, []);
   return (
     <Home />
   );

@@ -69,16 +69,18 @@ function parseHttpMessage(buffer: Buffer, type: 'request' | 'response') {
 
 
 
+let wasmInitialized = false;
+
 export async function generateProof(
     call: TLSCallRequest,
 ): Promise<TLSCallResponse> {
-
-    // Initialize if not already initialized
-    await init({
-        loggingLevel: loggingLevel,
-        wasmURL: '/tlsn/tlsn_wasm_bg.wasm', // adjust to actual name
-
-    });
+    if (!wasmInitialized) {
+        await init({
+            loggingLevel: loggingLevel,
+            wasmURL: '/tlsn/tlsn_wasm_bg.wasm',
+        });
+        wasmInitialized = true;
+    }
     const notary = NotaryServer.from(call.notaryUrl);
     const prover = (await new Prover({
         serverDns: call.serverDNS,
@@ -106,7 +108,9 @@ export async function generateProof(
         body: recvBody,
     } = parseHttpMessage(Buffer.from(recv), 'response');
 
-    const body = JSON.parse(recvBody[0].toString());
+    const rawBody = Buffer.concat(recvBody).toString();
+    console.log('Raw recvBody:', rawBody);
+    const body = JSON.parse(rawBody);
 
     const commit: Commit = {
         sent: subtractRanges(
@@ -150,10 +154,10 @@ export async function generateProof(
     const presentationJSON = await presentation.json();
 
     return {
-            responseBody: body,
-            presentation: presentation,
-            presentationJSON: presentationJSON,
-        
+        responseBody: body,
+        presentation: presentation,
+        presentationJSON: presentationJSON,
+
     };
 }
 
