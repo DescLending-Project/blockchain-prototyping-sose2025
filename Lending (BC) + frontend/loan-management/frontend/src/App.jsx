@@ -163,7 +163,7 @@ function App() {
       <nav className="border-b bg-white dark:bg-gray-800 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
-            Liquidity Pool V3
+            Decentralized-Loan-Management-Plattform
           </h1>
           {!account ? (
             <Button
