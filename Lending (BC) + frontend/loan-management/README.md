@@ -1,5 +1,4 @@
 # Decentralized-Loan-Management-Plattform
-![s1](https://github.com/user-attachments/assets/14d8c73a-74e1-4433-af3b-43de05371938)
 
 ## 1. Install Dependencies
 ### Hardhat backend (root folder):
