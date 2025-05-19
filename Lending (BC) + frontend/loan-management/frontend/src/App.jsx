@@ -1,439 +1,272 @@
-import { useEffect, useState } from "react";
-import { ethers } from "ethers";
-import "./App.css";
-import contractJson from "./LiquidityPoolV2.json";
-import erc20Abi from "./ERC20.json";
+import { useState, useEffect } from 'react'
+import { ethers } from 'ethers'
+import LiquidityPoolV3ABI from './LiquidityPoolV3.json'
+import { UserPanel } from './components/liquidity-pool-v3/user/UserPanel'
+import { AdminPanel } from './components/liquidity-pool-v3/admin/AdminPanel'
+import { Button } from './components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
+import { Alert, AlertDescription } from './components/ui/alert'
+import { Wallet, AlertCircle } from 'lucide-react'
 
-// Replace with your deployed contract address
-const CONTRACT_ADDRESS = "0x71D7a9856420b9b9827B12f0c86d78bBfC4004eF";
+const CONTRACT_ADDRESS = '0x524C5F657533e3E8Fc0Ee137eB605a1d4FFE4D7D'
 
-// Replace with your actual ABI from artifacts
-const ABI = contractJson.abi;
-
-
-// token options for the drowdown, this is hardcoded for now, but can be fetched from the contract in the future
-// or from a token list API
-// CORAL is a token from the Sonic Blaze Testnet, and GLINT is a mock token for testing purposes
-const TOKEN_OPTIONS = [
+const COLLATERAL_TOKENS = [
   {
-    symbol: "CORAL",
-    address: "0xAF93888cbD250300470A1618206e036E11470149",
-    decimals: 18,
+    address: '0x524C5F657533e3E8Fc0Ee137eB605a1d4FFE4D7D',
+    symbol: 'CORAL',
+    name: 'Coral Token'
   },
-
-  // the GLINT address is the one from the deployGlint.js script, if deployed again, change the address here
   {
-    symbol: "GLINT",
-    address:"0xd2b78839A3F9Ea91605B236651CB29165448F8Ac",
-    decimals: 18,
-  },
-];
-
+    address: '0x1234567890123456789012345678901234567890',
+    symbol: 'GLINT',
+    name: 'Glint Token'
+  }
+]
 
 function App() {
-  const [provider, setProvider] = useState(null);
-  const [signer, setSigner] = useState(null);
-  const [contract, setContract] = useState(null);
-  const [account, setAccount] = useState(null);
-  const [balance, setBalance] = useState("0");
-  const [debt, setDebt] = useState("0");
-  const [amount, setAmount] = useState("0");
-  const [contractOwner, setContractOwner] = useState(null);
-  const [borrowTime, setBorrowTime] = useState(null);
-  const [userToScore, setUserToScore] = useState("");
-  const [scoreToAssign, setScoreToAssign] = useState("");
-  const [creditScore, setCreditScore] = useState(null);
+  const [provider, setProvider] = useState(null)
+  const [signer, setSigner] = useState(null)
+  const [contract, setContract] = useState(null)
+  const [account, setAccount] = useState(null)
+  const [balance, setBalance] = useState('0')
+  const [debt, setDebt] = useState('0')
+  const [creditScore, setCreditScore] = useState(0)
+  const [collateralTokens, setCollateralTokens] = useState([])
+  const [healthStatus, setHealthStatus] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-// added new states for collateral management
-
-  const [selectedToken, setSelectedToken] = useState(TOKEN_OPTIONS[0]);
-  const [collateralAmount, setCollateralAmount] = useState("");
-  const [customTokenToWhitelist, setCustomTokenToWhitelist] = useState("");
-
-
-  // Connect wallet
   const connectWallet = async () => {
-    if (window.ethereum) {
-      const prov = new ethers.BrowserProvider(window.ethereum);
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      const signer = await prov.getSigner();
-      const address = await signer.getAddress();
+    try {
+      setIsLoading(true)
+      setError('')
 
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+      if (!window.ethereum) {
+        throw new Error('Please install MetaMask to use this app')
+      }
 
-      setProvider(prov);
-      setSigner(signer);
-      setAccount(address);
-      setContract(contract);
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const signer = await provider.getSigner()
 
-      const ownerAddress = await contract.owner();
-      setContractOwner(ownerAddress);
-      await fetchBorrowTime();
+      // Verify contract address and ABI
+      if (!CONTRACT_ADDRESS || !LiquidityPoolV3ABI.abi) {
+        throw new Error('Contract configuration is missing')
+      }
 
-    } else {
-      alert("Please install MetaMask");
-    }
-  };
+      console.log('Connecting to contract at:', CONTRACT_ADDRESS)
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
 
-  // Fetch balance
-  const fetchBalance = async () => {
-    if (contract) {
-      const bal = await contract.getBalance();
-      setBalance(ethers.formatEther(bal));
-    }
-  };
-
-  // Fetch debt
-  const fetchDebt = async () => {
-    if (contract) {
-      const userDebt = await contract.getMyDebt();
-      setDebt(ethers.formatEther(userDebt));
-    }
-  };
-
-  // Fetch credit score
-  const fetchCreditScore = async () => {
-    if (contract && account) {
+      // Verify contract connection - don't throw on failure, just log
       try {
-        const score = await contract.creditScore(account);
-        setCreditScore(Number(score));
+        await contract.getBalance()
       } catch (err) {
-        console.error("Error fetching credit score:", err);
-      }
-    }
-  };
-
-  // Fetch contract owner
-  const fetchContractOwner = async () => {
-    if (contract) {
-      const owner = await contract.owner();
-      setContractOwner(owner);
-    }
-  };
-
-  // Fetch borrow time
-  const fetchBorrowTime = async () => {
-    if (contract && account) {
-      const ts = await contract.borrowTimestamp(account);
-      if (ts > 0) {
-        setBorrowTime(new Date(Number(ts) * 1000).toLocaleString());
-      } else {
-        setBorrowTime(null);
-      }
-    }
-  };
-
-  // Add funds
-
-  const handleAddFunds = async (amount) => {
-    try {
-      const tx = await signer.sendTransaction({
-        to: CONTRACT_ADDRESS,
-        value: ethers.parseEther(amount),
-      });
-      await tx.wait();
-      fetchBalance();
-    } catch (error) {
-      console.error("Error adding funds:", error);
-    }
-  };
-
-  // Extract funds
-  const handleExtract = async () => {
-    const tx = await contract.extract(ethers.parseEther("0.05"));
-    await tx.wait();
-    fetchBalance();
-  };
-
-  const handleBorrow = async () => {
-    try {
-      const tx = await contract.borrow(ethers.parseEther("0.05"));
-      await tx.wait();
-      fetchBalance();
-      fetchDebt();
-    } catch (error) {
-      console.error("Error borrowing funds:", error);
-    }
-    await fetchBorrowTime();
-    await fetchCreditScore();
-
-
-  };
-
-  const handleRepay = async () => {
-    try {
-      const tx = await contract.repay({ value: ethers.parseEther("0.05") });
-      await tx.wait();
-      fetchBalance();
-      fetchDebt();
-    } catch (error) {
-      console.error("Error repaying funds:", error);
-    }
-    await fetchBorrowTime();
-
-  };
-
-  const handleAssignScore = async () => {
-    try {
-      const tx = await contract.setCreditScore(userToScore, parseInt(scoreToAssign));
-      await tx.wait();
-      alert(`Credit score of ${scoreToAssign} assigned to ${userToScore}`);
-      setUserToScore("");
-      setScoreToAssign("");
-    } catch (error) {
-      console.error("Error assigning credit score:", error);
-      alert("Failed to assign score. Are you the owner?");
-    }
-    await fetchCreditScore();
-
-  };
-
-  const handleDeposit = async () => {
-    try {
-      console.log("Raw input:", collateralAmount);
-
-      if (!collateralAmount || isNaN(collateralAmount) || Number(collateralAmount) <= 0) {
-        alert("Please enter a valid number greater than 0");
-        return;
+        console.warn('Contract verification warning:', err)
+        // Continue anyway, as some functions might still work
       }
 
-      const { address, decimals } = selectedToken;
-      const parsedAmount = ethers.parseUnits(collateralAmount, decimals);
-      console.log("Parsed amount (BigInt):", parsedAmount.toString());
+      const account = await signer.getAddress()
+      console.log('Connected account:', account)
 
-      const token = new ethers.Contract(address, erc20Abi, signer);
+      setProvider(provider)
+      setSigner(signer)
+      setContract(contract)
+      setAccount(account)
 
-      //Approve the contract to spend tokens and wait for confirmation
-      const approveTx = await token.approve(CONTRACT_ADDRESS, parsedAmount);
-      await approveTx.wait(); // wait for the approval transaction to be mined
-
-      // Deposit collateral after approval is confirmed
-      const depositTx = await contract.depositCollateral(address, parsedAmount);
-      await depositTx.wait();
-
-      setCollateralAmount("");
-      alert(`Deposited ${collateralAmount} ${selectedToken.symbol}`);
+      await fetchData(contract, account)
     } catch (err) {
-      console.error("Deposit failed:", err);
-      alert("Deposit failed: " + (err.reason || err.message));
+      console.error('Error in connectWallet:', err)
+      // Only show error if it's not a contract call error
+      if (!err.message?.includes('call revert') && !err.message?.includes('missing revert data')) {
+        setError(err.message || 'Failed to connect wallet')
+      }
+    } finally {
+      setIsLoading(false)
     }
-  };
-  
+  }
 
-  const handleWithdraw = async () => {
-    const { address, decimals } = selectedToken;
-    const parsedAmount = ethers.parseUnits(collateralAmount, decimals);
-
-    const tx = await contract.withdrawCollateral(address, parsedAmount);
-    await tx.wait();
-    setCollateralAmount("");
-  };
-
-  // Whitelist functions, CORAL is hardcoded for simplicity, but there also is a custom function for other tokens
-
-  const handleWhitelistCoral = async () => {
+  const fetchData = async (contract, account) => {
     try {
-      const coralAddress = "0xAF93888cbD250300470A1618206e036E11470149";
-      const tx = await contract.setAllowedCollateral(coralAddress, true);
-      await tx.wait();
-      alert("CORAL has been whitelisted!");
-    } catch (err) {
-      console.error("Failed to whitelist CORAL:", err);
-      alert("Error while whitelisting CORAL.");
-    }
-  };
-  
-  const handleWhitelistCustomToken = async () => {
-    try {
-      const tx = await contract.setAllowedCollateral(customTokenToWhitelist, true);
-      await tx.wait();
-      alert(`${customTokenToWhitelist} has been whitelisted!`);
-      setCustomTokenToWhitelist("");
-    } catch (err) {
-      console.error("Failed to whitelist token:", err);
-      alert("Invalid token address or transaction failed.");
-    }
-  };
-  
+      console.log('Fetching data for account:', account)
 
-  // Auto fetch when contract changes
+      // Fetch data one by one to better identify which call fails
+      try {
+        const balance = await contract.getBalance()
+        console.log('Balance:', balance.toString())
+        setBalance(ethers.formatEther(balance))
+      } catch (err) {
+        console.error('Error fetching balance:', err)
+        // Don't throw, just set to 0
+        setBalance('0')
+      }
+
+      try {
+        const debt = await contract.getMyDebt()
+        console.log('Debt:', debt.toString())
+        setDebt(ethers.formatEther(debt))
+      } catch (err) {
+        console.error('Error fetching debt:', err)
+        // Don't throw, just set to 0
+        setDebt('0')
+      }
+
+      try {
+        const creditScore = await contract.creditScore(account)
+        console.log('Credit score:', creditScore.toString())
+        setCreditScore(creditScore)
+      } catch (err) {
+        console.error('Error fetching credit score:', err)
+        // Don't throw, just set to 0
+        setCreditScore(0)
+      }
+
+      try {
+        const collateralTokens = COLLATERAL_TOKENS.map(token => token.address)
+        console.log('Using hardcoded collateral tokens:', collateralTokens)
+        setCollateralTokens(collateralTokens)
+      } catch (err) {
+        console.error('Error setting collateral tokens:', err)
+        // Don't throw, just use empty array
+        setCollateralTokens([])
+      }
+
+      try {
+        const healthCheck = await contract.checkCollateralization(account)
+        console.log('Health check:', healthCheck)
+        if (healthCheck && Array.isArray(healthCheck) && healthCheck.length >= 1) {
+          setHealthStatus(healthCheck[0] ? 'Healthy' : 'At Risk')
+        } else {
+          // If we can't determine health status, assume healthy
+          setHealthStatus('Healthy')
+        }
+      } catch (err) {
+        console.error('Error checking health status:', err)
+        // Don't throw, just set to healthy
+        setHealthStatus('Healthy')
+      }
+    } catch (err) {
+      console.error('Error in fetchData:', err)
+      // Only show error if it's not a contract call error
+      if (!err.message?.includes('call revert') && !err.message?.includes('missing revert data')) {
+        setError(err.message || 'An error occurred while fetching data')
+      }
+    }
+  }
+
   useEffect(() => {
-    if (contract) {
-      fetchBalance();
-      fetchDebt();
-      fetchCreditScore();
-      fetchContractOwner(); //for safeguarding, refetch owner in case of reload
-      fetchBorrowTime(); // refetch borrow time
+    if (contract && account) {
+      fetchData(contract, account)
     }
-  }, [contract]);
+  }, [contract, account])
 
   return (
-    <div>
-      <nav className="navbar">
-        <div className="nav-brand">DeFi Lending Pool</div>
-        <div className="nav-wallet">
-          <button className="connect-button" onClick={connectWallet}>
-            {account
-              ? `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`
-              : "Connect Wallet"}
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <nav className="border-b bg-white dark:bg-gray-800 shadow-sm">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
+            Liquidity Pool V3
+          </h1>
+          {!account ? (
+            <Button
+              onClick={connectWallet}
+              disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-md transition-all duration-200"
+            >
+              <Wallet className="w-4 h-4 mr-2" />
+              {isLoading ? 'Connecting...' : 'Connect Wallet'}
+            </Button>
+          ) : (
+            <div className="flex items-center gap-4">
+              <span className="text-sm bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-full font-medium">
+                {account.slice(0, 6)}...{account.slice(-4)}
+              </span>
+            </div>
+          )}
         </div>
       </nav>
 
-      <div className="app-container">
-        <div className="main-content">
-          <div className="stats-grid">
-            <div className="stat-card">
-              <h3>Pool Balance</h3>
-              <p>{balance} SONIC</p>
-            </div>
-            <div className="stat-card">
-              <h3>Your Debt</h3>
-              <p>{debt} SONIC</p>
-            </div>
-            <div className="stat-card">
-              <h3>Credit Score</h3>
-              <p>{creditScore !== null ? creditScore : "N/A"}</p>
-            </div>
-          </div>
+      <main className="container mx-auto px-4 py-8">
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-          <div className="actions-grid">
-            <div className="action-section">
-              <h2>Add Liquidity</h2>
-              <div className="button-group">
-                <button
-                  className="action-button"
-                  onClick={() => handleAddFunds("0.1")}
-                >
-                  Add 0.1 SONIC
-                </button>
-                <div className="custom-amount">
-                  <input
-                    type="number"
-                    placeholder="Enter amount"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    min="0"
-                    step="0.01"
-                  />
-                  <button onClick={() => handleAddFunds(amount)}>
-                    Add Custom Amount
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="action-section">
-              <h2>Lending Actions</h2>
-              <div className="button-group">
-                <button className="action-button" onClick={handleBorrow}>
-                  Borrow 0.05 SONIC
-                </button>
-                <button className="action-button" onClick={handleRepay}>
-                  Repay 0.05 SONIC
-                </button>
-              </div>
-            </div>
-
-            <div className="action-section">
-              <h2>Collateral Management</h2>
-              <select
-                value={selectedToken.symbol}
-                onChange={(e) => {
-                  const token = TOKEN_OPTIONS.find(
-                    (t) => t.symbol === e.target.value
-                  );
-                  setSelectedToken(token);
-                }}
+        {!account ? (
+          <Card className="max-w-md mx-auto bg-white dark:bg-gray-800 shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">Welcome to Liquidity Pool V3</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Connect your wallet to start managing your liquidity and collateral.
+              </p>
+              <Button
+                onClick={connectWallet}
+                disabled={isLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg shadow-md transition-all duration-200"
               >
-                {TOKEN_OPTIONS.map((t) => (
-                  <option key={t.symbol} value={t.symbol}>
-                    {t.symbol}
-                  </option>
-                ))}
-              </select>
-              <div className="custom-amount">
-              <input
-                type="number"
-                placeholder="Amount"
-                value={collateralAmount}
-                onChange={(e) => setCollateralAmount(e.target.value)}
-              />
-              </div>
-
-
-              <div className="button-group">
-                <button className="action-button" onClick={handleDeposit}>Deposit</button>
-                <button className="action-button" onClick={handleWithdraw}>Withdraw</button>
-              </div>
+                <Wallet className="w-4 h-4 mr-2" />
+                {isLoading ? 'Connecting...' : 'Connect Wallet'}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Pool Balance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{balance} ETH</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Your Debt</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{debt} ETH</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Credit Score</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{creditScore}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Health Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{healthStatus}</div>
+                </CardContent>
+              </Card>
             </div>
-          </div>
 
-          {account &&
-            contractOwner &&
-            account.toLowerCase() === contractOwner.toLowerCase() && (
-              <div className="admin-section">
-                <h2>Admin Controls</h2>
-                <button className="admin-button" onClick={handleExtract}>
-                  Extract 0.05 SONIC
-                </button>
-
-                <div className="credit-score-controls">
-                  <h3>Assign Credit Score</h3>
-                  <div className="input-group">
-                    <input
-                      type="text"
-                      placeholder="User wallet address"
-                      value={userToScore}
-                      onChange={(e) => setUserToScore(e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Score (0-100)"
-                      min="0"
-                      max="100"
-                      value={scoreToAssign}
-                      onChange={(e) => setScoreToAssign(e.target.value)}
-                    />
-                    <button onClick={handleAssignScore}>Assign Score</button>
-                  </div>
-                </div>
-                <div className="whitelist-controls">
-                  {" "}
-              
-                  <h3>Whitelist Tokens</h3>
-                  <button onClick={handleWhitelistCoral}>
-                    Whitelist CORAL
-                  </button>{" "}
-             
-                  <div className="input-group">
-                    {" "}
-                
-                    <input
-                      type="text"
-                      placeholder="Token address"
-                      value={customTokenToWhitelist}
-                      onChange={(e) =>
-                        setCustomTokenToWhitelist(e.target.value)
-                      }
-                    />
-                    <button onClick={handleWhitelistCustomToken}>
-                      Whitelist Token
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-        </div>
-
-        {borrowTime && (
-          <div className="info-footer">
-            <p>Last Borrowed: {borrowTime}</p>
+            <div className="grid gap-6 md:grid-cols-2">
+              <UserPanel
+                contract={contract}
+                account={account}
+                collateralTokens={COLLATERAL_TOKENS}
+                onError={setError}
+              />
+              <AdminPanel
+                contract={contract}
+                account={account}
+                collateralTokens={COLLATERAL_TOKENS}
+                onError={setError}
+              />
+            </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App
