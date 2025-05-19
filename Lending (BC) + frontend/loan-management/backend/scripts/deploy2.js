@@ -1,9 +1,9 @@
 const { ethers, upgrades } = require("hardhat");
 
-// deploy new version of the contract, LiquidityPoolV2, to the same proxy address
+// deploy new version of the contract, LiquidityPoolV3, to the same proxy address
 
 async function main() {
-  const LiquidityPoolV2 = await ethers.getContractFactory("LiquidityPoolV2");
+  const LiquidityPoolV2 = await ethers.getContractFactory("LiquidityPoolV3");
   const [deployer] = await ethers.getSigners();
 
   const proxy = await upgrades.deployProxy(
@@ -17,6 +17,6 @@ async function main() {
 }
 
 main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
+  console.error(error);
+  process.exitCode = 1;
 });
