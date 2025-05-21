@@ -1,34 +1,13 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import "./App.css";
-import contractJson from "./LiquidityPoolV2.json";
-import erc20Abi from "./ERC20.json";
+import contractJson from "./LiquidityPoolV1.json";
 
 // Replace with your deployed contract address
-const CONTRACT_ADDRESS = "0x71D7a9856420b9b9827B12f0c86d78bBfC4004eF";
+const CONTRACT_ADDRESS = "0xff3bb967163c2fD1650Adb6ad3DFa8fA15d5a0FA";
 
 // Replace with your actual ABI from artifacts
 const ABI = contractJson.abi;
-
-
-// token options for the drowdown, this is hardcoded for now, but can be fetched from the contract in the future
-// or from a token list API
-// CORAL is a token from the Sonic Blaze Testnet, and GLINT is a mock token for testing purposes
-const TOKEN_OPTIONS = [
-  {
-    symbol: "CORAL",
-    address: "0xAF93888cbD250300470A1618206e036E11470149",
-    decimals: 18,
-  },
-
-  // the GLINT address is the one from the deployGlint.js script, if deployed again, change the address here
-  {
-    symbol: "GLINT",
-    address:"0xd2b78839A3F9Ea91605B236651CB29165448F8Ac",
-    decimals: 18,
-  },
-];
-
 
 function App() {
   const [provider, setProvider] = useState(null);
@@ -43,13 +22,7 @@ function App() {
   const [userToScore, setUserToScore] = useState("");
   const [scoreToAssign, setScoreToAssign] = useState("");
   const [creditScore, setCreditScore] = useState(null);
-
-// added new states for collateral management
-
-  const [selectedToken, setSelectedToken] = useState(TOKEN_OPTIONS[0]);
-  const [collateralAmount, setCollateralAmount] = useState("");
-  const [customTokenToWhitelist, setCustomTokenToWhitelist] = useState("");
-
+  const [isPaused, setIsPaused] = useState(false);
 
   // Connect wallet
   const connectWallet = async () => {
@@ -113,13 +86,9 @@ function App() {
 
   // Fetch borrow time
   const fetchBorrowTime = async () => {
-    if (contract && account) {
-      const ts = await contract.borrowTimestamp(account);
-      if (ts > 0) {
-        setBorrowTime(new Date(Number(ts) * 1000).toLocaleString());
-      } else {
-        setBorrowTime(null);
-      }
+    if (contract) {
+      const timestamp = await contract.borrowTimestamp(account);
+      setBorrowTime(new Date(Number(timestamp) * 1000).toLocaleString());
     }
   };
 
@@ -188,73 +157,30 @@ function App() {
 
   };
 
-  const handleDeposit = async () => {
+  const handleTogglePause = async () => {
     try {
-      console.log("Raw input:", collateralAmount);
-
-      if (!collateralAmount || isNaN(collateralAmount) || Number(collateralAmount) <= 0) {
-        alert("Please enter a valid number greater than 0");
-        return;
-      }
-
-      const { address, decimals } = selectedToken;
-      const parsedAmount = ethers.parseUnits(collateralAmount, decimals);
-      console.log("Parsed amount (BigInt):", parsedAmount.toString());
-
-      const token = new ethers.Contract(address, erc20Abi, signer);
-
-      //Approve the contract to spend tokens and wait for confirmation
-      const approveTx = await token.approve(CONTRACT_ADDRESS, parsedAmount);
-      await approveTx.wait(); // wait for the approval transaction to be mined
-
-      // Deposit collateral after approval is confirmed
-      const depositTx = await contract.depositCollateral(address, parsedAmount);
-      await depositTx.wait();
-
-      setCollateralAmount("");
-      alert(`Deposited ${collateralAmount} ${selectedToken.symbol}`);
-    } catch (err) {
-      console.error("Deposit failed:", err);
-      alert("Deposit failed: " + (err.reason || err.message));
-    }
-  };
-  
-
-  const handleWithdraw = async () => {
-    const { address, decimals } = selectedToken;
-    const parsedAmount = ethers.parseUnits(collateralAmount, decimals);
-
-    const tx = await contract.withdrawCollateral(address, parsedAmount);
-    await tx.wait();
-    setCollateralAmount("");
-  };
-
-  // Whitelist functions, CORAL is hardcoded for simplicity, but there also is a custom function for other tokens
-
-  const handleWhitelistCoral = async () => {
-    try {
-      const coralAddress = "0xAF93888cbD250300470A1618206e036E11470149";
-      const tx = await contract.setAllowedCollateral(coralAddress, true);
+      const tx = await contract.togglePause();
       await tx.wait();
-      alert("CORAL has been whitelisted!");
-    } catch (err) {
-      console.error("Failed to whitelist CORAL:", err);
-      alert("Error while whitelisting CORAL.");
+      const pauseState = await contract.isPaused();
+      setIsPaused(pauseState);
+      alert(`Contract ${pauseState ? 'paused' : 'unpaused'} successfully`);
+    } catch (error) {
+      console.error("Error toggling pause state:", error);
+      alert("Failed to toggle pause state. Are you the owner?");
     }
   };
-  
-  const handleWhitelistCustomToken = async () => {
-    try {
-      const tx = await contract.setAllowedCollateral(customTokenToWhitelist, true);
-      await tx.wait();
-      alert(`${customTokenToWhitelist} has been whitelisted!`);
-      setCustomTokenToWhitelist("");
-    } catch (err) {
-      console.error("Failed to whitelist token:", err);
-      alert("Invalid token address or transaction failed.");
-    }
+
+  const disconnectWallet = async () => {
+    setProvider(null);
+    setSigner(null);
+    setContract(null);
+    setAccount(null);
+    setContractOwner(null);
+    setBalance("0");
+    setDebt("0");
+    setBorrowTime(null);
+    setCreditScore(null);
   };
-  
 
   // Auto fetch when contract changes
   useEffect(() => {
@@ -264,8 +190,42 @@ function App() {
       fetchCreditScore();
       fetchContractOwner(); //for safeguarding, refetch owner in case of reload
       fetchBorrowTime(); // refetch borrow time
+      const fetchPauseState = async () => {
+        const pauseState = await contract.isPaused();
+        setIsPaused(pauseState);
+      };
+      fetchPauseState();
     }
   }, [contract]);
+
+  useEffect(() => {
+    if (window.ethereum) {
+      // Handle account changes
+      window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length === 0) {
+          // User disconnected all accounts
+          disconnectWallet();
+        } else {
+          // User switched accounts - reconnect with new account
+          connectWallet();
+        }
+      });
+
+      // Handle chain changes
+      window.ethereum.on('chainChanged', () => {
+        // Reload the page when chain changes
+        window.location.reload();
+      });
+    }
+
+    return () => {
+      // Cleanup listeners when component unmounts
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', connectWallet);
+        window.ethereum.removeListener('chainChanged', () => window.location.reload());
+      }
+    };
+  }, []);
 
   return (
     <div>
@@ -273,10 +233,13 @@ function App() {
         <div className="nav-brand">DeFi Lending Pool</div>
         <div className="nav-wallet">
           <button className="connect-button" onClick={connectWallet}>
-            {account
-              ? `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`
-              : "Connect Wallet"}
+            {account ? `Connected: ${account.slice(0, 6)}...${account.slice(-4)}` : "Connect Wallet"}
           </button>
+          {account && (
+            <button className="disconnect-button" onClick={disconnectWallet}>
+              Disconnect
+            </button>
+          )}
         </div>
       </nav>
 
@@ -301,10 +264,7 @@ function App() {
             <div className="action-section">
               <h2>Add Liquidity</h2>
               <div className="button-group">
-                <button
-                  className="action-button"
-                  onClick={() => handleAddFunds("0.1")}
-                >
+                <button className="action-button" onClick={() => handleAddFunds("0.1")}>
                   Add 0.1 SONIC
                 </button>
                 <div className="custom-amount">
@@ -316,9 +276,7 @@ function App() {
                     min="0"
                     step="0.01"
                   />
-                  <button onClick={() => handleAddFunds(amount)}>
-                    Add Custom Amount
-                  </button>
+                  <button onClick={() => handleAddFunds(amount)}>Add Custom Amount</button>
                 </div>
               </div>
             </div>
@@ -334,39 +292,6 @@ function App() {
                 </button>
               </div>
             </div>
-
-            <div className="action-section">
-              <h2>Collateral Management</h2>
-              <select
-                value={selectedToken.symbol}
-                onChange={(e) => {
-                  const token = TOKEN_OPTIONS.find(
-                    (t) => t.symbol === e.target.value
-                  );
-                  setSelectedToken(token);
-                }}
-              >
-                {TOKEN_OPTIONS.map((t) => (
-                  <option key={t.symbol} value={t.symbol}>
-                    {t.symbol}
-                  </option>
-                ))}
-              </select>
-              <div className="custom-amount">
-              <input
-                type="number"
-                placeholder="Amount"
-                value={collateralAmount}
-                onChange={(e) => setCollateralAmount(e.target.value)}
-              />
-              </div>
-
-
-              <div className="button-group">
-                <button className="action-button" onClick={handleDeposit}>Deposit</button>
-                <button className="action-button" onClick={handleWithdraw}>Withdraw</button>
-              </div>
-            </div>
           </div>
 
           {account &&
@@ -374,6 +299,12 @@ function App() {
             account.toLowerCase() === contractOwner.toLowerCase() && (
               <div className="admin-section">
                 <h2>Admin Controls</h2>
+                <button 
+                  className={`admin-button ${isPaused ? 'paused' : ''}`} 
+                  onClick={handleTogglePause}
+                >
+                  {isPaused ? 'Resume Contract' : 'Pause Contract'}
+                </button>
                 <button className="admin-button" onClick={handleExtract}>
                   Extract 0.05 SONIC
                 </button>
@@ -396,30 +327,6 @@ function App() {
                       onChange={(e) => setScoreToAssign(e.target.value)}
                     />
                     <button onClick={handleAssignScore}>Assign Score</button>
-                  </div>
-                </div>
-                <div className="whitelist-controls">
-                  {" "}
-              
-                  <h3>Whitelist Tokens</h3>
-                  <button onClick={handleWhitelistCoral}>
-                    Whitelist CORAL
-                  </button>{" "}
-             
-                  <div className="input-group">
-                    {" "}
-                
-                    <input
-                      type="text"
-                      placeholder="Token address"
-                      value={customTokenToWhitelist}
-                      onChange={(e) =>
-                        setCustomTokenToWhitelist(e.target.value)
-                      }
-                    />
-                    <button onClick={handleWhitelistCustomToken}>
-                      Whitelist Token
-                    </button>
                   </div>
                 </div>
               </div>
