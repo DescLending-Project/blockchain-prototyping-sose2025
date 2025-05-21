@@ -582,6 +582,45 @@
       "artifacts": [
         "Lock"
       ]
+    },
+    "/home/vincent/Uni/blockchain-prototyping-sose2025/Lending (BC) + frontend/loan-management/backend/contracts/MockPriceFeed.sol": {
+      "lastModificationDate": 1747731464300,
+      "contentHash": "7d4d7dfddff3eedee0bbbf3e7d440cfe",
+      "sourceName": "contracts/MockPriceFeed.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockPriceFeed"
+      ]
     }
   }
 }

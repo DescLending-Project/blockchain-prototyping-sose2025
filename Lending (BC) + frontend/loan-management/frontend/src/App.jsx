@@ -3,12 +3,14 @@ import { ethers } from 'ethers'
 import LiquidityPoolV3ABI from './LiquidityPoolV3.json'
 import { UserPanel } from './components/liquidity-pool-v3/user/UserPanel'
 import { AdminPanel } from './components/liquidity-pool-v3/admin/AdminPanel'
+import { LiquidatorPanel } from './components/liquidity-pool-v3/liquidator/LiquidatorPanel'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'
-import { Wallet, AlertCircle } from 'lucide-react'
+import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
+import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
 
-const CONTRACT_ADDRESS = '0x524C5F657533e3E8Fc0Ee137eB605a1d4FFE4D7D'
+const CONTRACT_ADDRESS = '0xEb96D0f2a4DB02805dD032Ee5FA62da781f0CD75'
 
 const COLLATERAL_TOKENS = [
   {
@@ -23,250 +25,199 @@ const COLLATERAL_TOKENS = [
   }
 ]
 
-function App() {
-  const [provider, setProvider] = useState(null)
-  const [signer, setSigner] = useState(null)
-  const [contract, setContract] = useState(null)
+export default function App() {
   const [account, setAccount] = useState(null)
-  const [balance, setBalance] = useState('0')
-  const [debt, setDebt] = useState('0')
-  const [creditScore, setCreditScore] = useState(0)
-  const [collateralTokens, setCollateralTokens] = useState([])
-  const [healthStatus, setHealthStatus] = useState('')
-  const [error, setError] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [isLiquidator, setIsLiquidator] = useState(false)
+  const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
   const connectWallet = async () => {
     try {
       setIsLoading(true)
-      setError('')
+      setError("")
 
       if (!window.ethereum) {
-        throw new Error('Please install MetaMask to use this app')
+        throw new Error("Please install MetaMask to use this application")
       }
 
       const provider = new ethers.BrowserProvider(window.ethereum)
+      const accounts = await provider.send("eth_requestAccounts", [])
       const signer = await provider.getSigner()
-
-      // Verify contract address and ABI
-      if (!CONTRACT_ADDRESS || !LiquidityPoolV3ABI.abi) {
-        throw new Error('Contract configuration is missing')
-      }
-
-      console.log('Connecting to contract at:', CONTRACT_ADDRESS)
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
 
-      // Verify contract connection - don't throw on failure, just log
-      try {
-        await contract.getBalance()
-      } catch (err) {
-        console.warn('Contract verification warning:', err)
-        // Continue anyway, as some functions might still work
-      }
-
-      const account = await signer.getAddress()
-      console.log('Connected account:', account)
-
-      setProvider(provider)
-      setSigner(signer)
-      setContract(contract)
-      setAccount(account)
-
-      await fetchData(contract, account)
+      setAccount(accounts[0])
+      await checkRoles(contract, accounts[0])
     } catch (err) {
-      console.error('Error in connectWallet:', err)
-      // Only show error if it's not a contract call error
-      if (!err.message?.includes('call revert') && !err.message?.includes('missing revert data')) {
-        setError(err.message || 'Failed to connect wallet')
-      }
+      setError(err.message || "Failed to connect wallet")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const fetchData = async (contract, account) => {
+  const disconnectWallet = async () => {
     try {
-      console.log('Fetching data for account:', account)
-
-      // Fetch data one by one to better identify which call fails
-      try {
-        const balance = await contract.getBalance()
-        console.log('Balance:', balance.toString())
-        setBalance(ethers.formatEther(balance))
-      } catch (err) {
-        console.error('Error fetching balance:', err)
-        // Don't throw, just set to 0
-        setBalance('0')
-      }
-
-      try {
-        const debt = await contract.getMyDebt()
-        console.log('Debt:', debt.toString())
-        setDebt(ethers.formatEther(debt))
-      } catch (err) {
-        console.error('Error fetching debt:', err)
-        // Don't throw, just set to 0
-        setDebt('0')
-      }
-
-      try {
-        const creditScore = await contract.creditScore(account)
-        console.log('Credit score:', creditScore.toString())
-        setCreditScore(creditScore)
-      } catch (err) {
-        console.error('Error fetching credit score:', err)
-        // Don't throw, just set to 0
-        setCreditScore(0)
-      }
-
-      try {
-        const collateralTokens = COLLATERAL_TOKENS.map(token => token.address)
-        console.log('Using hardcoded collateral tokens:', collateralTokens)
-        setCollateralTokens(collateralTokens)
-      } catch (err) {
-        console.error('Error setting collateral tokens:', err)
-        // Don't throw, just use empty array
-        setCollateralTokens([])
-      }
-
-      try {
-        const healthCheck = await contract.checkCollateralization(account)
-        console.log('Health check:', healthCheck)
-        if (healthCheck && Array.isArray(healthCheck) && healthCheck.length >= 1) {
-          setHealthStatus(healthCheck[0] ? 'Healthy' : 'At Risk')
-        } else {
-          // If we can't determine health status, assume healthy
-          setHealthStatus('Healthy')
-        }
-      } catch (err) {
-        console.error('Error checking health status:', err)
-        // Don't throw, just set to healthy
-        setHealthStatus('Healthy')
-      }
+      setIsLoading(true)
+      setError("")
+      setAccount(null)
+      setIsAdmin(false)
+      setIsLiquidator(false)
     } catch (err) {
-      console.error('Error in fetchData:', err)
-      // Only show error if it's not a contract call error
-      if (!err.message?.includes('call revert') && !err.message?.includes('missing revert data')) {
-        setError(err.message || 'An error occurred while fetching data')
-      }
+      setError("Failed to disconnect wallet")
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  useEffect(() => {
-    if (contract && account) {
-      fetchData(contract, account)
+  const switchAccount = async () => {
+    try {
+      setIsLoading(true)
+      setError("")
+
+      if (!window.ethereum) {
+        throw new Error("Please install MetaMask to use this application")
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      // Request accounts again to prompt user to switch
+      const accounts = await provider.send("eth_requestAccounts", [])
+      const signer = await provider.getSigner()
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+
+      setAccount(accounts[0])
+      await checkRoles(contract, accounts[0])
+    } catch (err) {
+      setError("Failed to switch account")
+    } finally {
+      setIsLoading(false)
     }
-  }, [contract, account])
+  }
+
+  const checkRoles = async (contract, address) => {
+    try {
+      // Ensure address is a string
+      const addressStr = String(address).toLowerCase()
+
+      // Check if user is owner (admin)
+      const owner = await contract.owner()
+      const ownerStr = String(owner).toLowerCase()
+      setIsAdmin(ownerStr === addressStr)
+
+      // Check if user is liquidator by checking if they have liquidator role
+      // or if they are the owner (since owner can also liquidate)
+      try {
+        const isLiquidator = await contract.hasRole(await contract.LIQUIDATOR_ROLE(), address)
+        setIsLiquidator(isLiquidator || ownerStr === addressStr)
+      } catch (err) {
+        // If hasRole is not available, check if user is owner
+        setIsLiquidator(ownerStr === addressStr)
+      }
+    } catch (err) {
+      console.error("Failed to check roles:", err)
+      // Set both to false in case of error
+      setIsAdmin(false)
+      setIsLiquidator(false)
+    }
+  }
+
+  const formatAddress = (address) => {
+    if (!address || typeof address !== 'string') return 'Not Connected'
+    return `${address.slice(2, 6)}...${address.slice(-4)}`
+  }
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (window.ethereum) {
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum)
+          const accounts = await provider.listAccounts()
+          if (accounts.length > 0) {
+            const signer = await provider.getSigner()
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+            setAccount(accounts[0])
+            await checkRoles(contract, accounts[0])
+          }
+        } catch (err) {
+          console.error("Failed to check connection:", err)
+        }
+      }
+    }
+
+    checkConnection()
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", (accounts) => {
+        if (accounts.length === 0) {
+          disconnectWallet()
+        } else {
+          switchAccount()
+        }
+      })
+    }
+
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener("accountsChanged", () => { })
+      }
+    }
+  }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <nav className="border-b bg-white dark:bg-gray-800 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
-            Decentralized-Loan-Management-Plattform
-          </h1>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+      <header className="container mx-auto p-6 flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Liquidity Pool V3 Dashboard</h1>
+        <div>
           {!account ? (
             <Button
               onClick={connectWallet}
+              className="h-12 px-8 text-lg"
               disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-md transition-all duration-200"
             >
-              <Wallet className="w-4 h-4 mr-2" />
-              {isLoading ? 'Connecting...' : 'Connect Wallet'}
+              {isLoading ? "Connecting..." : "Connect Wallet"}
             </Button>
           ) : (
             <div className="flex items-center gap-4">
-              <span className="text-sm bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-full font-medium">
-                {account.slice(0, 6)}...{account.slice(-4)}
-              </span>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={disconnectWallet}
+                disabled={isLoading}
+                className="flex items-center gap-2"
+              >
+                <Wallet className="h-5 w-5" />
+                <span className="text-lg font-semibold text-foreground">
+                  {formatAddress(account)}
+                </span>
+              </Button>
             </div>
           )}
         </div>
-      </nav>
+      </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto p-6 pt-0">
         {error && (
-          <Alert variant="destructive" className="mb-6">
+          <Alert variant="destructive" className="mb-6 animate-in fade-in slide-in-from-top-2">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-
-        {!account ? (
-          <Card className="max-w-md mx-auto bg-white dark:bg-gray-800 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">Welcome to Liquidity Pool V3</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Connect your wallet to start managing your liquidity and collateral.
-              </p>
-              <Button
-                onClick={connectWallet}
-                disabled={isLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg shadow-md transition-all duration-200"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                {isLoading ? 'Connecting...' : 'Connect Wallet'}
-              </Button>
-            </CardContent>
-          </Card>
+        {account ? (
+          <Dashboard
+            contract={new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, new ethers.BrowserProvider(window.ethereum).getSigner())}
+            account={account}
+            isAdmin={isAdmin}
+            isLiquidator={isLiquidator}
+            onDisconnect={disconnectWallet}
+            onSwitchAccount={switchAccount}
+          />
         ) : (
-          <div className="grid gap-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Pool Balance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{balance} ETH</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Your Debt</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{debt} ETH</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Credit Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{creditScore}</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Health Status</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{healthStatus}</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              <UserPanel
-                contract={contract}
-                account={account}
-                collateralTokens={COLLATERAL_TOKENS}
-                onError={setError}
-              />
-              <AdminPanel
-                contract={contract}
-                account={account}
-                collateralTokens={COLLATERAL_TOKENS}
-                onError={setError}
-              />
-            </div>
+          <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6">
+            <p className="text-xl text-muted-foreground text-center max-w-2xl">
+              Connect your wallet to start managing your liquidity, borrowing, and lending.
+            </p>
           </div>
         )}
       </main>
     </div>
   )
 }
-
-export default App

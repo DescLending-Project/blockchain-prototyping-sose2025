@@ -24,6 +24,93 @@
         },
         "solcVersion": "0.8.28"
       },
+      "contracts/MockPriceFeed.sol:MockPriceFeed": {
+        "src": "contracts/MockPriceFeed.sol:6",
+        "version": {
+          "withMetadata": "1ddbe8c4d623fa380005e4971c5172f62d5f72edfcccb2be471370b40fc88250",
+          "withoutMetadata": "50851b52b7e5f16722197fc00bc33782a27510803e207e5ba0e8d5e90aa2a7d7",
+          "linkedWithoutMetadata": "50851b52b7e5f16722197fc00bc33782a27510803e207e5ba0e8d5e90aa2a7d7"
+        },
+        "inherit": [
+          "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol:AggregatorV3Interface"
+        ],
+        "libraries": [],
+        "methods": [
+          "(int256,uint8)",
+          "decimals()",
+          "description()",
+          "version()",
+          "latestRoundData()",
+          "getRoundData(uint80)",
+          "setPrice(int256)"
+        ],
+        "linkReferences": [],
+        "errors": [
+          {
+            "kind": "constructor",
+            "contract": "MockPriceFeed",
+            "src": "contracts/MockPriceFeed.sol:10"
+          }
+        ],
+        "layout": {
+          "storage": [
+            {
+              "label": "_price",
+              "offset": 0,
+              "slot": "0",
+              "type": "t_int256",
+              "contract": "MockPriceFeed",
+              "src": "contracts/MockPriceFeed.sol:7"
+            },
+            {
+              "label": "_decimals",
+              "offset": 0,
+              "slot": "1",
+              "type": "t_uint8",
+              "contract": "MockPriceFeed",
+              "src": "contracts/MockPriceFeed.sol:8"
+            }
+          ],
+          "types": {
+            "t_int256": {
+              "label": "int256",
+              "numberOfBytes": "32"
+            },
+            "t_uint8": {
+              "label": "uint8",
+              "numberOfBytes": "1"
+            }
+          },
+          "layoutVersion": "1.2",
+          "flat": true,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      }
+    },
+    {
+      "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol:AggregatorV3Interface": {
+        "src": "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol:5",
+        "inherit": [],
+        "libraries": [],
+        "methods": [
+          "decimals()",
+          "description()",
+          "version()",
+          "getRoundData(uint80)",
+          "latestRoundData()"
+        ],
+        "linkReferences": [],
+        "errors": [],
+        "layout": {
+          "storage": [],
+          "types": {},
+          "layoutVersion": "1.2",
+          "flat": false,
+          "namespaces": {}
+        },
+        "solcVersion": "0.8.28"
+      },
       "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:OwnableUpgradeable": {
         "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:21",
         "inherit": [
