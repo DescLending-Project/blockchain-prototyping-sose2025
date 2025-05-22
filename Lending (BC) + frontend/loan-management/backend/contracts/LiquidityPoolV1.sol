@@ -7,6 +7,7 @@ contract LiquidityPoolV1 is Initializable {
     address public owner;
     uint public totalFunds;
     bool public locked;
+    bool public paused;
 
     mapping(address => uint) public userDebt;
     mapping(address => uint8) public creditScore;
@@ -14,6 +15,7 @@ contract LiquidityPoolV1 is Initializable {
 
     event Borrowed(address indexed borrower, uint amount, uint timestamp);
     event Repaid(address indexed payer, uint amount, uint timestamp);
+    event EmergencyPaused(bool isPaused);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
@@ -30,6 +32,11 @@ contract LiquidityPoolV1 is Initializable {
     modifier validAddress(address _addr) {
         require(_addr != address(0), "Invalid address: zero address");
         require(_addr != address(this), "Invalid address: self");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
         _;
     }
 
@@ -51,7 +58,7 @@ contract LiquidityPoolV1 is Initializable {
         return address(this).balance;
     }
 
-    function borrow(uint amount) external noReentrancy {
+    function borrow(uint amount) external whenNotPaused noReentrancy {
         require(amount > 0, "Amount must be greater than 0");
         require(creditScore[msg.sender] >= 60, "Credit score too low");
         require(amount <= totalFunds / 2, "Insufficient funds in the pool");
@@ -64,7 +71,7 @@ contract LiquidityPoolV1 is Initializable {
         emit Borrowed(msg.sender, amount, block.timestamp);
     }
 
-    function repay() external payable {
+    function repay() external payable whenNotPaused {
         require(userDebt[msg.sender] > 0, "No outstanding debt");
         require(msg.value > 0, "Must send ETH to repay");
 
@@ -94,5 +101,14 @@ contract LiquidityPoolV1 is Initializable {
         address newOwner
     ) external onlyOwner validAddress(newOwner) {
         owner = newOwner;
+    }
+
+    function togglePause() external onlyOwner {
+        paused = !paused;
+        emit EmergencyPaused(paused);
+    }
+
+    function isPaused() external view returns (bool) {
+        return paused;
     }
 }
