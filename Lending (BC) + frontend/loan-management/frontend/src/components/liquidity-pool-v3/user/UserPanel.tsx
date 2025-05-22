@@ -19,12 +19,12 @@ interface UserPanelProps {
 // Token configurations
 const COLLATERAL_TOKENS = [
     {
-        address: "0x524C5F657533e3E8Fc0Ee137eB605a1d4FFE4D7D",
+        address: "0xAF93888cbD250300470A1618206e036E11470149",
         symbol: "CORAL",
         name: "Coral Token"
     },
     {
-        address: "0x1234567890123456789012345678901234567890",
+        address: "0xD4A89Be3D6e0be7f507819a57d7AA012C9Df3c63",
         symbol: "GLINT",
         name: "Glint Token"
     }
@@ -51,17 +51,23 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         if (!account) return // Do not fetch if no account connected
         try {
             // Use a contract instance connected to a Provider for read operations
+            // NOTE: If read from another contract instance, the debt wont display, maybe i am missing something?
             const provider = new ethers.BrowserProvider(window.ethereum)
             const readOnlyContract = new ethers.Contract(contract.target, contract.interface, provider)
 
-            const debt = await readOnlyContract.getMyDebt()
+            // NOTE: changed this from readOnlyContract to contract
+            const debt = await contract.getMyDebt()
             setUserDebt(ethers.formatEther(debt))
 
             // TODO: Implement total collateral value fetching using readOnlyContract
             // const totalCollateral = await readOnlyContract.getTotalCollateralValue(account);
             setTotalCollateralValue("0") // Placeholder
 
-            // Fetch and display actual total pool balance for lending overview
+            // Fetch total collateral value
+            const totalCollateral = await readOnlyContract.getTotalCollateralValue(account);
+            setTotalCollateralValue(ethers.formatUnits(totalCollateral, 18)); // Price feed returns USD value in 8 decimals
+
+            // Fetch total pool balance
             const poolBalance = await readOnlyContract.getBalance();
             setTotalLent(ethers.formatEther(poolBalance));
 
