@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from './components/ui/alert'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
 import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
 
-const CONTRACT_ADDRESS = '0xEb96D0f2a4DB02805dD032Ee5FA62da781f0CD75'
+const CONTRACT_ADDRESS = '0xBEB1774E6DDB1dE6451e34b576279A21f7d13Fff'
 
 const COLLATERAL_TOKENS = [
   {
@@ -19,7 +19,7 @@ const COLLATERAL_TOKENS = [
     name: 'Coral Token'
   },
   {
-    address: '0x1234567890123456789012345678901234567890',
+    address: '0xA41dA18fE48E80452B8B62931BA798E5895bf43c',
     symbol: 'GLINT',
     name: 'Glint Token'
   }
@@ -31,6 +31,7 @@ export default function App() {
   const [isLiquidator, setIsLiquidator] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
 
   const connectWallet = async () => {
     try {
@@ -48,6 +49,7 @@ export default function App() {
 
       setAccount(accounts[0])
       await checkRoles(contract, accounts[0])
+      await checkPauseStatus(contract)
     } catch (err) {
       setError(err.message || "Failed to connect wallet")
     } finally {
@@ -62,6 +64,7 @@ export default function App() {
       setAccount(null)
       setIsAdmin(false)
       setIsLiquidator(false)
+      setIsPaused(false)
     } catch (err) {
       setError("Failed to disconnect wallet")
     } finally {
@@ -79,13 +82,13 @@ export default function App() {
       }
 
       const provider = new ethers.BrowserProvider(window.ethereum)
-      // Request accounts again to prompt user to switch
       const accounts = await provider.send("eth_requestAccounts", [])
       const signer = await provider.getSigner()
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
 
       setAccount(accounts[0])
       await checkRoles(contract, accounts[0])
+      await checkPauseStatus(contract)
     } catch (err) {
       setError("Failed to switch account")
     } finally {
@@ -95,28 +98,58 @@ export default function App() {
 
   const checkRoles = async (contract, address) => {
     try {
-      // Ensure address is a string
       const addressStr = String(address).toLowerCase()
-
-      // Check if user is owner (admin)
       const owner = await contract.owner()
       const ownerStr = String(owner).toLowerCase()
       setIsAdmin(ownerStr === addressStr)
 
-      // Check if user is liquidator by checking if they have liquidator role
-      // or if they are the owner (since owner can also liquidate)
       try {
         const isLiquidator = await contract.hasRole(await contract.LIQUIDATOR_ROLE(), address)
         setIsLiquidator(isLiquidator || ownerStr === addressStr)
       } catch (err) {
-        // If hasRole is not available, check if user is owner
         setIsLiquidator(ownerStr === addressStr)
       }
     } catch (err) {
       console.error("Failed to check roles:", err)
-      // Set both to false in case of error
       setIsAdmin(false)
       setIsLiquidator(false)
+    }
+  }
+
+  const checkPauseStatus = async (contract) => {
+    try {
+      // Check if contract exists
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const code = await provider.getCode(contract.target)
+      if (code === '0x') {
+        console.error("Contract does not exist at the specified address")
+        setIsPaused(false)
+        return
+      }
+
+      const paused = await contract.paused()
+      setIsPaused(paused)
+    } catch (err) {
+      console.error("Failed to check pause status:", err)
+      setIsPaused(false)
+    }
+  }
+
+  const togglePause = async () => {
+    try {
+      setIsLoading(true)
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const signer = await provider.getSigner()
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+
+      const tx = await contract.togglePause()
+      await tx.wait()
+
+      await checkPauseStatus(contract)
+    } catch (err) {
+      setError(err.message || "Failed to toggle pause status")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -136,6 +169,7 @@ export default function App() {
             const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
             setAccount(accounts[0])
             await checkRoles(contract, accounts[0])
+            await checkPauseStatus(contract)
           }
         } catch (err) {
           console.error("Failed to check connection:", err)
@@ -188,6 +222,7 @@ export default function App() {
                 <span className="text-lg font-semibold text-foreground">
                   {formatAddress(account)}
                 </span>
+                <LogOut className="h-5 w-5" />
               </Button>
             </div>
           )}
@@ -209,6 +244,11 @@ export default function App() {
             isLiquidator={isLiquidator}
             onDisconnect={disconnectWallet}
             onSwitchAccount={switchAccount}
+            adminControls={{
+              isPaused,
+              togglePause,
+              isLoading
+            }}
           />
         ) : (
           <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6">

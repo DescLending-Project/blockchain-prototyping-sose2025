@@ -3,29 +3,78 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState, useEffect } from "react"
-import { ethers } from "ethers"
+import { ethers, Contract, BaseContract, ContractTransactionResponse } from "ethers"
 import { Alert, AlertDescription } from "../../../components/ui/alert"
 import { AlertCircle, Settings, Users, DollarSign, Percent, Shield, Key, UserPlus, UserCog, Clock, Timer, AlertTriangle, Coins, ArrowUpDown } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Contract } from "ethers"
+
+interface LiquidityPoolContract extends BaseContract {
+    withdraw: (amount: bigint) => Promise<ContractTransactionResponse>;
+    paused: () => Promise<boolean>;
+    togglePause: () => Promise<ContractTransactionResponse>;
+    setPaused: (paused: boolean) => Promise<ContractTransactionResponse>;
+    setCreditScore: (user: string, score: number) => Promise<ContractTransactionResponse>;
+    setLiquidationThreshold: (token: string, threshold: bigint) => Promise<ContractTransactionResponse>;
+    setPriceFeed: (token: string, feed: string) => Promise<ContractTransactionResponse>;
+    setLiquidator: (liquidator: string) => Promise<ContractTransactionResponse>;
+    setAdmin: (admin: string) => Promise<ContractTransactionResponse>;
+    setCollateralToken: (token: string, allowed: boolean) => Promise<ContractTransactionResponse>;
+    setInterestRate: (rate: bigint) => Promise<ContractTransactionResponse>;
+    setMaxBorrowAmount: (amount: bigint) => Promise<ContractTransactionResponse>;
+    setMaxCollateralAmount: (amount: bigint) => Promise<ContractTransactionResponse>;
+    setMaxLiquidationBonus: (bonus: bigint) => Promise<ContractTransactionResponse>;
+    setMaxLiquidationPenalty: (penalty: bigint) => Promise<ContractTransactionResponse>;
+    setMaxLiquidationThreshold: (threshold: bigint) => Promise<ContractTransactionResponse>;
+    setMaxLiquidationTime: (time: number) => Promise<ContractTransactionResponse>;
+    setMaxLiquidationAmount: (amount: bigint) => Promise<ContractTransactionResponse>;
+    setMaxLiquidationRatio: (ratio: bigint) => Promise<ContractTransactionResponse>;
+    setMaxLiquidationDelay: (delay: number) => Promise<ContractTransactionResponse>;
+    setMaxLiquidationGracePeriod: (period: number) => Promise<ContractTransactionResponse>;
+    // Read-only functions
+    getCreditScore: (user: string) => Promise<number>;
+    getLiquidationThreshold: (token: string) => Promise<bigint>;
+    getPriceFeed: (token: string) => Promise<string>;
+    getLiquidator: () => Promise<string>;
+    getAdmin: () => Promise<string>;
+    isCollateralToken: (token: string) => Promise<boolean>;
+    getInterestRate: () => Promise<bigint>;
+    getMaxBorrowAmount: () => Promise<bigint>;
+    getMaxCollateralAmount: () => Promise<bigint>;
+    getMaxLiquidationBonus: () => Promise<bigint>;
+    getMaxLiquidationPenalty: () => Promise<bigint>;
+    getMaxLiquidationThreshold: () => Promise<bigint>;
+    getMaxLiquidationTime: () => Promise<number>;
+    getMaxLiquidationAmount: () => Promise<bigint>;
+    getMaxLiquidationRatio: () => Promise<bigint>;
+    getMaxLiquidationDelay: () => Promise<number>;
+    getMaxLiquidationGracePeriod: () => Promise<number>;
+}
 
 interface AdminPanelProps {
-    contract: Contract;
+    contract: LiquidityPoolContract;
     account: string | null;
 }
 
 export function AdminPanel({ contract, account }: AdminPanelProps) {
     const [error, setError] = useState("")
     const [isLoading, setIsLoading] = useState(false)
+    const [isPaused, setIsPaused] = useState(false)
     const [selectedUser, setSelectedUser] = useState("")
     const [creditScore, setCreditScore] = useState("")
+    const [userCreditScore, setUserCreditScore] = useState<number | null>(null)
     const [liquidationThreshold, setLiquidationThreshold] = useState("")
+    const [tokenLiquidationThreshold, setTokenLiquidationThreshold] = useState<bigint | null>(null)
     const [selectedToken, setSelectedToken] = useState("")
     const [priceFeedAddress, setPriceFeedAddress] = useState("")
+    const [tokenPriceFeed, setTokenPriceFeed] = useState<string | null>(null)
     const [newLiquidator, setNewLiquidator] = useState("")
+    const [currentLiquidator, setCurrentLiquidator] = useState<string | null>(null)
     const [newAdmin, setNewAdmin] = useState("")
+    const [currentAdmin, setCurrentAdmin] = useState<string | null>(null)
     const [newCollateralToken, setNewCollateralToken] = useState("")
+    const [isTokenCollateral, setIsTokenCollateral] = useState<boolean | null>(null)
     const [interestRate, setInterestRate] = useState("")
+    const [currentInterestRate, setCurrentInterestRate] = useState<bigint | null>(null)
     const [maxBorrowAmount, setMaxBorrowAmount] = useState("")
     const [maxCollateralAmount, setMaxCollateralAmount] = useState("")
     const [maxLiquidationBonus, setMaxLiquidationBonus] = useState("")
@@ -38,6 +87,52 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
     const [maxLiquidationGracePeriod, setMaxLiquidationGracePeriod] = useState("")
     const [extractAmount, setExtractAmount] = useState("")
 
+    useEffect(() => {
+        const checkPauseStatus = async () => {
+            try {
+                const provider = new ethers.BrowserProvider(window.ethereum)
+                const contractWithProvider = new ethers.Contract(
+                    contract.target,
+                    contract.interface,
+                    provider
+                ) as LiquidityPoolContract
+
+                const paused = await contractWithProvider.paused()
+                setIsPaused(paused)
+            } catch (err) {
+                console.error("Failed to check pause status:", err)
+            }
+        }
+        checkPauseStatus()
+    }, [contract])
+
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            try {
+                const provider = new ethers.BrowserProvider(window.ethereum)
+                const contractWithProvider = new ethers.Contract(
+                    contract.target,
+                    contract.interface,
+                    provider
+                ) as LiquidityPoolContract
+
+                const [liquidator, admin, interestRate] = await Promise.all([
+                    contractWithProvider.getLiquidator(),
+                    contractWithProvider.getAdmin(),
+                    contractWithProvider.getInterestRate()
+                ])
+
+                setCurrentLiquidator(liquidator)
+                setCurrentAdmin(admin)
+                setCurrentInterestRate(interestRate)
+            } catch (err) {
+                console.error("Failed to fetch initial data:", err)
+            }
+        }
+
+        fetchInitialData()
+    }, [contract])
+
     const handleSetCreditScore = async () => {
         if (!selectedUser) {
             setError("Please select a user")
@@ -49,7 +144,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setCreditScore(selectedUser, Number(creditScore))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setCreditScore(selectedUser, Number(creditScore))
             await tx.wait()
             setCreditScore("")
             setSelectedUser("")
@@ -71,7 +170,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setLiquidationThreshold(selectedToken, ethers.parseUnits(liquidationThreshold, 18))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setLiquidationThreshold(selectedToken, ethers.parseUnits(liquidationThreshold, 18))
             await tx.wait()
             setLiquidationThreshold("")
             setSelectedToken("")
@@ -93,7 +196,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setPriceFeed(selectedToken, priceFeedAddress)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setPriceFeed(selectedToken, priceFeedAddress)
             await tx.wait()
             setPriceFeedAddress("")
             setSelectedToken("")
@@ -111,7 +218,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setLiquidator(newLiquidator)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setLiquidator(newLiquidator)
             await tx.wait()
             setNewLiquidator("")
         } catch (err) {
@@ -128,7 +239,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setAdmin(newAdmin)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setAdmin(newAdmin)
             await tx.wait()
             setNewAdmin("")
         } catch (err) {
@@ -145,7 +260,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setCollateralToken(newCollateralToken, true)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setCollateralToken(newCollateralToken, true)
             await tx.wait()
             setNewCollateralToken("")
         } catch (err) {
@@ -162,7 +281,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setInterestRate(ethers.parseUnits(interestRate, 18))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setInterestRate(ethers.parseUnits(interestRate, 18))
             await tx.wait()
             setInterestRate("")
         } catch (err) {
@@ -179,7 +302,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxBorrowAmount(ethers.parseUnits(maxBorrowAmount, 18))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxBorrowAmount(ethers.parseUnits(maxBorrowAmount, 18))
             await tx.wait()
             setMaxBorrowAmount("")
         } catch (err) {
@@ -196,7 +323,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxCollateralAmount(ethers.parseUnits(maxCollateralAmount, 18))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxCollateralAmount(ethers.parseUnits(maxCollateralAmount, 18))
             await tx.wait()
             setMaxCollateralAmount("")
         } catch (err) {
@@ -213,7 +344,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxLiquidationBonus(ethers.parseUnits(maxLiquidationBonus, 18))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxLiquidationBonus(ethers.parseUnits(maxLiquidationBonus, 18))
             await tx.wait()
             setMaxLiquidationBonus("")
         } catch (err) {
@@ -230,7 +365,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxLiquidationPenalty(ethers.parseUnits(maxLiquidationPenalty, 18))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxLiquidationPenalty(ethers.parseUnits(maxLiquidationPenalty, 18))
             await tx.wait()
             setMaxLiquidationPenalty("")
         } catch (err) {
@@ -247,7 +386,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxLiquidationThreshold(ethers.parseUnits(maxLiquidationThreshold, 18))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxLiquidationThreshold(ethers.parseUnits(maxLiquidationThreshold, 18))
             await tx.wait()
             setMaxLiquidationThreshold("")
         } catch (err) {
@@ -264,7 +407,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxLiquidationTime(Number(maxLiquidationTime))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxLiquidationTime(Number(maxLiquidationTime))
             await tx.wait()
             setMaxLiquidationTime("")
         } catch (err) {
@@ -281,7 +428,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxLiquidationAmount(ethers.parseUnits(maxLiquidationAmount, 18))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxLiquidationAmount(ethers.parseUnits(maxLiquidationAmount, 18))
             await tx.wait()
             setMaxLiquidationAmount("")
         } catch (err) {
@@ -298,7 +449,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxLiquidationRatio(ethers.parseUnits(maxLiquidationRatio, 18))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxLiquidationRatio(ethers.parseUnits(maxLiquidationRatio, 18))
             await tx.wait()
             setMaxLiquidationRatio("")
         } catch (err) {
@@ -315,7 +470,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxLiquidationDelay(Number(maxLiquidationDelay))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxLiquidationDelay(Number(maxLiquidationDelay))
             await tx.wait()
             setMaxLiquidationDelay("")
         } catch (err) {
@@ -332,7 +491,11 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            const tx = await contract.setMaxLiquidationGracePeriod(Number(maxLiquidationGracePeriod))
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.setMaxLiquidationGracePeriod(Number(maxLiquidationGracePeriod))
             await tx.wait()
             setMaxLiquidationGracePeriod("")
         } catch (err) {
@@ -349,19 +512,136 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
         try {
             setIsLoading(true)
-            // Get a signer from the provider
             const provider = new ethers.BrowserProvider(window.ethereum)
             const signer = await provider.getSigner()
-            // Create a new contract instance with the signer
             const contractWithSigner = contract.connect(signer)
 
-            const tx = await contractWithSigner.extract(ethers.parseEther(extractAmount))
+            const tx = await contractWithSigner.withdraw(ethers.parseEther(extractAmount))
             await tx.wait()
             setExtractAmount("")
             setError("Funds extracted successfully!")
         } catch (err) {
             console.error("Failed to extract funds:", err)
-            setError("Failed to extract funds")
+            setError(err instanceof Error ? err.message : "Failed to extract funds")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleTogglePause = async () => {
+        try {
+            setIsLoading(true)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            const contractWithSigner = contract.connect(signer)
+
+            const tx = await contractWithSigner.togglePause()
+            await tx.wait()
+            setIsPaused(!isPaused)
+            setError("")
+        } catch (err) {
+            console.error("Failed to toggle pause:", err)
+            setError("Failed to toggle pause status")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleGetCreditScore = async () => {
+        if (!selectedUser) {
+            setError("Please enter a user address")
+            return
+        }
+        try {
+            setIsLoading(true)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const contractWithProvider = new ethers.Contract(
+                contract.target,
+                contract.interface,
+                provider
+            ) as LiquidityPoolContract
+
+            const score = await contractWithProvider.getCreditScore(selectedUser)
+            setUserCreditScore(Number(score))
+            setError("")
+        } catch (err) {
+            console.error("Failed to get credit score:", err)
+            setError("Failed to get credit score")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleGetLiquidationThreshold = async () => {
+        if (!selectedToken) {
+            setError("Please enter a token address")
+            return
+        }
+        try {
+            setIsLoading(true)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const contractWithProvider = new ethers.Contract(
+                contract.target,
+                contract.interface,
+                provider
+            ) as LiquidityPoolContract
+
+            const threshold = await contractWithProvider.getLiquidationThreshold(selectedToken)
+            setTokenLiquidationThreshold(threshold)
+            setError("")
+        } catch (err) {
+            console.error("Failed to get liquidation threshold:", err)
+            setError("Failed to get liquidation threshold")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleGetPriceFeed = async () => {
+        if (!selectedToken) {
+            setError("Please enter a token address")
+            return
+        }
+        try {
+            setIsLoading(true)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const contractWithProvider = new ethers.Contract(
+                contract.target,
+                contract.interface,
+                provider
+            ) as LiquidityPoolContract
+
+            const feed = await contractWithProvider.getPriceFeed(selectedToken)
+            setTokenPriceFeed(feed)
+            setError("")
+        } catch (err) {
+            console.error("Failed to get price feed:", err)
+            setError("Failed to get price feed")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleCheckCollateralToken = async () => {
+        if (!newCollateralToken) {
+            setError("Please enter a token address")
+            return
+        }
+        try {
+            setIsLoading(true)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const contractWithProvider = new ethers.Contract(
+                contract.target,
+                contract.interface,
+                provider
+            ) as LiquidityPoolContract
+
+            const isCollateral = await contractWithProvider.isCollateralToken(newCollateralToken)
+            setIsTokenCollateral(isCollateral)
+            setError("")
+        } catch (err) {
+            console.error("Failed to check collateral token:", err)
+            setError("Failed to check collateral token")
         } finally {
             setIsLoading(false)
         }
@@ -375,6 +655,25 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
             )}
+
+            <Card className="bg-background/50 border-none shadow-none">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5" />
+                        Emergency Controls
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Button
+                        onClick={handleTogglePause}
+                        variant={isPaused ? "default" : "destructive"}
+                        className="w-full h-12"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Processing..." : isPaused ? "Resume Contract" : "Pause Contract"}
+                    </Button>
+                </CardContent>
+            </Card>
 
             <Tabs defaultValue="credit" className="w-full">
                 <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-1">
@@ -394,7 +693,7 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Users className="h-5 w-5" />
-                                Set User Credit Score
+                                User Credit Score
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -411,8 +710,31 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                                 />
                             </div>
 
+                            <div className="flex gap-4">
+                                <Button
+                                    onClick={handleGetCreditScore}
+                                    className="flex-1 h-12"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? "Loading..." : "Get Credit Score"}
+                                </Button>
+                                <Button
+                                    onClick={handleSetCreditScore}
+                                    className="flex-1 h-12"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? "Processing..." : "Set Credit Score"}
+                                </Button>
+                            </div>
+
+                            {userCreditScore !== null && (
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <p className="text-sm font-medium">Current Credit Score: {userCreditScore}</p>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Credit Score (0-100)</label>
+                                <label className="text-sm font-medium">New Credit Score (0-100)</label>
                                 <Input
                                     type="number"
                                     placeholder="Enter credit score"
@@ -427,14 +749,6 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                                     className="w-full"
                                 />
                             </div>
-
-                            <Button
-                                onClick={handleSetCreditScore}
-                                className="w-full h-12"
-                                disabled={isLoading}
-                            >
-                                {isLoading ? "Processing..." : "Set Credit Score"}
-                            </Button>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -444,7 +758,7 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Shield className="h-5 w-5" />
-                                Set Liquidation Threshold
+                                Liquidation Threshold
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -461,8 +775,31 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                                 />
                             </div>
 
+                            <div className="flex gap-4">
+                                <Button
+                                    onClick={handleGetLiquidationThreshold}
+                                    className="flex-1 h-12"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? "Loading..." : "Get Threshold"}
+                                </Button>
+                                <Button
+                                    onClick={handleSetLiquidationThreshold}
+                                    className="flex-1 h-12"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? "Processing..." : "Set Threshold"}
+                                </Button>
+                            </div>
+
+                            {tokenLiquidationThreshold !== null && (
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <p className="text-sm font-medium">Current Threshold: {ethers.formatUnits(tokenLiquidationThreshold, 18)}</p>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Threshold Value</label>
+                                <label className="text-sm font-medium">New Threshold Value</label>
                                 <Input
                                     type="number"
                                     placeholder="Enter liquidation threshold"
@@ -476,14 +813,6 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                                     className="w-full"
                                 />
                             </div>
-
-                            <Button
-                                onClick={handleSetLiquidationThreshold}
-                                className="w-full h-12"
-                                disabled={isLoading}
-                            >
-                                {isLoading ? "Processing..." : "Set Threshold"}
-                            </Button>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -493,7 +822,7 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <DollarSign className="h-5 w-5" />
-                                Set Price Feed
+                                Price Feed
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -510,8 +839,31 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                                 />
                             </div>
 
+                            <div className="flex gap-4">
+                                <Button
+                                    onClick={handleGetPriceFeed}
+                                    className="flex-1 h-12"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? "Loading..." : "Get Price Feed"}
+                                </Button>
+                                <Button
+                                    onClick={handleSetPriceFeed}
+                                    className="flex-1 h-12"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? "Processing..." : "Set Price Feed"}
+                                </Button>
+                            </div>
+
+                            {tokenPriceFeed !== null && (
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <p className="text-sm font-medium">Current Price Feed: {tokenPriceFeed}</p>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Price Feed Address</label>
+                                <label className="text-sm font-medium">New Price Feed Address</label>
                                 <Input
                                     placeholder="Enter price feed address"
                                     value={priceFeedAddress}
@@ -522,14 +874,6 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                                     className="w-full"
                                 />
                             </div>
-
-                            <Button
-                                onClick={handleSetPriceFeed}
-                                className="w-full h-12"
-                                disabled={isLoading}
-                            >
-                                {isLoading ? "Processing..." : "Set Price Feed"}
-                            </Button>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -539,7 +883,7 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Key className="h-5 w-5" />
-                                Set Collateral Token
+                                Collateral Token
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -556,13 +900,30 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                                 />
                             </div>
 
-                            <Button
-                                onClick={handleSetCollateralToken}
-                                className="w-full h-12"
-                                disabled={isLoading}
-                            >
-                                {isLoading ? "Processing..." : "Set Collateral Token"}
-                            </Button>
+                            <div className="flex gap-4">
+                                <Button
+                                    onClick={handleCheckCollateralToken}
+                                    className="flex-1 h-12"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? "Loading..." : "Check Token"}
+                                </Button>
+                                <Button
+                                    onClick={handleSetCollateralToken}
+                                    className="flex-1 h-12"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? "Processing..." : "Set as Collateral"}
+                                </Button>
+                            </div>
+
+                            {isTokenCollateral !== null && (
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <p className="text-sm font-medium">
+                                        Token Status: {isTokenCollateral ? "Is Collateral" : "Not Collateral"}
+                                    </p>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -572,12 +933,18 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <UserPlus className="h-5 w-5" />
-                                Set Liquidator
+                                Liquidator
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            {currentLiquidator && (
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <p className="text-sm font-medium">Current Liquidator: {currentLiquidator}</p>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Liquidator Address</label>
+                                <label className="text-sm font-medium">New Liquidator Address</label>
                                 <Input
                                     placeholder="Enter liquidator address"
                                     value={newLiquidator}
@@ -605,12 +972,18 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <UserCog className="h-5 w-5" />
-                                Set Admin
+                                Admin
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            {currentAdmin && (
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <p className="text-sm font-medium">Current Admin: {currentAdmin}</p>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Admin Address</label>
+                                <label className="text-sm font-medium">New Admin Address</label>
                                 <Input
                                     placeholder="Enter admin address"
                                     value={newAdmin}
@@ -638,12 +1011,18 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Percent className="h-5 w-5" />
-                                Set Interest Rate
+                                Interest Rate
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            {currentInterestRate !== null && (
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <p className="text-sm font-medium">Current Interest Rate: {ethers.formatUnits(currentInterestRate, 18)}%</p>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Interest Rate (%)</label>
+                                <label className="text-sm font-medium">New Interest Rate (%)</label>
                                 <Input
                                     type="number"
                                     placeholder="Enter interest rate"

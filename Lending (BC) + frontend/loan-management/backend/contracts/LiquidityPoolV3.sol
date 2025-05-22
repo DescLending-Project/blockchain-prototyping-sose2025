@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
     mapping(address => mapping(address => uint256)) public collateralBalance;
@@ -24,6 +24,8 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
     uint256 public constant LIQUIDATION_PENALTY = 5;
 
     uint256 public totalFunds;
+    bool public locked;
+    bool public paused;
 
     event CollateralDeposited(
         address indexed user,
@@ -39,6 +41,7 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
     event Borrowed(address indexed user, uint256 amount);
     event Repaid(address indexed user, uint256 amount);
     event Extracted(address indexed owner, uint256 amount);
+    event EmergencyPaused(bool isPaused);
     event CreditScoreAssigned(address indexed user, uint256 score);
     event LiquidationStarted(address indexed user);
     event LiquidationExecuted(
@@ -47,6 +50,24 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
         uint256 amount
     );
     event GracePeriodExtended(address indexed user, uint256 newDeadline);
+
+    modifier noReentrancy() {
+        require(!locked, "No reentrancy");
+        locked = true;
+        _;
+        locked = false;
+    }
+
+    modifier validAddress(address _addr) {
+        require(_addr != address(0), "Invalid address: zero address");
+        require(_addr != address(this), "Invalid address: self");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
+        _;
+    }
 
     function initialize(address initialOwner) public initializer {
         __Ownable_init(initialOwner);
@@ -119,8 +140,10 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
         return userDebt[msg.sender];
     }
 
-    function borrow(uint256 amount) external {
-        require(amount <= address(this).balance, "Insufficient pool liquidity");
+    function borrow(uint256 amount) external whenNotPaused noReentrancy {
+        require(amount > 0, "Amount must be greater than 0");
+        require(creditScore[msg.sender] >= 60, "Credit score too low");
+        require(amount <= totalFunds / 2, "Insufficient funds in the pool");
         require(userDebt[msg.sender] == 0, "Repay your existing debt first");
 
         uint256 collateralValue = getTotalCollateralValue(msg.sender);
@@ -131,30 +154,35 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
             "Insufficient collateral for this loan"
         );
 
-        userDebt[msg.sender] = amount;
+        userDebt[msg.sender] += amount;
+        totalFunds -= amount;
         borrowTimestamp[msg.sender] = block.timestamp;
 
         payable(msg.sender).transfer(amount);
         emit Borrowed(msg.sender, amount);
     }
 
-    function repay() external payable {
-        require(userDebt[msg.sender] > 0, "No active debt");
+    function repay() external payable whenNotPaused {
+        require(userDebt[msg.sender] > 0, "No outstanding debt");
         require(msg.value >= userDebt[msg.sender], "Repayment too low");
+        require(msg.value > 0, "Must send funds to repay");
 
-        totalFunds += msg.value;
-        emit Repaid(msg.sender, msg.value);
+        uint repayAmount = msg.value > userDebt[msg.sender]
+            ? userDebt[msg.sender]
+            : msg.value;
 
-        userDebt[msg.sender] = 0;
+        userDebt[msg.sender] -= repayAmount;
+        totalFunds += repayAmount;
         borrowTimestamp[msg.sender] = 0;
 
         if (isLiquidatable[msg.sender]) {
             isLiquidatable[msg.sender] = false;
             liquidationStartTime[msg.sender] = 0;
         }
+        emit Repaid(msg.sender, repayAmount);
     }
 
-    function extract(uint256 amount) external onlyOwner {
+    function extract(uint256 amount) external onlyOwner noReentrancy {
         require(
             amount <= address(this).balance,
             "Insufficient contract balance"
@@ -166,7 +194,10 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
         emit Extracted(owner(), amount);
     }
 
-    function setCreditScore(address user, uint256 score) external onlyOwner {
+    function setCreditScore(
+        address user,
+        uint256 score
+    ) external onlyOwner validAddress(user) {
         require(score <= 100, "Score out of range");
         creditScore[user] = score;
         emit CreditScoreAssigned(user, score);
@@ -196,7 +227,7 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
         if (debt == 0) return (true, type(uint256).max);
 
         ratio = (totalCollateralValue * 100) / debt;
-        isHealthy = ratio >= getMinCollateralRatio(user);
+        isHealthy = ratio >= getMinCollateralRatio();
     }
 
     function startLiquidation(address user) external {
@@ -254,7 +285,7 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
         }
     }
 
-    // calculate total USD value of all user’s collateral
+    // calculate total USD value of all user's collateral
     function getTotalCollateralValue(
         address user
     ) public view returns (uint256) {
@@ -283,7 +314,7 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
         return uint256(price) * (10 ** (18 - priceFeedContract.decimals()));
     }
 
-    function getMinCollateralRatio(address user) public view returns (uint256) {
+    function getMinCollateralRatio() public pure returns (uint256) {
         return DEFAULT_LIQUIDATION_THRESHOLD;
     }
 
@@ -327,5 +358,14 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
 
     function getBalance() external view returns (uint256) {
         return address(this).balance;
+    }
+
+    function togglePause() external onlyOwner {
+        paused = !paused;
+        emit EmergencyPaused(paused);
+    }
+
+    function isPaused() external view returns (bool) {
+        return paused;
     }
 }
