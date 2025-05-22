@@ -1,346 +1,223 @@
-import { useEffect, useState } from "react";
-import { ethers } from "ethers";
-import "./App.css";
-import contractJson from "./LiquidityPoolV1.json";
+import { useState, useEffect } from 'react'
+import { ethers } from 'ethers'
+import LiquidityPoolV3ABI from './LiquidityPoolV3.json'
+import { UserPanel } from './components/liquidity-pool-v3/user/UserPanel'
+import { AdminPanel } from './components/liquidity-pool-v3/admin/AdminPanel'
+import { LiquidatorPanel } from './components/liquidity-pool-v3/liquidator/LiquidatorPanel'
+import { Button } from './components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
+import { Alert, AlertDescription } from './components/ui/alert'
+import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
+import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
 
-// Replace with your deployed contract address
-const CONTRACT_ADDRESS = "0xff3bb967163c2fD1650Adb6ad3DFa8fA15d5a0FA";
+const CONTRACT_ADDRESS = '0xEb96D0f2a4DB02805dD032Ee5FA62da781f0CD75'
 
-// Replace with your actual ABI from artifacts
-const ABI = contractJson.abi;
+const COLLATERAL_TOKENS = [
+  {
+    address: '0x524C5F657533e3E8Fc0Ee137eB605a1d4FFE4D7D',
+    symbol: 'CORAL',
+    name: 'Coral Token'
+  },
+  {
+    address: '0x1234567890123456789012345678901234567890',
+    symbol: 'GLINT',
+    name: 'Glint Token'
+  }
+]
 
-function App() {
-  const [provider, setProvider] = useState(null);
-  const [signer, setSigner] = useState(null);
-  const [contract, setContract] = useState(null);
-  const [account, setAccount] = useState(null);
-  const [balance, setBalance] = useState("0");
-  const [debt, setDebt] = useState("0");
-  const [amount, setAmount] = useState("0");
-  const [contractOwner, setContractOwner] = useState(null);
-  const [borrowTime, setBorrowTime] = useState(null);
-  const [userToScore, setUserToScore] = useState("");
-  const [scoreToAssign, setScoreToAssign] = useState("");
-  const [creditScore, setCreditScore] = useState(null);
-  const [isPaused, setIsPaused] = useState(false);
+export default function App() {
+  const [account, setAccount] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [isLiquidator, setIsLiquidator] = useState(false)
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Connect wallet
   const connectWallet = async () => {
-    if (window.ethereum) {
-      const prov = new ethers.BrowserProvider(window.ethereum);
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      const signer = await prov.getSigner();
-      const address = await signer.getAddress();
+    try {
+      setIsLoading(true)
+      setError("")
 
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-
-      setProvider(prov);
-      setSigner(signer);
-      setAccount(address);
-      setContract(contract);
-
-      const ownerAddress = await contract.owner();
-      setContractOwner(ownerAddress);
-      await fetchBorrowTime();
-
-    } else {
-      alert("Please install MetaMask");
-    }
-  };
-
-  // Fetch balance
-  const fetchBalance = async () => {
-    if (contract) {
-      const bal = await contract.getBalance();
-      setBalance(ethers.formatEther(bal));
-    }
-  };
-
-  // Fetch debt
-  const fetchDebt = async () => {
-    if (contract) {
-      const userDebt = await contract.getMyDebt();
-      setDebt(ethers.formatEther(userDebt));
-    }
-  };
-
-  // Fetch credit score
-  const fetchCreditScore = async () => {
-    if (contract && account) {
-      try {
-        const score = await contract.creditScore(account);
-        setCreditScore(Number(score));
-      } catch (err) {
-        console.error("Error fetching credit score:", err);
+      if (!window.ethereum) {
+        throw new Error("Please install MetaMask to use this application")
       }
+
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const accounts = await provider.send("eth_requestAccounts", [])
+      const signer = await provider.getSigner()
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+
+      setAccount(accounts[0])
+      await checkRoles(contract, accounts[0])
+    } catch (err) {
+      setError(err.message || "Failed to connect wallet")
+    } finally {
+      setIsLoading(false)
     }
-  };
-
-  // Fetch contract owner
-  const fetchContractOwner = async () => {
-    if (contract) {
-      const owner = await contract.owner();
-      setContractOwner(owner);
-    }
-  };
-
-  // Fetch borrow time
-  const fetchBorrowTime = async () => {
-    if (contract) {
-      const timestamp = await contract.borrowTimestamp(account);
-      setBorrowTime(new Date(Number(timestamp) * 1000).toLocaleString());
-    }
-  };
-
-  // Add funds
-
-  const handleAddFunds = async (amount) => {
-    try {
-      const tx = await signer.sendTransaction({
-        to: CONTRACT_ADDRESS,
-        value: ethers.parseEther(amount),
-      });
-      await tx.wait();
-      fetchBalance();
-    } catch (error) {
-      console.error("Error adding funds:", error);
-    }
-  };
-
-  // Extract funds
-  const handleExtract = async () => {
-    const tx = await contract.extract(ethers.parseEther("0.05"));
-    await tx.wait();
-    fetchBalance();
-  };
-
-  const handleBorrow = async () => {
-    try {
-      const tx = await contract.borrow(ethers.parseEther("0.05"));
-      await tx.wait();
-      fetchBalance();
-      fetchDebt();
-    } catch (error) {
-      console.error("Error borrowing funds:", error);
-    }
-    await fetchBorrowTime();
-    await fetchCreditScore();
-
-
-  };
-
-  const handleRepay = async () => {
-    try {
-      const tx = await contract.repay({ value: ethers.parseEther("0.05") });
-      await tx.wait();
-      fetchBalance();
-      fetchDebt();
-    } catch (error) {
-      console.error("Error repaying funds:", error);
-    }
-    await fetchBorrowTime();
-
-  };
-
-  const handleAssignScore = async () => {
-    try {
-      const tx = await contract.setCreditScore(userToScore, parseInt(scoreToAssign));
-      await tx.wait();
-      alert(`Credit score of ${scoreToAssign} assigned to ${userToScore}`);
-      setUserToScore("");
-      setScoreToAssign("");
-    } catch (error) {
-      console.error("Error assigning credit score:", error);
-      alert("Failed to assign score. Are you the owner?");
-    }
-    await fetchCreditScore();
-
-  };
-
-  const handleTogglePause = async () => {
-    try {
-      const tx = await contract.togglePause();
-      await tx.wait();
-      const pauseState = await contract.isPaused();
-      setIsPaused(pauseState);
-      alert(`Contract ${pauseState ? 'paused' : 'unpaused'} successfully`);
-    } catch (error) {
-      console.error("Error toggling pause state:", error);
-      alert("Failed to toggle pause state. Are you the owner?");
-    }
-  };
+  }
 
   const disconnectWallet = async () => {
-    setProvider(null);
-    setSigner(null);
-    setContract(null);
-    setAccount(null);
-    setContractOwner(null);
-    setBalance("0");
-    setDebt("0");
-    setBorrowTime(null);
-    setCreditScore(null);
-  };
-
-  // Auto fetch when contract changes
-  useEffect(() => {
-    if (contract) {
-      fetchBalance();
-      fetchDebt();
-      fetchCreditScore();
-      fetchContractOwner(); //for safeguarding, refetch owner in case of reload
-      fetchBorrowTime(); // refetch borrow time
-      const fetchPauseState = async () => {
-        const pauseState = await contract.isPaused();
-        setIsPaused(pauseState);
-      };
-      fetchPauseState();
+    try {
+      setIsLoading(true)
+      setError("")
+      setAccount(null)
+      setIsAdmin(false)
+      setIsLiquidator(false)
+    } catch (err) {
+      setError("Failed to disconnect wallet")
+    } finally {
+      setIsLoading(false)
     }
-  }, [contract]);
+  }
+
+  const switchAccount = async () => {
+    try {
+      setIsLoading(true)
+      setError("")
+
+      if (!window.ethereum) {
+        throw new Error("Please install MetaMask to use this application")
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      // Request accounts again to prompt user to switch
+      const accounts = await provider.send("eth_requestAccounts", [])
+      const signer = await provider.getSigner()
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+
+      setAccount(accounts[0])
+      await checkRoles(contract, accounts[0])
+    } catch (err) {
+      setError("Failed to switch account")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const checkRoles = async (contract, address) => {
+    try {
+      // Ensure address is a string
+      const addressStr = String(address).toLowerCase()
+
+      // Check if user is owner (admin)
+      const owner = await contract.owner()
+      const ownerStr = String(owner).toLowerCase()
+      setIsAdmin(ownerStr === addressStr)
+
+      // Check if user is liquidator by checking if they have liquidator role
+      // or if they are the owner (since owner can also liquidate)
+      try {
+        const isLiquidator = await contract.hasRole(await contract.LIQUIDATOR_ROLE(), address)
+        setIsLiquidator(isLiquidator || ownerStr === addressStr)
+      } catch (err) {
+        // If hasRole is not available, check if user is owner
+        setIsLiquidator(ownerStr === addressStr)
+      }
+    } catch (err) {
+      console.error("Failed to check roles:", err)
+      // Set both to false in case of error
+      setIsAdmin(false)
+      setIsLiquidator(false)
+    }
+  }
+
+  const formatAddress = (address) => {
+    if (!address || typeof address !== 'string') return 'Not Connected'
+    return `${address.slice(2, 6)}...${address.slice(-4)}`
+  }
 
   useEffect(() => {
-    if (window.ethereum) {
-      // Handle account changes
-      window.ethereum.on('accountsChanged', (accounts) => {
-        if (accounts.length === 0) {
-          // User disconnected all accounts
-          disconnectWallet();
-        } else {
-          // User switched accounts - reconnect with new account
-          connectWallet();
+    const checkConnection = async () => {
+      if (window.ethereum) {
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum)
+          const accounts = await provider.listAccounts()
+          if (accounts.length > 0) {
+            const signer = await provider.getSigner()
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+            setAccount(accounts[0])
+            await checkRoles(contract, accounts[0])
+          }
+        } catch (err) {
+          console.error("Failed to check connection:", err)
         }
-      });
+      }
+    }
 
-      // Handle chain changes
-      window.ethereum.on('chainChanged', () => {
-        // Reload the page when chain changes
-        window.location.reload();
-      });
+    checkConnection()
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", (accounts) => {
+        if (accounts.length === 0) {
+          disconnectWallet()
+        } else {
+          switchAccount()
+        }
+      })
     }
 
     return () => {
-      // Cleanup listeners when component unmounts
       if (window.ethereum) {
-        window.ethereum.removeListener('accountsChanged', connectWallet);
-        window.ethereum.removeListener('chainChanged', () => window.location.reload());
+        window.ethereum.removeListener("accountsChanged", () => { })
       }
-    };
-  }, []);
+    }
+  }, [])
 
   return (
-    <div>
-      <nav className="navbar">
-        <div className="nav-brand">DeFi Lending Pool</div>
-        <div className="nav-wallet">
-          <button className="connect-button" onClick={connectWallet}>
-            {account ? `Connected: ${account.slice(0, 6)}...${account.slice(-4)}` : "Connect Wallet"}
-          </button>
-          {account && (
-            <button className="disconnect-button" onClick={disconnectWallet}>
-              Disconnect
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+      <header className="container mx-auto p-6 flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Liquidity Pool V3 Dashboard</h1>
+        <div>
+          {!account ? (
+            <Button
+              onClick={connectWallet}
+              className="h-12 px-8 text-lg"
+              disabled={isLoading}
+            >
+              {isLoading ? "Connecting..." : "Connect Wallet"}
+            </Button>
+          ) : (
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={disconnectWallet}
+                disabled={isLoading}
+                className="flex items-center gap-2"
+              >
+                <Wallet className="h-5 w-5" />
+                <span className="text-lg font-semibold text-foreground">
+                  {formatAddress(account)}
+                </span>
+              </Button>
+            </div>
           )}
         </div>
-      </nav>
+      </header>
 
-      <div className="app-container">
-        <div className="main-content">
-          <div className="stats-grid">
-            <div className="stat-card">
-              <h3>Pool Balance</h3>
-              <p>{balance} SONIC</p>
-            </div>
-            <div className="stat-card">
-              <h3>Your Debt</h3>
-              <p>{debt} SONIC</p>
-            </div>
-            <div className="stat-card">
-              <h3>Credit Score</h3>
-              <p>{creditScore !== null ? creditScore : "N/A"}</p>
-            </div>
-          </div>
-
-          <div className="actions-grid">
-            <div className="action-section">
-              <h2>Add Liquidity</h2>
-              <div className="button-group">
-                <button className="action-button" onClick={() => handleAddFunds("0.1")}>
-                  Add 0.1 SONIC
-                </button>
-                <div className="custom-amount">
-                  <input
-                    type="number"
-                    placeholder="Enter amount"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    min="0"
-                    step="0.01"
-                  />
-                  <button onClick={() => handleAddFunds(amount)}>Add Custom Amount</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="action-section">
-              <h2>Lending Actions</h2>
-              <div className="button-group">
-                <button className="action-button" onClick={handleBorrow}>
-                  Borrow 0.05 SONIC
-                </button>
-                <button className="action-button" onClick={handleRepay}>
-                  Repay 0.05 SONIC
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {account &&
-            contractOwner &&
-            account.toLowerCase() === contractOwner.toLowerCase() && (
-              <div className="admin-section">
-                <h2>Admin Controls</h2>
-                <button 
-                  className={`admin-button ${isPaused ? 'paused' : ''}`} 
-                  onClick={handleTogglePause}
-                >
-                  {isPaused ? 'Resume Contract' : 'Pause Contract'}
-                </button>
-                <button className="admin-button" onClick={handleExtract}>
-                  Extract 0.05 SONIC
-                </button>
-
-                <div className="credit-score-controls">
-                  <h3>Assign Credit Score</h3>
-                  <div className="input-group">
-                    <input
-                      type="text"
-                      placeholder="User wallet address"
-                      value={userToScore}
-                      onChange={(e) => setUserToScore(e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Score (0-100)"
-                      min="0"
-                      max="100"
-                      value={scoreToAssign}
-                      onChange={(e) => setScoreToAssign(e.target.value)}
-                    />
-                    <button onClick={handleAssignScore}>Assign Score</button>
-                  </div>
-                </div>
-              </div>
-            )}
-        </div>
-
-        {borrowTime && (
-          <div className="info-footer">
-            <p>Last Borrowed: {borrowTime}</p>
+      <main className="container mx-auto p-6 pt-0">
+        {error && (
+          <Alert variant="destructive" className="mb-6 animate-in fade-in slide-in-from-top-2">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {account ? (
+          <Dashboard
+            contract={new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, new ethers.BrowserProvider(window.ethereum).getSigner())}
+            account={account}
+            isAdmin={isAdmin}
+            isLiquidator={isLiquidator}
+            onDisconnect={disconnectWallet}
+            onSwitchAccount={switchAccount}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6">
+            <p className="text-xl text-muted-foreground text-center max-w-2xl">
+              Connect your wallet to start managing your liquidity, borrowing, and lending.
+            </p>
           </div>
         )}
-      </div>
+      </main>
     </div>
-  );
+  )
 }
-
-export default App;

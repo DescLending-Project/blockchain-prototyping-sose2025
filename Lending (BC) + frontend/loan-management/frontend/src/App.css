@@ -7,84 +7,112 @@
   font-family: 'Inter', sans-serif;
 }
 
+/* Base styles */
+:root {
+  --primary-color: #3b82f6;
+  --secondary-color: #1e40af;
+  --background-color: #f8fafc;
+  --text-color: #1e293b;
+  --border-color: #e2e8f0;
+  --success-color: #22c55e;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+/* Navbar */
 .navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background: #000;
-  color: white;
-  padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 1000;
+  padding: 1rem 2rem;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .nav-brand {
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: bold;
+  color: var(--primary-color);
 }
 
+.connect-button {
+  padding: 0.5rem 1rem;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.connect-button:hover {
+  background-color: var(--secondary-color);
+}
+
+/* Main container */
 .app-container {
-  padding: 6rem 2rem 2rem;
-  width: 100%;
-  min-height: 100vh;
-  background: #f5f5f5;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
 }
 
-.main-content {
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 2rem;
-}
-
+/* Stats grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-  margin-bottom: 3rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .stat-card {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  text-align: center;
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
 }
 
 .stat-card h3 {
-  color: #666;
-  font-size: 1.1rem;
-  margin-bottom: 1rem;
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #64748b;
 }
 
 .stat-card p {
-  font-size: 2rem;
-  font-weight: 600;
-  color: #000;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: bold;
 }
 
+/* Actions grid */
 .actions-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 2rem;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 .action-section {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .action-section h2 {
-  font-size: 1.4rem;
-  margin-bottom: 1.5rem;
-  color: #000;
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
 }
 
 .button-group {
@@ -94,154 +122,153 @@
 }
 
 .action-button {
-  background: #000;
-  color: white;
-  padding: 1rem;
-  border: none;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-  width: 100%;
-}
-
-.action-button:hover {
-  background: #333;
-}
-
-.custom-amount {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1rem;
-}
-
-.custom-amount input {
-  padding: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-}
-
-.admin-section {
-  background: #111;
-  color: white;
-  padding: 2rem;
-  border-radius: 12px;
-  margin-top: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.admin-section h2 {
-  font-size: 1.4rem;
-  margin-bottom: 1.5rem;
-  color: white;
-}
-
-.admin-button {
-  background: white;
-  color: #111;
-  padding: 1rem;
-  border: none;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  width: 100%;
-  margin-bottom: 1rem;
-}
-
-.admin-button:hover {
-  background: #f0f0f0;
-  transform: translateY(-1px);
-}
-
-.admin-button.paused {
-  background-color: #dc3545;
-  color: white;
-}
-
-.admin-button.paused:hover {
-  background-color: #c82333;
-}
-
-.credit-score-controls {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.credit-score-controls h3 {
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-  color: white;
-}
-
-.input-group {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.input-group input {
-  padding: 1rem;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.input-group button {
-  background: white;
-  color: #111;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.input-group button:hover {
-  background: #f0f0f0;
-  transform: translateY(-1px);
-}
-
-.info-footer {
-  text-align: center;
-  margin-top: 2rem;
-  color: #666;
-}
-.nav-wallet {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.disconnect-button {
-  background-color: #dc3545;
+  padding: 0.75rem 1rem;
+  background-color: var(--primary-color);
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: 0.375rem;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
-.disconnect-button:hover {
-  background-color: #c82333;
+.action-button:hover {
+  background-color: var(--secondary-color);
 }
 
-.disconnect-button:active {
-  background-color: #bd2130;
+/* Custom amount input */
+.custom-amount {
+  display: flex;
+  gap: 0.5rem;
 }
 
-@media (max-width: 1024px) {
-  .stats-grid,
+.custom-amount input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+}
+
+/* Token select */
+.token-select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+  margin-bottom: 0.5rem;
+  background-color: white;
+}
+
+/* Admin section */
+.admin-section {
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+.admin-section h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+}
+
+.admin-button {
+  padding: 0.75rem 1rem;
+  background-color: var(--danger-color);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.admin-button:hover {
+  background-color: #dc2626;
+}
+
+/* Input groups */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border-radius: 0.375rem;
+}
+
+.input-group input {
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+  background-color: white;
+}
+
+.input-group button {
+  padding: 0.5rem;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.input-group button:hover {
+  background-color: var(--secondary-color);
+}
+
+/* Health status colors */
+.text-red-500 {
+  color: var(--danger-color);
+}
+
+.text-green-500 {
+  color: var(--success-color);
+}
+
+/* Recovery button */
+.recovery-button {
+  padding: 0.75rem 1rem;
+  background-color: var(--warning-color);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.recovery-button:hover {
+  background-color: #d97706;
+}
+
+/* Liquidation controls */
+.liquidation-controls {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.liquidation-controls h3 {
+  margin-bottom: 1rem;
+  color: var(--danger-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
   .actions-grid {
     grid-template-columns: 1fr;
   }
-  
+
+  .custom-amount {
+    flex-direction: column;
+  }
+
   .input-group {
-    grid-template-columns: 1fr;
+    padding: 0.75rem;
   }
 }
