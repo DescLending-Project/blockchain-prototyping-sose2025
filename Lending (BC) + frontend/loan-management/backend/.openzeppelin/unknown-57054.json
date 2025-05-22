@@ -7,8 +7,43 @@
       "kind": "transparent"
     },
     {
-      "address": "0x95Cc8b85735475D922baDCD3206B2269eC970EB6",
-      "txHash": "0xdb728852846c7a32deac0a93b225d489196e4ec234103295083a4d7302d901f6",
+      "address": "0x788e73002E0Ff616eB7252c79C8aC115D06B4e76",
+      "txHash": "0x05c552fcb0d918927f8cfd3165e779e01789beba686cff530254e4e85d05507f",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xEfc6dDEe4CC8681d047cC842B339FE057149FcB0",
+      "txHash": "0x1308aeaf7b48dc579f4e2bc76971999968d7f3ceee37ea0ba4dcaa74153c776a",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xdA312D3F53fC590F7FA999E7e9F7Fecd55c57f45",
+      "txHash": "0x794686c39377fc0c48e8a4ac2161b80992f7254b8ab3a5a732ca069935c52cb2",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x3d29Dd33F4cB4bDC4f545C247BB8c02B2076543D",
+      "txHash": "0x1d13ae201aa656a77b874b291fdb1228b97083055e0bc8b01de3067367414325",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xbdBB4a9A50A706E329b0B43C6EA82F67D46ca5A3",
+      "txHash": "0xc1d84a07d385863312e74b27756a6e5288cfe1b457ab4af54d56be68cfd742e9",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x580F18b57A702ee33112696E26f2299116dC1f57",
+      "txHash": "0x771feaed4a91b45dfdd12e2ce051b12a7bd19e85592a6f321b2d1b3c18df031f",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x459580baf8aFF9975145DB31675819bE4ae74cA5",
+      "txHash": "0x92a661811d669a838128ed0472c2a3cf013a0a13f13c36f77ada11d463787af1",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xff3bb967163c2fD1650Adb6ad3DFa8fA15d5a0FA",
+      "txHash": "0x94e0cf6f74e9957cb9f4184b96e61abe5257635dc8df7995d66d5ee1045686fc",
       "kind": "transparent"
     }
   ],
@@ -138,71 +173,75 @@
         }
       }
     },
-    "b32538f7c75e46fa81b6f3fccadb43ab806de7d7b6af3bee765decc3b4ca771a": {
-      "address": "0x690F65939C5DEBb4FBC7E4e2759fAA9c4e61f23A",
-      "txHash": "0x06cc40726526ab76c49aa6b683cc6e1136e975018e96edfdc3e3798fe198690c",
+    "6954c14eaa53ca13bc2f36fbe8714b9c0479cb02f7eda3b2764ddf0cd8d73107": {
+      "address": "0x6f751AE8b22d7f0D29428256F0c626D5613eF9B5",
+      "txHash": "0x208e7110c19d1b4cd2f12f4b108c7727c8941b7654ed2349c8f101c1639599e3",
       "layout": {
         "solcVersion": "0.8.28",
         "storage": [
           {
-            "label": "collateralBalance",
+            "label": "owner",
             "offset": 0,
             "slot": "0",
-            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "LiquidityPoolV2",
-            "src": "contracts\\LiquidityPoolV2.sol:12"
+            "type": "t_address",
+            "contract": "LiquidityPoolV1",
+            "src": "contracts/LiquidityPoolV1.sol:7"
           },
           {
-            "label": "isAllowedCollateral",
+            "label": "totalFunds",
             "offset": 0,
             "slot": "1",
-            "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV2",
-            "src": "contracts\\LiquidityPoolV2.sol:13"
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV1",
+            "src": "contracts/LiquidityPoolV1.sol:8"
           },
           {
-            "label": "creditScore",
+            "label": "locked",
             "offset": 0,
             "slot": "2",
-            "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV2",
-            "src": "contracts\\LiquidityPoolV2.sol:15"
+            "type": "t_bool",
+            "contract": "LiquidityPoolV1",
+            "src": "contracts/LiquidityPoolV1.sol:9"
+          },
+          {
+            "label": "paused",
+            "offset": 1,
+            "slot": "2",
+            "type": "t_bool",
+            "contract": "LiquidityPoolV1",
+            "src": "contracts/LiquidityPoolV1.sol:10"
           },
           {
             "label": "userDebt",
             "offset": 0,
             "slot": "3",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV2",
-            "src": "contracts\\LiquidityPoolV2.sol:16"
+            "contract": "LiquidityPoolV1",
+            "src": "contracts/LiquidityPoolV1.sol:12"
+          },
+          {
+            "label": "creditScore",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_mapping(t_address,t_uint8)",
+            "contract": "LiquidityPoolV1",
+            "src": "contracts/LiquidityPoolV1.sol:13"
           },
           {
             "label": "borrowTimestamp",
             "offset": 0,
-            "slot": "4",
-            "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV2",
-            "src": "contracts\\LiquidityPoolV2.sol:17"
-          },
-          {
-            "label": "totalFunds",
-            "offset": 0,
             "slot": "5",
-            "type": "t_uint256",
-            "contract": "LiquidityPoolV2",
-            "src": "contracts\\LiquidityPoolV2.sol:19"
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV1",
+            "src": "contracts/LiquidityPoolV1.sol:14"
           }
         ],
         "types": {
-          "t_address": {
-            "label": "address",
-            "numberOfBytes": "20"
-          },
           "t_bool": {
             "label": "bool",
             "numberOfBytes": "1"
           },
-          "t_struct(InitializableStorage)73_storage": {
+          "t_struct(InitializableStorage)7_storage": {
             "label": "struct Initializable.InitializableStorage",
             "members": [
               {
@@ -220,56 +259,38 @@
             ],
             "numberOfBytes": "32"
           },
-          "t_struct(OwnableStorage)13_storage": {
-            "label": "struct OwnableUpgradeable.OwnableStorage",
-            "members": [
-              {
-                "label": "_owner",
-                "type": "t_address",
-                "offset": 0,
-                "slot": "0"
-              }
-            ],
-            "numberOfBytes": "32"
-          },
           "t_uint64": {
             "label": "uint64",
             "numberOfBytes": "8"
           },
-          "t_mapping(t_address,t_bool)": {
-            "label": "mapping(address => bool)",
-            "numberOfBytes": "32"
-          },
-          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
-            "label": "mapping(address => mapping(address => uint256))",
-            "numberOfBytes": "32"
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
           },
           "t_mapping(t_address,t_uint256)": {
             "label": "mapping(address => uint256)",
             "numberOfBytes": "32"
           },
+          "t_mapping(t_address,t_uint8)": {
+            "label": "mapping(address => uint8)",
+            "numberOfBytes": "32"
+          },
           "t_uint256": {
             "label": "uint256",
             "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
           }
         },
         "namespaces": {
-          "erc7201:openzeppelin.storage.Ownable": [
-            {
-              "contract": "OwnableUpgradeable",
-              "label": "_owner",
-              "type": "t_address",
-              "src": "@openzeppelin\\contracts-upgradeable\\access\\OwnableUpgradeable.sol:24",
-              "offset": 0,
-              "slot": "0"
-            }
-          ],
           "erc7201:openzeppelin.storage.Initializable": [
             {
               "contract": "Initializable",
               "label": "_initialized",
               "type": "t_uint64",
-              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
               "offset": 0,
               "slot": "0"
             },
@@ -277,7 +298,7 @@
               "contract": "Initializable",
               "label": "_initializing",
               "type": "t_bool",
-              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
               "offset": 8,
               "slot": "0"
             }
