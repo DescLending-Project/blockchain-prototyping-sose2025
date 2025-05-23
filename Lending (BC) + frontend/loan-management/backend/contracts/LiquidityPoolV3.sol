@@ -2,11 +2,13 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"; // Add this import
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
+// Inherit from AccessControlUpgradeable in addition to OwnableUpgradeable
+contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgradeable {
     mapping(address => mapping(address => uint256)) public collateralBalance;
     mapping(address => bool) public isAllowedCollateral;
     mapping(address => uint256) public creditScore;
@@ -27,6 +29,8 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
     bool public locked;
     bool public paused;
 
+    address public liquidator;
+    
     event CollateralDeposited(
         address indexed user,
         address indexed token,
@@ -71,6 +75,10 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
 
     function initialize(address initialOwner) public initializer {
         __Ownable_init(initialOwner);
+        __AccessControl_init(); // Initialize AccessControl
+        // Set the initialOwner as the DEFAULT_ADMIN_ROLE
+        _setRoleAdmin(DEFAULT_ADMIN_ROLE, DEFAULT_ADMIN_ROLE);
+        _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
     }
 
     function setAllowedCollateral(
@@ -367,5 +375,16 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable {
 
     function isPaused() external view returns (bool) {
         return paused;
+    }
+
+    // Use the correct modifier and role
+    function setLiquidator(address _liquidator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        liquidator = _liquidator;
+    }
+
+function getAdmin() external view returns (address) {
+        address admin = owner();
+        require(admin != address(0), "No admin set");
+        return admin;
     }
 }

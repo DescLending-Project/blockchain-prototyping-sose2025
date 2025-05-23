@@ -10,16 +10,16 @@ import { Alert, AlertDescription } from './components/ui/alert'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
 import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
 
-const CONTRACT_ADDRESS = '0xBEB1774E6DDB1dE6451e34b576279A21f7d13Fff'
+const CONTRACT_ADDRESS = '0x742cDbaC326643D9369b182bE2eC20a6F4ee28f1'
 
 const COLLATERAL_TOKENS = [
   {
-    address: '0x524C5F657533e3E8Fc0Ee137eB605a1d4FFE4D7D',
+    address: '0xAF93888cbD250300470A1618206e036E11470149',
     symbol: 'CORAL',
     name: 'Coral Token'
   },
   {
-    address: '0xA41dA18fE48E80452B8B62931BA798E5895bf43c',
+    address: '0xD4A89Be3D6e0be7f507819a57d7AA012C9Df3c63',
     symbol: 'GLINT',
     name: 'Glint Token'
   }
@@ -27,6 +27,7 @@ const COLLATERAL_TOKENS = [
 
 export default function App() {
   const [account, setAccount] = useState(null)
+  const [contract, setContract] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLiquidator, setIsLiquidator] = useState(false)
   const [error, setError] = useState("")
@@ -48,6 +49,7 @@ export default function App() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
 
       setAccount(accounts[0])
+      setContract(contract)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
     } catch (err) {
@@ -87,6 +89,7 @@ export default function App() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
 
       setAccount(accounts[0])
+      setContract(contract)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
     } catch (err) {
@@ -238,7 +241,7 @@ export default function App() {
         )}
         {account ? (
           <Dashboard
-            contract={new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, new ethers.BrowserProvider(window.ethereum).getSigner())}
+            contract={contract}
             account={account}
             isAdmin={isAdmin}
             isLiquidator={isLiquidator}

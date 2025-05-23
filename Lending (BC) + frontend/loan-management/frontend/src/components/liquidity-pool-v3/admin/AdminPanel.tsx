@@ -51,7 +51,7 @@ interface LiquidityPoolContract extends BaseContract {
 }
 
 interface AdminPanelProps {
-    contract: LiquidityPoolContract;
+    contract: Contract;
     account: string | null;
 }
 
@@ -90,562 +90,425 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
     useEffect(() => {
         const checkPauseStatus = async () => {
             try {
-                const provider = new ethers.BrowserProvider(window.ethereum)
-                const contractWithProvider = new ethers.Contract(
-                    contract.target,
-                    contract.interface,
-                    provider
-                ) as LiquidityPoolContract
-
-                const paused = await contractWithProvider.paused()
-                setIsPaused(paused)
+                const paused = await contract.paused(); // Direct call
+                setIsPaused(paused);
             } catch (err) {
-                console.error("Failed to check pause status:", err)
+                console.error("Failed to check pause status:", err);
             }
-        }
-        checkPauseStatus()
-    }, [contract])
+        };
+    
+        checkPauseStatus();
+    }, [contract]);
 
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                const provider = new ethers.BrowserProvider(window.ethereum)
-                const contractWithProvider = new ethers.Contract(
-                    contract.target,
-                    contract.interface,
-                    provider
-                ) as LiquidityPoolContract
-
                 const [liquidator, admin, interestRate] = await Promise.all([
-                    contractWithProvider.getLiquidator(),
-                    contractWithProvider.getAdmin(),
-                    contractWithProvider.getInterestRate()
-                ])
-
-                setCurrentLiquidator(liquidator)
-                setCurrentAdmin(admin)
-                setCurrentInterestRate(interestRate)
+                    contract.liquidator(),
+                    contract.getAdmin(),
+                    contract.getInterestRate()
+                ]);
+                setCurrentLiquidator(liquidator);
+                setCurrentAdmin(admin);
+                setCurrentInterestRate(interestRate);
             } catch (err) {
-                console.error("Failed to fetch initial data:", err)
+                console.error("Failed to fetch initial data:", err);
             }
-        }
-
-        fetchInitialData()
-    }, [contract])
+        };
+        fetchInitialData();
+    }, [contract]);
 
     const handleSetCreditScore = async () => {
-        if (!selectedUser) {
-            setError("Please select a user")
-            return
-        }
-        if (!creditScore || Number(creditScore) < 0 || Number(creditScore) > 100) {
-            setError("Please enter a valid credit score (0-100)")
-            return
-        }
+        if (!selectedUser) return setError("Please select a user");
+        if (!creditScore || Number(creditScore) < 0 || Number(creditScore) > 100)
+            return setError("Please enter a valid credit score (0-100)");
+    
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setCreditScore(selectedUser, Number(creditScore))
-            await tx.wait()
-            setCreditScore("")
-            setSelectedUser("")
+            setIsLoading(true);
+            const tx = await contract.setCreditScore(selectedUser, Number(creditScore));
+            await tx.wait();
+            setCreditScore("");
+            setSelectedUser("");
+            setError("Credit score updated!");
         } catch (err) {
-            setError("Failed to set credit score")
+            console.error("Failed to set credit score:", err);
+            setError("Failed to set credit score");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetLiquidationThreshold = async () => {
-        if (!selectedToken) {
-            setError("Please select a token")
-            return
-        }
-        if (!liquidationThreshold || Number(liquidationThreshold) <= 0) {
-            setError("Please enter a valid liquidation threshold")
-            return
-        }
+        if (!selectedToken) return setError("Please select a token");
+        if (!liquidationThreshold || Number(liquidationThreshold) <= 0)
+            return setError("Please enter a valid liquidation threshold");
+    
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setLiquidationThreshold(selectedToken, ethers.parseUnits(liquidationThreshold, 18))
-            await tx.wait()
-            setLiquidationThreshold("")
-            setSelectedToken("")
+            setIsLoading(true);
+            const parsedThreshold = ethers.parseUnits(liquidationThreshold, 18);
+            const tx = await contract.setLiquidationThreshold(selectedToken, parsedThreshold);
+            await tx.wait();
+            setLiquidationThreshold("");
+            setSelectedToken("");
+            setError("");
         } catch (err) {
-            setError("Failed to set liquidation threshold")
+            console.error("Failed to set liquidation threshold:", err);
+            setError("Failed to set liquidation threshold");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
+    };
 
     const handleSetPriceFeed = async () => {
-        if (!selectedToken) {
-            setError("Please select a token")
-            return
-        }
-        if (!priceFeedAddress) {
-            setError("Please enter a price feed address")
-            return
-        }
+        if (!selectedToken) return setError("Please select a token");
+        if (!priceFeedAddress) return setError("Please enter a price feed address");
+    
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setPriceFeed(selectedToken, priceFeedAddress)
-            await tx.wait()
-            setPriceFeedAddress("")
-            setSelectedToken("")
+            setIsLoading(true);
+            const tx = await contract.setPriceFeed(selectedToken, priceFeedAddress);
+            await tx.wait();
+            setPriceFeedAddress("");
+            setSelectedToken("");
         } catch (err) {
-            setError("Failed to set price feed")
+            setError("Failed to set price feed");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetLiquidator = async () => {
-        if (!newLiquidator) {
-            setError("Please enter a liquidator address")
-            return
-        }
+        if (!newLiquidator) return setError("Please enter a liquidator address");
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setLiquidator(newLiquidator)
-            await tx.wait()
-            setNewLiquidator("")
+            setIsLoading(true);
+            const tx = await contract.setLiquidator(newLiquidator);
+            await tx.wait();
+            setNewLiquidator("");
         } catch (err) {
-            setError("Failed to set liquidator")
+            setError("Failed to set liquidator");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetAdmin = async () => {
-        if (!newAdmin) {
-            setError("Please enter an admin address")
-            return
-        }
+        if (!newAdmin) return setError("Please enter an admin address");
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setAdmin(newAdmin)
-            await tx.wait()
-            setNewAdmin("")
+            setIsLoading(true);
+            const tx = await contract.setAdmin(newAdmin);
+            await tx.wait();
+            setNewAdmin("");
         } catch (err) {
-            setError("Failed to set admin")
+            setError("Failed to set admin");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
+    };
 
     const handleSetCollateralToken = async () => {
-        if (!newCollateralToken) {
-            setError("Please enter a token address")
-            return
-        }
+        if (!newCollateralToken) return setError("Please enter a token address");
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setCollateralToken(newCollateralToken, true)
-            await tx.wait()
-            setNewCollateralToken("")
+            setIsLoading(true);
+            const tx = await contract.setCollateralToken(newCollateralToken, true);
+            await tx.wait();
+            setNewCollateralToken("");
         } catch (err) {
-            setError("Failed to set collateral token")
+            setError("Failed to set collateral token");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetInterestRate = async () => {
-        if (!interestRate || Number(interestRate) < 0) {
-            setError("Please enter a valid interest rate")
-            return
-        }
+        if (!interestRate || Number(interestRate) < 0)
+            return setError("Please enter a valid interest rate");
+    
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setInterestRate(ethers.parseUnits(interestRate, 18))
-            await tx.wait()
-            setInterestRate("")
+            setIsLoading(true);
+            const tx = await contract.setInterestRate(ethers.parseUnits(interestRate, 18));
+            await tx.wait();
+            setInterestRate("");
         } catch (err) {
-            setError("Failed to set interest rate")
+            setError("Failed to set interest rate");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
+    };
 
     const handleSetMaxBorrowAmount = async () => {
         if (!maxBorrowAmount || Number(maxBorrowAmount) <= 0) {
-            setError("Please enter a valid max borrow amount")
-            return
+            setError("Please enter a valid max borrow amount");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxBorrowAmount(ethers.parseUnits(maxBorrowAmount, 18))
-            await tx.wait()
-            setMaxBorrowAmount("")
+            setIsLoading(true);
+            const tx = await contract.setMaxBorrowAmount(ethers.parseUnits(maxBorrowAmount, 18));
+            await tx.wait();
+            setMaxBorrowAmount("");
         } catch (err) {
-            setError("Failed to set max borrow amount")
+            setError("Failed to set max borrow amount");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetMaxCollateralAmount = async () => {
         if (!maxCollateralAmount || Number(maxCollateralAmount) <= 0) {
-            setError("Please enter a valid max collateral amount")
-            return
+            setError("Please enter a valid max collateral amount");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxCollateralAmount(ethers.parseUnits(maxCollateralAmount, 18))
-            await tx.wait()
-            setMaxCollateralAmount("")
+            setIsLoading(true);
+            const tx = await contract.setMaxCollateralAmount(ethers.parseUnits(maxCollateralAmount, 18));
+            await tx.wait();
+            setMaxCollateralAmount("");
         } catch (err) {
-            setError("Failed to set max collateral amount")
+            setError("Failed to set max collateral amount");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetMaxLiquidationBonus = async () => {
         if (!maxLiquidationBonus || Number(maxLiquidationBonus) < 0) {
-            setError("Please enter a valid max liquidation bonus")
-            return
+            setError("Please enter a valid max liquidation bonus");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxLiquidationBonus(ethers.parseUnits(maxLiquidationBonus, 18))
-            await tx.wait()
-            setMaxLiquidationBonus("")
+            setIsLoading(true);
+            const tx = await contract.setMaxLiquidationBonus(ethers.parseUnits(maxLiquidationBonus, 18));
+            await tx.wait();
+            setMaxLiquidationBonus("");
         } catch (err) {
-            setError("Failed to set max liquidation bonus")
+            setError("Failed to set max liquidation bonus");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetMaxLiquidationPenalty = async () => {
         if (!maxLiquidationPenalty || Number(maxLiquidationPenalty) < 0) {
-            setError("Please enter a valid max liquidation penalty")
-            return
+            setError("Please enter a valid max liquidation penalty");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxLiquidationPenalty(ethers.parseUnits(maxLiquidationPenalty, 18))
-            await tx.wait()
-            setMaxLiquidationPenalty("")
+            setIsLoading(true);
+            const tx = await contract.setMaxLiquidationPenalty(ethers.parseUnits(maxLiquidationPenalty, 18));
+            await tx.wait();
+            setMaxLiquidationPenalty("");
         } catch (err) {
-            setError("Failed to set max liquidation penalty")
+            setError("Failed to set max liquidation penalty");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetMaxLiquidationThreshold = async () => {
         if (!maxLiquidationThreshold || Number(maxLiquidationThreshold) <= 0) {
-            setError("Please enter a valid max liquidation threshold")
-            return
+            setError("Please enter a valid max liquidation threshold");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxLiquidationThreshold(ethers.parseUnits(maxLiquidationThreshold, 18))
-            await tx.wait()
-            setMaxLiquidationThreshold("")
+            setIsLoading(true);
+            const tx = await contract.setMaxLiquidationThreshold(ethers.parseUnits(maxLiquidationThreshold, 18));
+            await tx.wait();
+            setMaxLiquidationThreshold("");
         } catch (err) {
-            setError("Failed to set max liquidation threshold")
+            setError("Failed to set max liquidation threshold");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetMaxLiquidationTime = async () => {
         if (!maxLiquidationTime || Number(maxLiquidationTime) <= 0) {
-            setError("Please enter a valid max liquidation time")
-            return
+            setError("Please enter a valid max liquidation time");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxLiquidationTime(Number(maxLiquidationTime))
-            await tx.wait()
-            setMaxLiquidationTime("")
+            setIsLoading(true);
+            const tx = await contract.setMaxLiquidationTime(Number(maxLiquidationTime));
+            await tx.wait();
+            setMaxLiquidationTime("");
         } catch (err) {
-            setError("Failed to set max liquidation time")
+            setError("Failed to set max liquidation time");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
+    };
 
     const handleSetMaxLiquidationAmount = async () => {
         if (!maxLiquidationAmount || Number(maxLiquidationAmount) <= 0) {
-            setError("Please enter a valid max liquidation amount")
-            return
+            setError("Please enter a valid max liquidation amount");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxLiquidationAmount(ethers.parseUnits(maxLiquidationAmount, 18))
-            await tx.wait()
-            setMaxLiquidationAmount("")
+            setIsLoading(true);
+            const tx = await contract.setMaxLiquidationAmount(ethers.parseUnits(maxLiquidationAmount, 18));
+            await tx.wait();
+            setMaxLiquidationAmount("");
         } catch (err) {
-            setError("Failed to set max liquidation amount")
+            setError("Failed to set max liquidation amount");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetMaxLiquidationRatio = async () => {
         if (!maxLiquidationRatio || Number(maxLiquidationRatio) <= 0) {
-            setError("Please enter a valid max liquidation ratio")
-            return
+            setError("Please enter a valid max liquidation ratio");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxLiquidationRatio(ethers.parseUnits(maxLiquidationRatio, 18))
-            await tx.wait()
-            setMaxLiquidationRatio("")
+            setIsLoading(true);
+            const tx = await contract.setMaxLiquidationRatio(ethers.parseUnits(maxLiquidationRatio, 18));
+            await tx.wait();
+            setMaxLiquidationRatio("");
         } catch (err) {
-            setError("Failed to set max liquidation ratio")
+            setError("Failed to set max liquidation ratio");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetMaxLiquidationDelay = async () => {
         if (!maxLiquidationDelay || Number(maxLiquidationDelay) <= 0) {
-            setError("Please enter a valid max liquidation delay")
-            return
+            setError("Please enter a valid max liquidation delay");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxLiquidationDelay(Number(maxLiquidationDelay))
-            await tx.wait()
-            setMaxLiquidationDelay("")
+            setIsLoading(true);
+            const tx = await contract.setMaxLiquidationDelay(Number(maxLiquidationDelay));
+            await tx.wait();
+            setMaxLiquidationDelay("");
         } catch (err) {
-            setError("Failed to set max liquidation delay")
+            setError("Failed to set max liquidation delay");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleSetMaxLiquidationGracePeriod = async () => {
         if (!maxLiquidationGracePeriod || Number(maxLiquidationGracePeriod) <= 0) {
-            setError("Please enter a valid max liquidation grace period")
-            return
+            setError("Please enter a valid max liquidation grace period");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.setMaxLiquidationGracePeriod(Number(maxLiquidationGracePeriod))
-            await tx.wait()
-            setMaxLiquidationGracePeriod("")
+            setIsLoading(true);
+            const tx = await contract.setMaxLiquidationGracePeriod(Number(maxLiquidationGracePeriod));
+            await tx.wait();
+            setMaxLiquidationGracePeriod("");
         } catch (err) {
-            setError("Failed to set max liquidation grace period")
+            setError("Failed to set max liquidation grace period");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleExtractFunds = async () => {
         if (!extractAmount || Number(extractAmount) <= 0) {
-            setError("Please enter a valid amount to extract")
-            return
+            setError("Please enter a valid amount to extract");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.withdraw(ethers.parseEther(extractAmount))
-            await tx.wait()
-            setExtractAmount("")
-            setError("Funds extracted successfully!")
+            setIsLoading(true);
+            const tx = await contract.withdraw(ethers.parseEther(extractAmount));
+            await tx.wait();
+            setExtractAmount("");
+            setError("Funds extracted successfully!");
         } catch (err) {
-            console.error("Failed to extract funds:", err)
-            setError(err instanceof Error ? err.message : "Failed to extract funds")
+            console.error("Failed to extract funds:", err);
+            setError(err instanceof Error ? err.message : "Failed to extract funds");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
+    };
 
     const handleTogglePause = async () => {
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const signer = await provider.getSigner()
-            const contractWithSigner = contract.connect(signer)
-
-            const tx = await contractWithSigner.togglePause()
-            await tx.wait()
-            setIsPaused(!isPaused)
-            setError("")
+            setIsLoading(true);
+            const tx = await contract.togglePause();
+            await tx.wait();
+            setIsPaused(!isPaused);
+            setError("");
         } catch (err) {
-            console.error("Failed to toggle pause:", err)
-            setError("Failed to toggle pause status")
+            console.error("Failed to toggle pause:", err);
+            setError("Failed to toggle pause status");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleGetCreditScore = async () => {
         if (!selectedUser) {
-            setError("Please enter a user address")
-            return
+            setError("Please enter a user address");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const contractWithProvider = new ethers.Contract(
-                contract.target,
-                contract.interface,
-                provider
-            ) as LiquidityPoolContract
-
-            const score = await contractWithProvider.getCreditScore(selectedUser)
-            setUserCreditScore(Number(score))
-            setError("")
+            setIsLoading(true);
+            const score = await contract.getCreditScore(selectedUser);
+            setUserCreditScore(Number(score));
+            setError("");
         } catch (err) {
-            console.error("Failed to get credit score:", err)
-            setError("Failed to get credit score")
+            console.error("Failed to get credit score:", err);
+            setError("Failed to get credit score");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleGetLiquidationThreshold = async () => {
         if (!selectedToken) {
-            setError("Please enter a token address")
-            return
+            setError("Please enter a token address");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const contractWithProvider = new ethers.Contract(
-                contract.target,
-                contract.interface,
-                provider
-            ) as LiquidityPoolContract
-
-            const threshold = await contractWithProvider.getLiquidationThreshold(selectedToken)
-            setTokenLiquidationThreshold(threshold)
-            setError("")
+            setIsLoading(true);
+            const threshold = await contract.getLiquidationThreshold(selectedToken);
+            setTokenLiquidationThreshold(threshold);
+            setError("");
         } catch (err) {
-            console.error("Failed to get liquidation threshold:", err)
-            setError("Failed to get liquidation threshold")
+            console.error("Failed to get liquidation threshold:", err);
+            setError("Failed to get liquidation threshold");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleGetPriceFeed = async () => {
         if (!selectedToken) {
-            setError("Please enter a token address")
-            return
+            setError("Please enter a token address");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const contractWithProvider = new ethers.Contract(
-                contract.target,
-                contract.interface,
-                provider
-            ) as LiquidityPoolContract
-
-            const feed = await contractWithProvider.getPriceFeed(selectedToken)
-            setTokenPriceFeed(feed)
-            setError("")
+            setIsLoading(true);
+            const feed = await contract.getPriceFeed(selectedToken);
+            setTokenPriceFeed(feed);
+            setError("");
         } catch (err) {
-            console.error("Failed to get price feed:", err)
-            setError("Failed to get price feed")
+            console.error("Failed to get price feed:", err);
+            setError("Failed to get price feed");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
+    
     const handleCheckCollateralToken = async () => {
         if (!newCollateralToken) {
-            setError("Please enter a token address")
-            return
+            setError("Please enter a token address");
+            return;
         }
         try {
-            setIsLoading(true)
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const contractWithProvider = new ethers.Contract(
-                contract.target,
-                contract.interface,
-                provider
-            ) as LiquidityPoolContract
-
-            const isCollateral = await contractWithProvider.isCollateralToken(newCollateralToken)
-            setIsTokenCollateral(isCollateral)
-            setError("")
+            setIsLoading(true);
+            const isCollateral = await contract.isAllowedCollateral(newCollateralToken);
+            setIsTokenCollateral(isCollateral);
+            setError("");
         } catch (err) {
-            console.error("Failed to check collateral token:", err)
-            setError("Failed to check collateral token")
+            console.error("Failed to check collateral token:", err);
+            setError("Failed to check collateral token");
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
+    };
 
     return (
         <div className="space-y-6 w-full">
