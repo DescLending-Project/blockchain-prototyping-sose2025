@@ -2,13 +2,16 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"; // Add this import
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-// Inherit from AccessControlUpgradeable in addition to OwnableUpgradeable
-contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgradeable {
+contract LiquidityPoolV3 is
+    Initializable,
+    OwnableUpgradeable,
+    AccessControlUpgradeable
+{
     mapping(address => mapping(address => uint256)) public collateralBalance;
     mapping(address => bool) public isAllowedCollateral;
     mapping(address => uint256) public creditScore;
@@ -30,7 +33,20 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
     bool public paused;
 
     address public liquidator;
-    
+
+    // New state variables for limits and parameters
+    uint256 public maxBorrowAmount;
+    uint256 public maxCollateralAmount;
+    uint256 public maxLiquidationBonus;
+    uint256 public maxLiquidationPenalty;
+    uint256 public maxLiquidationThreshold;
+    uint256 public maxLiquidationTime;
+    uint256 public maxLiquidationAmount;
+    uint256 public maxLiquidationRatio;
+    uint256 public maxLiquidationDelay;
+    uint256 public maxLiquidationGracePeriod;
+    uint256 public interestRate;
+
     event CollateralDeposited(
         address indexed user,
         address indexed token,
@@ -75,10 +91,135 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
 
     function initialize(address initialOwner) public initializer {
         __Ownable_init(initialOwner);
-        __AccessControl_init(); // Initialize AccessControl
-        // Set the initialOwner as the DEFAULT_ADMIN_ROLE
+        __AccessControl_init();
         _setRoleAdmin(DEFAULT_ADMIN_ROLE, DEFAULT_ADMIN_ROLE);
         _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
+
+        // Initialize default values for new parameters
+        maxBorrowAmount = type(uint256).max;
+        maxCollateralAmount = type(uint256).max;
+        maxLiquidationBonus = 20; // 20%
+        maxLiquidationPenalty = 10; // 10%
+        maxLiquidationThreshold = 150; // 150%
+        maxLiquidationTime = 7 days;
+        maxLiquidationAmount = type(uint256).max;
+        maxLiquidationRatio = 150; // 150%
+        maxLiquidationDelay = 2 days;
+        maxLiquidationGracePeriod = 3 days;
+        interestRate = 5; // 5%
+    }
+
+    // Admin functions
+    function setAdmin(address newAdmin) external onlyOwner {
+        require(newAdmin != address(0), "Invalid address");
+        _transferOwnership(newAdmin);
+        _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
+        _revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function getAdmin() external view returns (address) {
+        return owner();
+    }
+
+    // Interest rate functions
+    function setInterestRate(uint256 newRate) external onlyOwner {
+        require(newRate <= 100, "Interest rate too high"); // Max 100%
+        interestRate = newRate;
+    }
+
+    function getInterestRate() external view returns (uint256) {
+        return interestRate;
+    }
+
+    // Max borrow amount functions
+    function setMaxBorrowAmount(uint256 newMax) external onlyOwner {
+        maxBorrowAmount = newMax;
+    }
+
+    function getMaxBorrowAmount() external view returns (uint256) {
+        return maxBorrowAmount;
+    }
+
+    // Max collateral amount functions
+    function setMaxCollateralAmount(uint256 newMax) external onlyOwner {
+        maxCollateralAmount = newMax;
+    }
+
+    function getMaxCollateralAmount() external view returns (uint256) {
+        return maxCollateralAmount;
+    }
+
+    // Liquidation parameters functions
+    function setMaxLiquidationBonus(uint256 newBonus) external onlyOwner {
+        require(newBonus <= 100, "Bonus too high"); // Max 100%
+        maxLiquidationBonus = newBonus;
+    }
+
+    function getMaxLiquidationBonus() external view returns (uint256) {
+        return maxLiquidationBonus;
+    }
+
+    function setMaxLiquidationPenalty(uint256 newPenalty) external onlyOwner {
+        require(newPenalty <= 100, "Penalty too high"); // Max 100%
+        maxLiquidationPenalty = newPenalty;
+    }
+
+    function getMaxLiquidationPenalty() external view returns (uint256) {
+        return maxLiquidationPenalty;
+    }
+
+    function setMaxLiquidationThreshold(
+        uint256 newThreshold
+    ) external onlyOwner {
+        require(newThreshold >= 100, "Threshold too low"); // Min 100%
+        maxLiquidationThreshold = newThreshold;
+    }
+
+    function getMaxLiquidationThreshold() external view returns (uint256) {
+        return maxLiquidationThreshold;
+    }
+
+    function setMaxLiquidationTime(uint256 newTime) external onlyOwner {
+        maxLiquidationTime = newTime;
+    }
+
+    function getMaxLiquidationTime() external view returns (uint256) {
+        return maxLiquidationTime;
+    }
+
+    function setMaxLiquidationAmount(uint256 newAmount) external onlyOwner {
+        maxLiquidationAmount = newAmount;
+    }
+
+    function getMaxLiquidationAmount() external view returns (uint256) {
+        return maxLiquidationAmount;
+    }
+
+    function setMaxLiquidationRatio(uint256 newRatio) external onlyOwner {
+        require(newRatio >= 100, "Ratio too low"); // Min 100%
+        maxLiquidationRatio = newRatio;
+    }
+
+    function getMaxLiquidationRatio() external view returns (uint256) {
+        return maxLiquidationRatio;
+    }
+
+    function setMaxLiquidationDelay(uint256 newDelay) external onlyOwner {
+        maxLiquidationDelay = newDelay;
+    }
+
+    function getMaxLiquidationDelay() external view returns (uint256) {
+        return maxLiquidationDelay;
+    }
+
+    function setMaxLiquidationGracePeriod(
+        uint256 newPeriod
+    ) external onlyOwner {
+        maxLiquidationGracePeriod = newPeriod;
+    }
+
+    function getMaxLiquidationGracePeriod() external view returns (uint256) {
+        return maxLiquidationGracePeriod;
     }
 
     function setAllowedCollateral(
@@ -121,7 +262,6 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         );
         require(!isLiquidatable[msg.sender], "Account is in liquidation");
 
-        // check if user still has enough collateral after withdrawal
         uint256 newCollateralValue = getTotalCollateralValue(msg.sender) -
             ((amount * getTokenValue(token)) / 1e18);
 
@@ -152,11 +292,15 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         require(amount > 0, "Amount must be greater than 0");
         require(creditScore[msg.sender] >= 60, "Credit score too low");
         require(amount <= totalFunds / 2, "Insufficient funds in the pool");
+        require(amount <= maxBorrowAmount, "Exceeds max borrow amount");
         require(userDebt[msg.sender] == 0, "Repay your existing debt first");
 
         uint256 collateralValue = getTotalCollateralValue(msg.sender);
+        require(
+            collateralValue <= maxCollateralAmount,
+            "Exceeds max collateral amount"
+        );
 
-        // make sure collateral is enough for the new loan
         require(
             collateralValue * 100 >= amount * DEFAULT_LIQUIDATION_THRESHOLD,
             "Insufficient collateral for this loan"
@@ -211,7 +355,10 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         emit CreditScoreAssigned(user, score);
     }
 
-    // https://docs.chain.link/data-feeds/price-feeds/addresses?page=1&testnetPage=1
+    function getCreditScore(address user) external view returns (uint256) {
+        return creditScore[user];
+    }
+
     function setPriceFeed(address token, address feed) external onlyOwner {
         require(isAllowedCollateral[token], "Token not allowed as collateral");
         priceFeed[token] = feed;
@@ -222,6 +369,7 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         uint256 threshold
     ) external onlyOwner {
         require(isAllowedCollateral[token], "Token not allowed as collateral");
+        require(threshold <= maxLiquidationThreshold, "Exceeds max threshold");
         require(threshold > 100, "Threshold must be > 100%");
         liquidationThreshold[token] = threshold;
     }
@@ -260,7 +408,6 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         uint256 penalty = (debt * LIQUIDATION_PENALTY) / 100;
         uint256 totalToRepay = debt + penalty;
 
-        // transfer all user's collateral to the liquidator
         address[] memory tokens = getAllowedCollateralTokens();
         for (uint i = 0; i < tokens.length; i++) {
             address token = tokens[i];
@@ -279,7 +426,6 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         emit LiquidationExecuted(user, msg.sender, totalToRepay);
     }
 
-    // deposit more collateral to stop liquidation
     function recoverFromLiquidation(address token, uint256 amount) external {
         require(isLiquidatable[msg.sender], "Account not in liquidation");
 
@@ -293,7 +439,6 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         }
     }
 
-    // calculate total USD value of all user's collateral
     function getTotalCollateralValue(
         address user
     ) public view returns (uint256) {
@@ -310,7 +455,6 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         return totalValue;
     }
 
-    // get USD price of 1 token using Chainlink
     function getTokenValue(address token) public view returns (uint256) {
         address feedAddress = priceFeed[token];
         require(feedAddress != address(0), "Price feed not set");
@@ -322,8 +466,11 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         return uint256(price) * (10 ** (18 - priceFeedContract.decimals()));
     }
 
-    function getMinCollateralRatio() public pure returns (uint256) {
-        return DEFAULT_LIQUIDATION_THRESHOLD;
+    function getMinCollateralRatio() public view returns (uint256) {
+        return
+            maxLiquidationThreshold > 0
+                ? maxLiquidationThreshold
+                : DEFAULT_LIQUIDATION_THRESHOLD;
     }
 
     function getLiquidationThreshold(
@@ -377,14 +524,9 @@ contract LiquidityPoolV3 is Initializable, OwnableUpgradeable, AccessControlUpgr
         return paused;
     }
 
-    // Use the correct modifier and role
-    function setLiquidator(address _liquidator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setLiquidator(
+        address _liquidator
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         liquidator = _liquidator;
-    }
-
-function getAdmin() external view returns (address) {
-        address admin = owner();
-        require(admin != address(0), "No admin set");
-        return admin;
     }
 }

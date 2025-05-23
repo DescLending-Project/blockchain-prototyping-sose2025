@@ -10,16 +10,16 @@ import { Alert, AlertDescription } from './components/ui/alert'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
 import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
 
-const CONTRACT_ADDRESS = '0x742cDbaC326643D9369b182bE2eC20a6F4ee28f1'
+const CONTRACT_ADDRESS = '0xA0B6F323FdA6dDB47Efeb90F5F68Ac1f91929787'
 
 const COLLATERAL_TOKENS = [
   {
-    address: '0xAF93888cbD250300470A1618206e036E11470149',
+    address: '0xB2B051D52e816305BbB37ee83A2dB4aFaae0c55C',
     symbol: 'CORAL',
     name: 'Coral Token'
   },
   {
-    address: '0xD4A89Be3D6e0be7f507819a57d7AA012C9Df3c63',
+    address: '0xbA3E637a80A4D599284b3213A435a888d218D966',
     symbol: 'GLINT',
     name: 'Glint Token'
   }
@@ -52,6 +52,10 @@ export default function App() {
       setContract(contract)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
+
+      // Store connection state in localStorage
+      localStorage.setItem('walletConnected', 'true')
+      localStorage.setItem('lastConnectedAccount', accounts[0])
     } catch (err) {
       setError(err.message || "Failed to connect wallet")
     } finally {
@@ -67,6 +71,11 @@ export default function App() {
       setIsAdmin(false)
       setIsLiquidator(false)
       setIsPaused(false)
+      setContract(null)
+
+      // Clear connection state from localStorage
+      localStorage.removeItem('walletConnected')
+      localStorage.removeItem('lastConnectedAccount')
     } catch (err) {
       setError("Failed to disconnect wallet")
     } finally {
@@ -92,6 +101,9 @@ export default function App() {
       setContract(contract)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
+
+      // Update last connected account in localStorage
+      localStorage.setItem('lastConnectedAccount', accounts[0])
     } catch (err) {
       setError("Failed to switch account")
     } finally {
@@ -167,15 +179,36 @@ export default function App() {
         try {
           const provider = new ethers.BrowserProvider(window.ethereum)
           const accounts = await provider.listAccounts()
-          if (accounts.length > 0) {
-            const signer = await provider.getSigner()
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
-            setAccount(accounts[0])
-            await checkRoles(contract, accounts[0])
-            await checkPauseStatus(contract)
+
+          // Check if we have a stored connection state
+          const wasConnected = localStorage.getItem('walletConnected') === 'true'
+          const lastAccount = localStorage.getItem('lastConnectedAccount')
+
+          if (accounts.length > 0 && wasConnected && lastAccount) {
+            // Verify the account is still available
+            const isAccountAvailable = accounts.some(acc =>
+              acc && typeof acc === 'string' &&
+              acc.toLowerCase() === lastAccount.toLowerCase()
+            )
+
+            if (isAccountAvailable) {
+              const signer = await provider.getSigner()
+              const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+              setAccount(accounts[0])
+              setContract(contract)
+              await checkRoles(contract, accounts[0])
+              await checkPauseStatus(contract)
+            } else {
+              // Account is no longer available, clear stored state
+              localStorage.removeItem('walletConnected')
+              localStorage.removeItem('lastConnectedAccount')
+            }
           }
         } catch (err) {
           console.error("Failed to check connection:", err)
+          // Clear stored connection state if there's an error
+          localStorage.removeItem('walletConnected')
+          localStorage.removeItem('lastConnectedAccount')
         }
       }
     }
@@ -190,11 +223,17 @@ export default function App() {
           switchAccount()
         }
       })
+
+      // Add chainChanged event listener
+      window.ethereum.on("chainChanged", () => {
+        window.location.reload()
+      })
     }
 
     return () => {
       if (window.ethereum) {
         window.ethereum.removeListener("accountsChanged", () => { })
+        window.ethereum.removeListener("chainChanged", () => { })
       }
     }
   }, [])

@@ -46,41 +46,35 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
     const [lendAmount, setLendAmount] = useState("")
     const [lendingAPY, setLendingAPY] = useState("0")
     const [totalLent, setTotalLent] = useState("0")
+    const [creditScore, setCreditScore] = useState<number | null>(null)
 
     const fetchData = async () => {
         if (!account) return // Do not fetch if no account connected
         try {
             // Use a contract instance connected to a Provider for read operations
-            // NOTE: If read from another contract instance, the debt wont display, maybe i am missing something?
             const provider = new ethers.BrowserProvider(window.ethereum)
             const readOnlyContract = new ethers.Contract(contract.target, contract.interface, provider)
 
-            // NOTE: changed this from readOnlyContract to contract
             const debt = await contract.getMyDebt()
             setUserDebt(ethers.formatEther(debt))
 
-            // TODO: Implement total collateral value fetching using readOnlyContract
-            // const totalCollateral = await readOnlyContract.getTotalCollateralValue(account);
-            setTotalCollateralValue("0") // Placeholder
-
             // Fetch total collateral value
             const totalCollateral = await readOnlyContract.getTotalCollateralValue(account);
-            setTotalCollateralValue(ethers.formatUnits(totalCollateral, 18)); // Price feed returns USD value in 8 decimals
+            setTotalCollateralValue(ethers.formatUnits(totalCollateral, 18));
 
             // Fetch total pool balance
             const poolBalance = await readOnlyContract.getBalance();
             setTotalLent(ethers.formatEther(poolBalance));
 
-            // TODO: Fetch and display credit score
-            // const userCreditScore = await readOnlyContract.creditScore(account);
-            // setCreditScore(userCreditScore); // Assuming creditScore state exists or is added
+            // Fetch credit score
+            const userCreditScore = await readOnlyContract.getCreditScore(account);
+            setCreditScore(Number(userCreditScore));
 
             // Fetch health status
             const healthCheck = await readOnlyContract.checkCollateralization(account);
             if (healthCheck && Array.isArray(healthCheck) && healthCheck.length >= 2) {
-                // Convert the ratio to a percentage between 0-100
                 const ratio = Number(ethers.formatUnits(healthCheck[1], 0));
-                const percentageRatio = Math.min(ratio / 100, 100); // Convert to percentage and cap at 100
+                const percentageRatio = Math.min(ratio / 100, 100);
                 setHealthStatus({
                     isHealthy: healthCheck[0],
                     ratio: percentageRatio
@@ -91,7 +85,6 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
 
         } catch (err) {
             console.error("Failed to fetch data:", err)
-            // setError("Failed to fetch user data"); // Optionally set user-facing error
         }
     }
 
@@ -422,7 +415,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-3 gap-6">
                         <div className="p-4 rounded-lg bg-background/50 border">
                             <p className="text-sm text-muted-foreground">Total Collateral Value</p>
                             <p className="text-2xl font-bold">${totalCollateralValue}</p>
@@ -430,6 +423,10 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                         <div className="p-4 rounded-lg bg-background/50 border">
                             <p className="text-sm text-muted-foreground">Current Debt</p>
                             <p className="text-2xl font-bold">${userDebt}</p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-background/50 border">
+                            <p className="text-sm text-muted-foreground">Credit Score</p>
+                            <p className="text-2xl font-bold">{creditScore !== null ? creditScore : 'N/A'}</p>
                         </div>
                     </div>
                     <div className="p-4 rounded-lg bg-background/50 border">

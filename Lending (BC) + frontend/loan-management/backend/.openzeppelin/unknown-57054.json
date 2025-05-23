@@ -115,6 +115,31 @@
       "address": "0x742cDbaC326643D9369b182bE2eC20a6F4ee28f1",
       "txHash": "0x60e09cd38318adb211b5b6e07e4c93da60980d22184f0746effed4dfa519402d",
       "kind": "transparent"
+    },
+    {
+      "address": "0x4B0B5900Bb5cE64A569A154B673Bd39240F35333",
+      "txHash": "0x4258ecf3c31160997f651ead64965d86cbfb0d7a195846241e101da9dbc9bed6",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xB2B051D52e816305BbB37ee83A2dB4aFaae0c55C",
+      "txHash": "0x45fb51c8e6cce2d8df786d6b6f2d0df1f5bc2840525e1c3785ffb3e5233136bc",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x2e1Ca82267964fCf4CF71822fdbC16D02ee97Bc1",
+      "txHash": "0xd9a1a5e075bb98e893b837e1347f8fbb8ca1724483247866acaa0339a915d9a5",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x6Dac6A5D81D9bbB4B9EF2aA89a600E51E3c30624",
+      "txHash": "0x80e86d4596a14c130fe8e487a9324e9cf43b49dd700d36cef8257568b2018442",
+      "kind": "transparent"
+    },
+    {
+      "address": "0xA0B6F323FdA6dDB47Efeb90F5F68Ac1f91929787",
+      "txHash": "0x28f4dc9738389b46349a656c93428634269bc2703ad4f707b04b6052249a0e13",
+      "kind": "transparent"
     }
   ],
   "impls": {
@@ -1309,6 +1334,716 @@
               "label": "_initializing",
               "type": "t_bool",
               "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "012a8a56f41fcf1e674d41492855fe3079af949181d77d7f43ec519bb7685ef5": {
+      "address": "0xdAA6D7F170B35139038de7D32E2c707985bc916a",
+      "txHash": "0x9b6a0ad8a51c4f8a2c7d79da1868dbac7c7a80e84ed3d685c4a7ac7dd4c53ebf",
+      "layout": {
+        "solcVersion": "0.8.28",
+        "storage": [
+          {
+            "label": "collateralBalance",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:15"
+          },
+          {
+            "label": "isAllowedCollateral",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:16"
+          },
+          {
+            "label": "creditScore",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:17"
+          },
+          {
+            "label": "userDebt",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:18"
+          },
+          {
+            "label": "borrowTimestamp",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:19"
+          },
+          {
+            "label": "isLiquidatable",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:20"
+          },
+          {
+            "label": "liquidationStartTime",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:21"
+          },
+          {
+            "label": "liquidationThreshold",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:22"
+          },
+          {
+            "label": "priceFeed",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_address,t_address)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:23"
+          },
+          {
+            "label": "collateralTokenList",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_array(t_address)dyn_storage",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:25"
+          },
+          {
+            "label": "totalFunds",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:31"
+          },
+          {
+            "label": "locked",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_bool",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:32"
+          },
+          {
+            "label": "paused",
+            "offset": 1,
+            "slot": "11",
+            "type": "t_bool",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:33"
+          },
+          {
+            "label": "liquidator",
+            "offset": 2,
+            "slot": "11",
+            "type": "t_address",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:35"
+          },
+          {
+            "label": "maxBorrowAmount",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:38"
+          },
+          {
+            "label": "maxCollateralAmount",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:39"
+          },
+          {
+            "label": "maxLiquidationBonus",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:40"
+          },
+          {
+            "label": "maxLiquidationPenalty",
+            "offset": 0,
+            "slot": "15",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:41"
+          },
+          {
+            "label": "maxLiquidationThreshold",
+            "offset": 0,
+            "slot": "16",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:42"
+          },
+          {
+            "label": "maxLiquidationTime",
+            "offset": 0,
+            "slot": "17",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:43"
+          },
+          {
+            "label": "maxLiquidationAmount",
+            "offset": 0,
+            "slot": "18",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:44"
+          },
+          {
+            "label": "maxLiquidationRatio",
+            "offset": 0,
+            "slot": "19",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:45"
+          },
+          {
+            "label": "maxLiquidationDelay",
+            "offset": 0,
+            "slot": "20",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:46"
+          },
+          {
+            "label": "maxLiquidationGracePeriod",
+            "offset": 0,
+            "slot": "21",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:47"
+          },
+          {
+            "label": "interestRate",
+            "offset": 0,
+            "slot": "22",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:48"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)70_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(AccessControlStorage)80_storage": {
+            "label": "struct AccessControlUpgradeable.AccessControlStorage",
+            "members": [
+              {
+                "label": "_roles",
+                "type": "t_mapping(t_bytes32,t_struct(RoleData)70_storage)",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(InitializableStorage)257_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)197_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(RoleData)70_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "hasRole",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_address)": {
+            "label": "mapping(address => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.AccessControl": [
+            {
+              "contract": "AccessControlUpgradeable",
+              "label": "_roles",
+              "type": "t_mapping(t_bytes32,t_struct(RoleData)70_storage)",
+              "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:61",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    },
+    "457a29426dde417fc18c730666cd21668fc232ca322fed04c1a0ab45b7bd2928": {
+      "address": "0xbeF9bE9322605C6f9c26F1642c2eb5b36c851750",
+      "txHash": "0x19d874916be2b4f3fd9229530db74de9cf4b69fc7f4dc193a3d8c1ec0eca3dda",
+      "layout": {
+        "solcVersion": "0.8.28",
+        "storage": [
+          {
+            "label": "collateralBalance",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:15"
+          },
+          {
+            "label": "isAllowedCollateral",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:16"
+          },
+          {
+            "label": "creditScore",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:17"
+          },
+          {
+            "label": "userDebt",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:18"
+          },
+          {
+            "label": "borrowTimestamp",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:19"
+          },
+          {
+            "label": "isLiquidatable",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:20"
+          },
+          {
+            "label": "liquidationStartTime",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:21"
+          },
+          {
+            "label": "liquidationThreshold",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:22"
+          },
+          {
+            "label": "priceFeed",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_address,t_address)",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:23"
+          },
+          {
+            "label": "collateralTokenList",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_array(t_address)dyn_storage",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:25"
+          },
+          {
+            "label": "totalFunds",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:31"
+          },
+          {
+            "label": "locked",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_bool",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:32"
+          },
+          {
+            "label": "paused",
+            "offset": 1,
+            "slot": "11",
+            "type": "t_bool",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:33"
+          },
+          {
+            "label": "liquidator",
+            "offset": 2,
+            "slot": "11",
+            "type": "t_address",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:35"
+          },
+          {
+            "label": "maxBorrowAmount",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:38"
+          },
+          {
+            "label": "maxCollateralAmount",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:39"
+          },
+          {
+            "label": "maxLiquidationBonus",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:40"
+          },
+          {
+            "label": "maxLiquidationPenalty",
+            "offset": 0,
+            "slot": "15",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:41"
+          },
+          {
+            "label": "maxLiquidationThreshold",
+            "offset": 0,
+            "slot": "16",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:42"
+          },
+          {
+            "label": "maxLiquidationTime",
+            "offset": 0,
+            "slot": "17",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:43"
+          },
+          {
+            "label": "maxLiquidationAmount",
+            "offset": 0,
+            "slot": "18",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:44"
+          },
+          {
+            "label": "maxLiquidationRatio",
+            "offset": 0,
+            "slot": "19",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:45"
+          },
+          {
+            "label": "maxLiquidationDelay",
+            "offset": 0,
+            "slot": "20",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:46"
+          },
+          {
+            "label": "maxLiquidationGracePeriod",
+            "offset": 0,
+            "slot": "21",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:47"
+          },
+          {
+            "label": "interestRate",
+            "offset": 0,
+            "slot": "22",
+            "type": "t_uint256",
+            "contract": "LiquidityPoolV3",
+            "src": "contracts/LiquidityPoolV3.sol:48"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)70_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(AccessControlStorage)80_storage": {
+            "label": "struct AccessControlUpgradeable.AccessControlStorage",
+            "members": [
+              {
+                "label": "_roles",
+                "type": "t_mapping(t_bytes32,t_struct(RoleData)70_storage)",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(InitializableStorage)257_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(OwnableStorage)197_storage": {
+            "label": "struct OwnableUpgradeable.OwnableStorage",
+            "members": [
+              {
+                "label": "_owner",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(RoleData)70_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "hasRole",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_address)": {
+            "label": "mapping(address => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(address => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.AccessControl": [
+            {
+              "contract": "AccessControlUpgradeable",
+              "label": "_roles",
+              "type": "t_mapping(t_bytes32,t_struct(RoleData)70_storage)",
+              "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:61",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73",
               "offset": 8,
               "slot": "0"
             }
