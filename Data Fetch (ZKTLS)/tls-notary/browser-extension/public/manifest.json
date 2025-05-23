@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "TLS Notary Extension",
+  "version": "2.0.0",
+  "description": "A browser extension for TLS notary functionality",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["tlsn_wasm_bg.wasm", "tlsn_wasm.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+
+}
