@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TLS Notary Extension</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <h1>TLS Notary Extension</h1>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="capture">Capture</div>
+    <div class="tab" data-tab="proofs">Proofs</div>
+    <div class="tab" data-tab="settings">Settings</div>
+  </div>
+
+  <!-- Capture Tab -->
+  <div class="tab-content active" id="capture">
+    <div class="form-group">
+      <label for="apiType">API Type:</label>
+      <select id="apiType">
+        <option value="custom">Custom API</option>
+        <option value="openbanking">OpenbankingAPI</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="url">URL to capture:</label>
+      <input type="text" id="url" placeholder="https://example.com">
+    </div>
+
+    <div class="form-group">
+      <label for="method">HTTP Method:</label>
+      <select id="method">
+        <option value="GET">GET</option>
+        <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="DELETE">DELETE</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Custom Headers:</label>
+      <div class="header-items" id="headerItems">
+        <div class="header-item">
+          <input type="text" placeholder="Name" class="header-name">
+          <input type="text" placeholder="Value" class="header-value">
+          <button class="remove-header">X</button>
+        </div>
+      </div>
+      <button class="add-header-btn" id="addHeader">Add Header</button>
+    </div>
+
+    <div class="form-group">
+      <label for="requestBody">Request Body (for POST/PUT):</label>
+      <textarea id="requestBody" rows="4"></textarea>
+    </div>
+
+    <button id="captureBtn">Capture Request</button>
+  </div>
+
+  <!-- Proofs Tab -->
+  <div class="tab-content" id="proofs">
+    <div class="proof-list" id="proofList">
+      <!-- Proof items will be added here dynamically -->
+      <div class="proof-item">
+        <div>https://example.com - 2023-05-15 14:30</div>
+        <span class="status status-verified">Verified</span>
+      </div>
+      <div class="proof-item">
+        <div>https://api.example.org - 2023-05-14 10:15</div>
+        <span class="status status-pending">Pending</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Tab -->
+  <div class="tab-content" id="settings">
+    <div class="form-group">
+      <label for="notaryServer">Notary Server URL:</label>
+      <input type="text" id="notaryServer" placeholder="https://notary.example.com">
+    </div>
+
+
+    <button id="saveSettingsBtn">Save Settings</button>
+  </div>
+
+  <!-- Proof Detail Modal -->
+  <div class="modal" id="proofModal">
+    <div class="modal-content">
+      <span class="close" id="closeModal">&times;</span>
+      <h2>Proof Details</h2>
+      <div id="proofDetails">
+        <!-- Proof details will be added here dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script src="js/popup/popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+body {
+  font-family: Arial, sans-serif;
+  width: 400px;
+  height: 600px;
+  margin: 0;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+h1 {
+  font-size: 18px;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.tabs {
+  display: flex;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #ccc;
+}
+
+.tab {
+  padding: 8px 16px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-bottom: none;
+  margin-right: 4px;
+}
+
+.tab.active {
+  background-color: #f0f0f0;
+  border-color: #ccc;
+  border-radius: 4px 4px 0 0;
+}
+
+.tab-content {
+  display: none;
+  height: 500px;
+  overflow-y: auto;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover {
+  background-color: #3367d6;
+}
+
+.proof-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.proof-item {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.proof-item:hover {
+  background-color: #f5f5f5;
+}
+
+.proof-item:last-child {
+  border-bottom: none;
+}
+
+.status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  margin: 5px 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.status-container {
+  margin: 5px 0;
+  font-weight: bold;
+}
+
+.status-error { background-color: #d93025; }
+.status-sending { background-color: #fbbc04; }
+.status-received { background-color: #1a73e8; }
+.status-pending { background-color: #9aa0a6; }
+.status-verified { background-color: #188038; }
+.status-failed { background-color: #d93025; }
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 90%;
+  max-height: 80%;
+  height: 500px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  word-wrap: break-word;
+}
+
+.close {
+  float: right;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.header-items {
+  margin-top: 8px;
+}
+
+.header-item {
+  display: flex;
+  margin-bottom: 4px;
+}
+
+.header-item input {
+  margin-right: 4px;
+}
+
+.header-item button {
+  padding: 4px 8px;
+  background-color: #d93025;
+}
+
+.add-header-btn {
+  margin-top: 4px;
+  background-color: #188038;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* Ensure elements in modal wrap properly */
+#proofDetails * {
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+#proofDetails pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.scrollable-container {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 12px;
+}
+
+.status-message {
+  padding: 10px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  font-weight: bold;
+  text-align: center;
+  transition: opacity 0.5s ease-in-out;
+  z-index: 2000;
+  position: relative;
+}
+
+.status-message.info {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+  border: 1px solid #1a73e8;
+}
+
+.status-message.success {
+  background-color: #e6f4ea;
+  color: #188038;
+  border: 1px solid #188038;
+}
+
+.status-message.error {
+  background-color: #fce8e6;
+  color: #d93025;
+  border: 1px solid #d93025;
+}
+
+.status-message.warning {
+  background-color: #fef7e0;
+  color: #f29900;
+  border: 1px solid #f29900;
+}
+
+.download-btn {
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 10px;
+}
+
+.download-btn:hover {
+  background-color: #0d47a1;
+}
