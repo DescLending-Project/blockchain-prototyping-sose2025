@@ -85,6 +85,8 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
     const [maxLiquidationDelay, setMaxLiquidationDelay] = useState("")
     const [maxLiquidationGracePeriod, setMaxLiquidationGracePeriod] = useState("")
     const [extractAmount, setExtractAmount] = useState("")
+    const [targetUser, setTargetUser] = useState("")
+    const [liquidationTimeRemaining, setLiquidationTimeRemaining] = useState<string | null>(null)
 
     useEffect(() => {
         const checkPauseStatus = async () => {
@@ -556,6 +558,44 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
     };
 
+    const handleStartLiquidation = async () => {
+        if (!targetUser) {
+            setError("Please enter a user address");
+            return;
+        }
+        try {
+            setIsLoading(true);
+            const tx = await contract.startLiquidation(targetUser);
+            await tx.wait();
+            setTargetUser("");
+            setError("Liquidation started successfully!");
+        } catch (err) {
+            console.error("Failed to start liquidation:", err);
+            setError(err instanceof Error ? err.message : "Failed to start liquidation");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleExecuteLiquidation = async () => {
+        if (!targetUser) {
+            setError("Please enter a user address");
+            return;
+        }
+        try {
+            setIsLoading(true);
+            const tx = await contract.executeLiquidation(targetUser);
+            await tx.wait();
+            setTargetUser("");
+            setError("Liquidation executed successfully!");
+        } catch (err) {
+            console.error("Failed to execute liquidation:", err);
+            setError(err instanceof Error ? err.message : "Failed to execute liquidation");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6 w-full">
             {error && (
@@ -655,6 +695,50 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                                     step="0.01"
                                     className="w-full"
                                 />
+                            </div>
+
+                            <div className="border-t pt-6 mt-6">
+                                <h3 className="text-lg font-semibold mb-4">Liquidation Actions</h3>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">User Address to Liquidate</label>
+                                        <Input
+                                            placeholder="Enter user address"
+                                            value={targetUser}
+                                            onChange={(e) => {
+                                                setTargetUser(e.target.value)
+                                                setError("")
+                                            }}
+                                            className="w-full"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <Button
+                                            onClick={handleStartLiquidation}
+                                            className="flex-1 h-12"
+                                            disabled={isLoading}
+                                        >
+                                            {isLoading ? "Processing..." : "Start Liquidation"}
+                                        </Button>
+                                        <Button
+                                            onClick={handleExecuteLiquidation}
+                                            className="flex-1 h-12"
+                                            disabled={isLoading}
+                                        >
+                                            {isLoading ? "Processing..." : "Execute Liquidation"}
+                                        </Button>
+                                    </div>
+
+                                    {liquidationTimeRemaining && (
+                                        <div className="p-4 bg-muted rounded-lg">
+                                            <p className="text-sm font-medium">
+                                                Time Remaining: {liquidationTimeRemaining}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -776,7 +860,7 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <UserPlus className="h-5 w-5" />
-                                Liquidator
+                                Liquidation Controls
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
