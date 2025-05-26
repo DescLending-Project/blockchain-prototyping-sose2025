@@ -139,16 +139,18 @@ export async function generateProof(
     console.log('Raw recvBody:', rawBody);
     const body = JSON.parse(rawBody);
 
-    // Dynamically reveal all top-level fields in the JSON response
-    const revealFields = Object.entries(body).map(([key, value]) => {
+    const revealFields = Object.entries(body).reduce((acc, [key, value]) => {
         if (typeof value === 'object' && value !== null) {
-            return `"${key}":${JSON.stringify(value)}`;
+            acc.push(...flattenObjectToStrings(value));
+        } else {
+            const formattedValue =
+                typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other types as is
+            acc.push(`"${key}":${formattedValue}`);
         }
-        if (typeof value === 'string') {
-            return `"${key}":"${value}"`;
-        }
-        return `"${key}":${value}`;
-    });
+        return acc;
+    }, [] as string[]);
+
+    console.log('Reveal fields:', revealFields);
 
     const commit: Commit = {
         sent: subtractRanges(
@@ -192,7 +194,8 @@ export async function generateProof(
 
 /**
  * Verify a presentation and return the verification result
- * 
+ *
+ * @param notaryUrl Url of notary server to use
  * @param presentationJSON The presentation JSON to verify
  * @returns The verification result
  */
@@ -219,4 +222,20 @@ export async function verifyProof(notaryUrl: string, presentationJSON: Presentat
         sent: transcript.sent(),
         recv: transcript.recv(),
     };
+}
+
+function flattenObjectToStrings(obj: Record<string, any>, separator: string = '.'): string[] {
+    const result: string[] = [];
+
+    for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'object' && value !== null) {
+            result.push(...flattenObjectToStrings(value, separator));
+        } else {
+            const formattedValue =
+                typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other values as is
+            result.push(`"${key}":${formattedValue}`);
+        }
+    }
+
+    return result;
 }
