@@ -7,10 +7,14 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
+import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
+
+
 contract LiquidityPoolV3 is
     Initializable,
     OwnableUpgradeable,
-    AccessControlUpgradeable
+    AccessControlUpgradeable,
+    AutomationCompatibleInterface
 {
     mapping(address => mapping(address => uint256)) public collateralBalance;
     mapping(address => bool) public isAllowedCollateral;
@@ -46,6 +50,11 @@ contract LiquidityPoolV3 is
     uint256 public maxLiquidationDelay;
     uint256 public maxLiquidationGracePeriod;
     uint256 public interestRate;
+
+    // added variables
+    address[] public users;
+    mapping(address => bool) public isKnownUser;
+
 
     event CollateralDeposited(
         address indexed user,
@@ -108,6 +117,58 @@ contract LiquidityPoolV3 is
         maxLiquidationGracePeriod = 3 days;
         interestRate = 5; // 5%
     }
+
+    // Chainlink Automation functions
+
+    function getAllUsers() public view returns (address[] memory) {
+    return users;
+    }
+
+
+    function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    address[] memory candidates = getAllUsers(); // You need to implement this
+    address[] memory toLiquidate = new address[](candidates.length);
+    uint count = 0;
+
+        for (uint i = 0; i < candidates.length; i++) {
+            address user = candidates[i];
+            if (isLiquidatable[user]) {
+                uint256 deadline = liquidationStartTime[user] + maxLiquidationGracePeriod;
+                if (block.timestamp >= deadline) {
+                    toLiquidate[count] = user;
+                    count++;
+                }
+            }
+        }
+
+        if (count > 0) {
+            address[] memory result = new address[](count);
+            for (uint j = 0; j < count; j++) {
+                result[j] = toLiquidate[j];
+            }
+            upkeepNeeded = true;
+            performData = abi.encode(result);
+        } else {
+            upkeepNeeded = false;
+        }
+    }
+
+
+    function performUpkeep(bytes calldata performData) external override {
+    address[] memory liquidatableUsers  = abi.decode(performData, (address[]));
+
+        for (uint i = 0; i < liquidatableUsers.length; i++) {
+            address user = liquidatableUsers[i];
+            if (isLiquidatable[user]) {
+                uint256 deadline = liquidationStartTime[user] + maxLiquidationGracePeriod;
+                if (block.timestamp >= deadline) {
+                    executeLiquidation(user); // Use your existing logic
+                }
+            }
+        }
+    }
+
+
 
     // Admin functions
     function setAdmin(address newAdmin) external onlyOwner {
@@ -248,6 +309,11 @@ contract LiquidityPoolV3 is
         require(amount > 0, "Amount must be > 0");
         require(!isLiquidatable[msg.sender], "Account is in liquidation");
 
+        if (!isKnownUser[msg.sender]) {
+        isKnownUser[msg.sender] = true;
+        users.push(msg.sender);
+}
+
         IERC20(token).transferFrom(msg.sender, address(this), amount);
         collateralBalance[token][msg.sender] += amount;
 
@@ -294,6 +360,12 @@ contract LiquidityPoolV3 is
         require(amount <= totalFunds / 2, "Insufficient funds in the pool");
         require(amount <= maxBorrowAmount, "Exceeds max borrow amount");
         require(userDebt[msg.sender] == 0, "Repay your existing debt first");
+
+        if (!isKnownUser[msg.sender]) {
+        isKnownUser[msg.sender] = true;
+        users.push(msg.sender);
+        }
+
 
         uint256 collateralValue = getTotalCollateralValue(msg.sender);
         require(
@@ -397,7 +469,7 @@ contract LiquidityPoolV3 is
         emit LiquidationStarted(user);
     }
 
-    function executeLiquidation(address user) external {
+    function executeLiquidation(address user) public {
         require(isLiquidatable[user], "Account not marked for liquidation");
         require(
             block.timestamp >= liquidationStartTime[user] + GRACE_PERIOD,

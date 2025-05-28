@@ -20,7 +20,7 @@ module.exports = {
       chainId: 57054,
     },
     sepolia: {
-      url: process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/your-api-key",
+      url: process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/896658bbb69c4f788598d32fbdbdb937",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11155111,
     },
