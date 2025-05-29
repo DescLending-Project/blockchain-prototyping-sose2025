@@ -11,18 +11,13 @@ import {
 import type { Commit } from 'tlsn-js';
 import type { PresentationJSON } from 'tlsn-js/build/types';
 import { HTTPParser } from 'http-parser-js';
+import { Buffer} from "buffer";
 
 const { init, Prover, Presentation }: any = Comlink.wrap(
     new Worker(new URL('./worker.ts', import.meta.url)),
 );
 
-// Configuration constants
-//export const notaryUrl = 'https://notary.pse.dev/v0.1.0-alpha.10';
-//export const websocketProxyUrl = 'ws://localhost:55688'
 export const loggingLevel = 'Debug';
-
-// export const serverDns = 'openbanking-api-826260723607.europe-west3.run.app';
-// export const serverUrl = `https://${serverDns}/users/aaa/credit-score`;
 
 /**
  * Parse HTTP message (request or response)
@@ -62,7 +57,7 @@ function parseHttpMessage(buffer: Buffer, type: 'request' | 'response') {
 
 /**
  * Extracts HTTP header strings from a flat array of header names and values, starting from the fifth element.
- * The function starts at the fifth element (index 4) because, in many HTTP libraries or protocols, the first few 
+ * The function starts at the fifth element (index 4) because, in many HTTP libraries or protocols, the first few
  * elements of a headers array may contain metadata or non-header information (such as method, URL, or protocol version).
  * By skipping the first four elements, the function ensures it only processes actual header name-value pairs.
  * @param headers - An array of strings where even indices (starting from index 4) are header names and the following odd indices are their corresponding values.
@@ -98,58 +93,103 @@ let wasmInitialized = false;
  *
  * @throws Will throw an error if the HTTP response body is not valid JSON or if any step in the proof generation fails.
  */
+
 export async function generateProof(
     call: TLSCallRequest,
 ): Promise<TLSCallResponse> {
+    console.log('Starting generateProof function with request:', {
+        url: call.request.url,
+        method: call.request.method,
+        serverDNS: call.serverDNS,
+        notaryUrl: call.notaryUrl
+    });
+
     if (!wasmInitialized) {
-        await init({
-            loggingLevel: loggingLevel,
-            wasmURL: '/tlsn/tlsn_wasm_bg.wasm',
-        });
-        wasmInitialized = true;
+        try {
+            await init({
+                loggingLevel: loggingLevel,
+                // wasmURL: '/build/tlsn_wasm_bg.wasm',
+            });
+            wasmInitialized = true;
+        } catch (error) {
+            console.error('Error initializing WASM:', error);
+            throw new Error('Failed to initialize WASM. Please check if the WASM file exists at the specified path.');
+        }
     }
+
+    console.log('Creating notary server from URL:', call.notaryUrl);
     const notary = NotaryServer.from(call.notaryUrl);
+
+    console.log('Creating prover with serverDns:', call.serverDNS);
     const prover = (await new Prover({
         serverDns: call.serverDNS,
         maxRecvData: 2048,
     })) as TProver;
-    const sessionUrl = await notary.sessionUrl();
 
+    console.log('Getting session URL from notary');
+    let sessionUrl = await notary.sessionUrl();
+    console.log('Received session URL:', sessionUrl);
+
+    console.log('Setting up prover with session URL');
     await prover.setup(sessionUrl);
 
+    console.log('Sending request through prover to:', call.request.url, 'via websocket proxy:', call.websocketProxyUrl);
     const resp = await prover.sendRequest(call.websocketProxyUrl, {
         url: call.request.url,
         method: call.request.method,
         headers: call.request.headers,
         body: call.request.body,
     });
+    console.log('Request sent successfully, response received');
 
-
+    console.log('Getting transcript from prover');
     const transcript = await prover.transcript();
     const { sent, recv } = transcript;
+    console.log('Transcript received, sent size:', sent.length, 'bytes, received size:', recv.length, 'bytes');
 
 
+    console.log('Parsing HTTP response message');
     const {
         info: recvInfo,
         headers: recvHeaders,
         body: recvBody,
     } = parseHttpMessage(Buffer.from(recv), 'response');
+    console.log('Response info:', recvInfo);
+    console.log('Response headers count:', recvHeaders.length / 2);
 
+    console.log('Processing response body');
     const rawBody = Buffer.concat(recvBody).toString();
     console.log('Raw recvBody:', rawBody);
-    const body = JSON.parse(rawBody);
 
-    // Dynamically reveal all top-level fields in the JSON response
-    const revealFields = Object.entries(body).map(([key, value]) => {
+    let body;
+    try {
+        console.log('Attempting to parse response body as JSON');
+        body = JSON.parse(rawBody);
+        console.log('Successfully parsed response body as JSON');
+    } catch (error) {
+        console.error('Error parsing response body as JSON:', error);
+        console.log('Using raw body as string instead');
+        // If it's not JSON, use the raw body as a string
+        body = { rawResponse: rawBody };
+    }
+
+    console.log('Generating reveal fields from response body');
+    const revealFields = Object.entries(body).reduce((acc, [key, value]) => {
         if (typeof value === 'object' && value !== null) {
-            return `"${key}":${JSON.stringify(value)}`;
+            console.log(`Processing nested object for key: ${key}`);
+            acc.push(...flattenObjectToStrings(value));
+        } else {
+            console.log(`Processing simple value for key: ${key}, type: ${typeof value}`);
+            const formattedValue =
+                typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other types as is
+            acc.push(`"${key}":${formattedValue}`);
         }
-        if (typeof value === 'string') {
-            return `"${key}":"${value}"`;
-        }
-        return `"${key}":${value}`;
-    });
+        return acc;
+    }, [] as string[]);
 
+    console.log('Reveal fields:', revealFields);
+
+    console.log('Creating commit object');
     const commit: Commit = {
         sent: subtractRanges(
             { start: 0, end: sent.length },
@@ -169,9 +209,13 @@ export async function generateProof(
             ),
         ],
     };
+    console.log('Commit object created with sent and recv ranges');
 
+    console.log('Notarizing commit with prover');
     const notarizationOutputs = await prover.notarize(commit);
+    console.log('Notarization completed successfully');
 
+    console.log('Creating presentation object');
     const presentation = (await new Presentation({
         attestationHex: notarizationOutputs.attestation,
         secretsHex: notarizationOutputs.secrets,
@@ -179,38 +223,60 @@ export async function generateProof(
         websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
         reveal: commit,
     })) as TPresentation;
+    console.log('Presentation object created successfully');
 
+    console.log('Converting presentation to JSON');
     const presentationJSON = await presentation.json();
+    console.log('Presentation JSON created successfully');
 
+    console.log('generateProof function completed successfully');
     return {
         responseBody: body,
         presentation: presentation,
         presentationJSON: presentationJSON,
-
     };
 }
 
 /**
  * Verify a presentation and return the verification result
- * 
+ *
+ * @param notaryUrl Url of notary server to use
  * @param presentationJSON The presentation JSON to verify
  * @returns The verification result
  */
 
-
 export async function verifyProof(notaryUrl: string, presentationJSON: PresentationJSON): Promise<VerifyProofResult> {
+    console.log('Starting verifyProof function with notaryUrl:', notaryUrl);
+
+    console.log('Creating presentation object from JSON data');
     const proof = (await new Presentation(
         presentationJSON.data,
     )) as TPresentation;
+    console.log('Presentation object created successfully');
+
+    console.log('Creating notary server from URL:', notaryUrl);
     const notary = NotaryServer.from(notaryUrl);
+
+    console.log('Getting notary public key');
     const notaryKey = await notary.publicKey('hex');
+    console.log('Notary public key received:', notaryKey);
+
+    console.log('Verifying proof');
     const verifierOutput = await proof.verify();
+    console.log('Proof verified successfully');
+
+    console.log('Creating transcript from verifier output');
     const transcript = new Transcript({
         sent: verifierOutput.transcript.sent,
         recv: verifierOutput.transcript.recv,
     });
-    const vk = await proof.verifyingKey();
+    console.log('Transcript created successfully');
 
+    console.log('Getting verifying key from proof');
+    const vk = await proof.verifyingKey();
+    console.log('Verifying key received');
+
+    console.log('verifyProof function completed successfully');
     return {
         time: verifierOutput.connection_info.time,
         verifyingKey: Buffer.from(vk.data).toString('hex'),
@@ -219,4 +285,24 @@ export async function verifyProof(notaryUrl: string, presentationJSON: Presentat
         sent: transcript.sent(),
         recv: transcript.recv(),
     };
+}
+
+function flattenObjectToStrings(obj: Record<string, any>, separator: string = '.'): string[] {
+    console.log('flattenObjectToStrings called with object:', typeof obj);
+    const result: string[] = [];
+
+    for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'object' && value !== null) {
+            console.log(`Flattening nested object for key: ${key}`);
+            result.push(...flattenObjectToStrings(value, separator));
+        } else {
+            console.log(`Formatting value for key: ${key}, type: ${typeof value}`);
+            const formattedValue =
+                typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other values as is
+            result.push(`"${key}":${formattedValue}`);
+        }
+    }
+
+    console.log(`flattenObjectToStrings returning ${result.length} entries`);
+    return result;
 }

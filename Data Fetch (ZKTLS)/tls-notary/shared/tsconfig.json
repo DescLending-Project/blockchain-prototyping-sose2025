@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "esnext", // More modern target for libraries in shared
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "declaration": true, // Generate declaration files
+    "declarationMap": true, // Generate a map for easier debugging
+    "strict": true,
+    "esModuleInterop": true,
+    "module": "esnext", // Set to match Node.js modules
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "outDir": "dist", // Output for compiled code
+    "rootDir": "src", // Input directory for source code
+    "skipLibCheck": true,
+    "typeRoots": ["node_modules/@types"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

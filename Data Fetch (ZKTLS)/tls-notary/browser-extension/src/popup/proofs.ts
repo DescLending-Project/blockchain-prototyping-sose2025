@@ -1,5 +1,5 @@
 import { showProofDetails } from './modal';
-import { TLSNotaryService } from '../utils/di';
+import { TLSNotaryService } from 'tls-notary-shared';
 
 /**
  * Load proofs from TLSNotaryService and display them

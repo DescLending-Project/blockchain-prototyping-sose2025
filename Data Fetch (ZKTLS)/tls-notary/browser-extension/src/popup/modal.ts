@@ -1,6 +1,5 @@
-import { ProofRecord, RequestStatus } from '../types/tls';
-import { TLSNotaryService } from '../utils/di';
 import { loadProofs } from './proofs';
+import { ProofRecord, RequestStatus, TLSNotaryService } from 'tls-notary-shared';
 
 /**
  * Download data as a JSON file

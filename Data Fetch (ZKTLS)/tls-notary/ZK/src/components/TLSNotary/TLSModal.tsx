@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ProofRecord } from '../../types/tls';
-import { RequestStatus, HttpMethod } from '../../types/tls';
+import type { ProofRecord } from 'tls-notary-shared';
+import { RequestStatus, HttpMethod } from 'tls-notary-shared';
 
 interface TLSModalProps {
   onClose: () => void;

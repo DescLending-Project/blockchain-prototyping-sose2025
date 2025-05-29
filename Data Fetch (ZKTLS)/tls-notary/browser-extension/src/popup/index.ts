@@ -5,7 +5,7 @@ import { setupRequestCapture } from './capture';
 import { loadProofs  } from './proofs';
 import { setupSettingsManagement, loadSettings } from './settings';
 import { setupModal } from './modal';
-import { TLSNotaryService } from '../utils/di';
+import { TLSNotaryService } from 'tls-notary-shared';
 
 document.addEventListener('DOMContentLoaded', function() {
   setupTabs();

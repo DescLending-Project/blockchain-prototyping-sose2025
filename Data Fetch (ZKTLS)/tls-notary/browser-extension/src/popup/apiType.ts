@@ -1,3 +1,5 @@
+import { config } from "tls-notary-shared";
+
 export function setupApiTypeSelection(): void {
   const apiTypeElement = document.getElementById('apiType') as HTMLSelectElement;
   const urlElement = document.getElementById('url') as HTMLInputElement;
@@ -9,7 +11,7 @@ export function setupApiTypeSelection(): void {
       // Pre-fill URL based on selected API type
       switch (apiType) {
         case 'openbanking':
-          urlElement.value = 'https://openbanking-api-826260723607.europe-west3.run.app/users/aaa/credit-score';
+          urlElement.value = config.openbankingApi;
           break;
         default:
           urlElement.value = '';

@@ -1,8 +1,9 @@
 import { collectHeaders } from './headers';
 import { loadProofs } from './proofs';
-import { TLSFormData } from "../types/tls";
-import { TLSNotaryService } from "../utils/di";
+import { TLSFormData } from "tls-notary-shared";
+import { TLSNotaryService } from "tls-notary-shared";
 import { getSettings } from '../utils/storageUtils';
+import { config } from "tls-notary-shared";
 
 
 export function setupRequestCapture(): void {
@@ -82,8 +83,8 @@ async function captureRequestFromUI(): Promise<string> {
   // In a real implementation, these might come from settings or additional form fields
   console.log('Extracting remote DNS from URL');
   const remoteDNS = new URL(url).hostname;
-  const remotePort = '443';
-  const localPort = '8080';
+  const remotePort = config.tlsRemotePort;
+  const localPort = config.tlsLocalPort;
   console.log('Connection details:', { remoteDNS, remotePort, localPort });
 
   // Collect headers from the UI

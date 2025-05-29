@@ -1,5 +1,7 @@
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
+const { DefinePlugin } = require('webpack');
+
 module.exports = {
   mode: "production",
   entry: {
@@ -22,10 +24,14 @@ module.exports = {
     ],
   },
   plugins: [
+    new DefinePlugin({
+      'process.env': JSON.stringify(process.env),
+    }),
     new CopyPlugin({
       patterns: [
         {from: ".", to: "../", context: "public"},
         {from: "src/popup.html", to: "../popup.html"},
+        {from: ".env", to: "../"},
         {from: "css", to: "../css"},
         {
           from: 'node_modules/tlsn-js/build',

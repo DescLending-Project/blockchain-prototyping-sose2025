@@ -1,10 +1,13 @@
 import type { ITLSNotaryService } from "./ITLSNotaryService";
 import type { ProofRecord, TLSFormData } from "../types/tls";
-import { TLSTunnelService } from "../utils/di"
+import { TunnelService } from "./TunnelService";
 import { nanoid } from "nanoid";
 import { RequestStatus, VerifyProofResult } from "../types/tls";
 
 import { generateProof, verifyProof } from "../script/generateProofs";
+
+// Create a local instance of TunnelService to avoid circular dependency
+const tunnelService = new TunnelService();
 
 export class MockTLSNotaryService implements ITLSNotaryService {
   private records: ProofRecord[] = [];
@@ -104,8 +107,8 @@ export class MockTLSNotaryService implements ITLSNotaryService {
     this.records.unshift(proofRecord);
     this.notifySubscribers();
 
-    console.log('Creating tunnel with TLSTunnelService');
-    TLSTunnelService.create(proofRecord.tunnelReq)
+    console.log('Creating tunnel with tunnelService');
+    tunnelService.create(proofRecord.tunnelReq)
     .then((tunnelRes) => {
       console.log('Tunnel created successfully:', tunnelRes.websocketProxyUrl);
       const record = this.records.find((r) => r.id === id);
@@ -145,7 +148,7 @@ export class MockTLSNotaryService implements ITLSNotaryService {
           this.notifySubscribers();
 
           console.log('Deleting tunnel');
-          TLSTunnelService.delete(record.tunnelRes.id)
+          tunnelService.delete(record.tunnelRes.id)
           console.log('Tunnel deleted successfully');
         } else {
           console.warn('Record not found after generating proof for ID:', id);
@@ -159,7 +162,7 @@ export class MockTLSNotaryService implements ITLSNotaryService {
           record.error = error;
 
           console.log('Deleting tunnel after error');
-          TLSTunnelService.delete(record.tunnelRes.id)
+          tunnelService.delete(record.tunnelRes.id)
           this.notifySubscribers();
         } else {
           console.warn('Record not found after error for ID:', id);
