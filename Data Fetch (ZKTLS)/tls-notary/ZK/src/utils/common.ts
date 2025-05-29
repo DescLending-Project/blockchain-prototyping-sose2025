@@ -1,4 +1,4 @@
-import { HttpMethod, RequestStatus } from '../types/tls';
+import { HttpMethod, RequestStatus } from 'tls-notary-shared/dist/types/tls';
 
 // Method color mapping
 const methodColorMap: Record<HttpMethod, string> = {
@@ -39,4 +39,3 @@ const statusDotMap: Record<RequestStatus, string> = {
 export const getStatusDot = (status: RequestStatus): string => {
   return statusDotMap[status] ?? '⚪️';
 };
-

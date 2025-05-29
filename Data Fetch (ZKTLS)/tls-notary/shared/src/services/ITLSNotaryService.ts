@@ -1,5 +1,4 @@
-// services/ITLSNotaryService.ts
-import type { TLSFormData, ProofRecord, VerifyProofResult } from '../types/tls';
+import type { TLSFormData, ProofRecord, VerifyProofResult } from "../types/tls";
 
 export interface ITLSNotaryService {
   sendRequest(input: TLSFormData): Promise<string>; // returns request ID

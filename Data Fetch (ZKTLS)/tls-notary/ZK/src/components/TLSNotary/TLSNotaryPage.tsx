@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { TLSForm } from './TLSForm';
 import { TLSTable } from './TLSTable';
 import { TLSModal } from './TLSModal';
-import { TLSNotaryService } from '../../utils/di';
-import type { ProofRecord, TLSFormData } from '../../types/tls';
+import { TLSNotaryService } from 'tls-notary-shared';
+import type { ProofRecord, TLSFormData } from 'tls-notary-shared';
 import React from 'react';
 
 export function TLSNotaryPage() {

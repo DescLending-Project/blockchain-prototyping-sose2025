@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { HttpMethod, type TLSFormData } from '../../types/tls';
-import { getMethodColor } from '../common';
+import { HttpMethod, type TLSFormData } from 'tls-notary-shared';
+import { getMethodColor } from '../../utils/common';
 import React from 'react';
 
 interface TLSFormProps {
