@@ -21,7 +21,6 @@
     "@typescript-eslint/parser": "^8.32.1",
     "eslint": "^9.27.0",
     "eslint-plugin-import": "^2.31.0",
-    "express": "^4.18.2",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
@@ -31,6 +30,7 @@
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
+    "express": "^4.21.2",
     "express-validator": "^6.14.3"
   }
 }

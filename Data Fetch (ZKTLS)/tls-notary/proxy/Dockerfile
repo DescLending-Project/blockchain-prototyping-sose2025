@@ -1,21 +1,38 @@
-# Use official Node.js LTS image
-FROM node:20-alpine
+# Stage 1: Build Stage
+FROM node:20-slim AS build
 
-# Set working directory
 WORKDIR /app
 
-# Install dependencies first (layer caching)
-COPY package*.json ./
-RUN npm install --production
+# Install curl to download wstcp later
+RUN apt-get update && apt-get install -y curl && apt-get clean
 
-# Copy rest of the app
+# Install dev dependencies for building
+COPY package*.json ./
+RUN npm install
+
+# Copy source code
 COPY . .
 
-# Build TypeScript to JavaScript
-RUN npm install -g typescript && tsc
+# Build the TypeScript code
+RUN npx tsc
 
-# Expose desired port (e.g., 8080)
+# Stage 2: Runtime Stage
+FROM node:20-slim AS runtime
+
+WORKDIR /app
+
+# Install curl and download wstcp
+RUN apt-get update && apt-get install -y curl && apt-get clean
+RUN curl -Lo /usr/local/bin/wstcp https://github.com/jedisct1/wstcp/releases/download/v0.0.4/wstcp-x86_64-linux \
+    && chmod +x /usr/local/bin/wstcp
+
+# Only install production dependencies
+COPY package*.json ./
+RUN npm install --omit=dev
+
+# Copy compiled JavaScript from build stage
+COPY --from=build /app/dist ./dist
+
 EXPOSE 8080
 
-# Set the entrypoint (adjust if needed)
 CMD ["node", "dist/index.js"]
