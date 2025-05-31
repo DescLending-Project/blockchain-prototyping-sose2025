@@ -1172,7 +1172,7 @@
     axios "^1.7.4"
     lodash "^4.17.21"
 
-"@openzeppelin/hardhat-upgrades@^3.0.0":
+"@openzeppelin/hardhat-upgrades@^3.9.0":
   version "3.9.0"
   resolved "https://registry.npmjs.org/@openzeppelin/hardhat-upgrades/-/hardhat-upgrades-3.9.0.tgz"
   integrity sha512-7YYBSxRnO/X+tsQkVgtz3/YbwZuQPjbjQ3m0A/8+vgQzdPfulR93NaFKgZfMonnrriXb5O/ULjIDPI+8nuqtyQ==
