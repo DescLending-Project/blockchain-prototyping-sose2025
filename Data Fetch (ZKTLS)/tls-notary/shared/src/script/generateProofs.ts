@@ -108,7 +108,7 @@ export async function generateProof(
         try {
             await init({
                 loggingLevel: loggingLevel,
-                // wasmURL: '/build/tlsn_wasm_bg.wasm',
+                //wasmURL: '/build/tlsn_wasm_bg.wasm',
             });
             wasmInitialized = true;
         } catch (error) {

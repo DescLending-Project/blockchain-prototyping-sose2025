@@ -1,72 +1,104 @@
-# ====== Config ======
-FRONTEND_IMAGE=tlsnotary-frontend
-FRONTEND_CONTAINER=tlsnotary-frontend-container
+# Load configuration
+include Makefile.vars
+
+# Frontend
+FRONTEND_NAME=tlsnotary-frontend
+FRONTEND_IMAGE=$(FRONTEND_NAME)
+FRONTEND_CONTAINER=$(FRONTEND_NAME)-container
 FRONTEND_PORT=8092
-FRONTEND_ENV=ZK/.env
+FRONTEND_ENV_FILE=ZK/.env
+FRONTEND_HOST=localhost
 
-PROXY_IMAGE=tlsnotary-backend
-PROXY_CONTAINER=tlsnotary-backend-container
+# Backend (Proxy)
+PROXY_NAME=tlsnotary-backend
+PROXY_IMAGE=$(PROXY_NAME)
+PROXY_CONTAINER=$(PROXY_NAME)-container
 PROXY_PORT=3002
-PROXY_ENV=proxy/.env
+PROXY_HOST=localhost
+PROXY_ENV_FILE=proxy/.env
 
-# ====== Targets ======
+# Shared API URL
+PROXY_API_URL=http://$(PROXY_HOST):$(PROXY_PORT)
 
-.PHONY: help build-frontend build-backend run-frontend run-backend run-dev logs-frontend logs-backend stop-frontend stop-backend shell-frontend shell-backend clean
+# =======================
+# ====== TARGETS ========
+# =======================
+
+.PHONY: help build-frontend build-proxy run-frontend run-proxy run-dev \
+        logs-frontend logs-proxy stop-frontend stop-proxy \
+        shell-frontend shell-proxy clean \
+        compose-build compose-up compose-down compose-restart compose-logs
 
 help:
 	@echo "Available targets:"
-	@echo "  make build-frontend     - Build frontend Docker image"
-	@echo "  make build-backend      - Build backend Docker image"
-	@echo "  make run-frontend       - Run frontend container on port $(FRONTEND_PORT)"
-	@echo "  make run-backend        - Run backend container on port $(PROXY_PORT)"
-	@echo "  make run-dev            - Run frontend locally with Webpack Dev Server"
-	@echo "  make logs-frontend      - Show frontend Docker logs"
-	@echo "  make logs-backend       - Show backend Docker logs"
-	@echo "  make stop-frontend      - Stop frontend Docker container"
-	@echo "  make stop-backend       - Stop backend Docker container"
-	@echo "  make shell-frontend     - Enter frontend container shell"
-	@echo "  make shell-backend      - Enter backend container shell"
-	@echo "  make clean              - Remove all Docker containers and images"
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' Makefile | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # ====== Frontend ======
+build-frontend: ## Build frontend Docker image
+	docker build \
+		-f Dockerfile.frontend \
+		--build-arg PORT=$(FRONTEND_PORT) \
+		--build-arg HOST_NAME=$(FRONTEND_HOST) \
+		--build-arg PROXY_API_URL=$(PROXY_API_URL) \
+		-t $(FRONTEND_IMAGE) .
 
-build-frontend:
-	docker build -f Dockerfile.frontend -t $(FRONTEND_IMAGE) .
+run-frontend: ## Run frontend container
+	docker run --rm -d --env-file $(FRONTEND_ENV_FILE) \
+		-p $(FRONTEND_PORT):80 \
+		--name $(FRONTEND_CONTAINER) $(FRONTEND_IMAGE)
 
-run-frontend:
-	docker run --rm -d --env-file $(FRONTEND_ENV) -p $(FRONTEND_PORT):80 --name $(FRONTEND_CONTAINER) $(FRONTEND_IMAGE)
-
-run-dev:
+run-dev: ## Run frontend locally with Webpack Dev Server
 	cd ZK && npm run dev
 
-logs-frontend:
+logs-frontend: ## Show frontend logs
 	docker logs -f $(FRONTEND_CONTAINER)
 
-stop-frontend:
+stop-frontend: ## Stop frontend container
 	docker stop $(FRONTEND_CONTAINER) || true
 
-shell-frontend:
+shell-frontend: ## Shell into frontend container
 	docker exec -it $(FRONTEND_CONTAINER) sh
 
-# ====== Backend ======
+# ====== Backend (Proxy) ======
+build-proxy: ## Build backend Docker image
+	docker build \
+		-f Dockerfile.proxy \
+		--build-arg PORT=$(PROXY_PORT) \
+		--build-arg HOST_NAME=$(PROXY_HOST) \
+		-t $(PROXY_IMAGE) .
 
-build-proxy:
-	docker build -f Dockerfile.proxy -t $(PROXY_IMAGE) .
+run-proxy: ## Run backend container
+	docker run --rm -d --env-file $(PROXY_ENV_FILE) \
+		-p $(PROXY_PORT):3002 \
+		--name $(PROXY_CONTAINER) $(PROXY_IMAGE)
 
-run-proxy:
-	docker run --rm -d --env-file $(PROXY_ENV) -p $(PROXY_PORT):3002 --name $(PROXY_CONTAINER) $(PROXY_IMAGE)
-
-logs-proxy:
+logs-proxy: ## Show backend logs
 	docker logs -f $(PROXY_CONTAINER)
 
-stop-proxy:
+stop-proxy: ## Stop backend container
 	docker stop $(PROXY_CONTAINER) || true
 
-shell-proxy:
+shell-proxy: ## Shell into backend container
 	docker exec -it $(PROXY_CONTAINER) sh
 
-# ====== General ======
+# ====== Docker Compose ======
+compose-build: ## Build all services with Docker Compose
+	docker-compose build
 
-clean: stop-frontend stop-proxy
+compose-up: ## Start all services with Docker Compose
+	docker-compose up -d
+
+compose-down: ## Stop and remove all Docker Compose containers
+	docker-compose down
+
+compose-restart: ## Restart all Docker Compose services
+	docker-compose restart
+
+compose-logs: ## Show logs for all Docker Compose services
+	docker-compose logs -f
+
+# ====== General ======
+clean: stop-frontend stop-proxy ## Clean up all containers and images
 	docker rmi -f $(FRONTEND_IMAGE) || true
 	docker rmi -f $(PROXY_IMAGE) || true

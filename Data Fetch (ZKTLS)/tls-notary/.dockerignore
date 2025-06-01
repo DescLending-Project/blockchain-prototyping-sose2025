@@ -1,5 +1,4 @@
 node_modules
-dist
 *.log
 
 # Ignore Node modules and build outputs

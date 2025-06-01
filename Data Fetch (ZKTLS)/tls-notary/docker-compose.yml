@@ -1,0 +1,27 @@
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+      args:
+        PORT: 3002
+        HOST_NAME: proxy
+    container_name: tlsnotary-backend-container
+    ports:
+      - "3002:8080"  # HOST:CONTAINER
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        PORT: 8092
+        HOST_NAME: frontend
+        PROXY_API_URL: http://proxy:3002/tunnels
+    container_name: tlsnotary-frontend-container
+    ports:
+      - "8092:80"
+    depends_on:
+      - proxy
+    restart: unless-stopped

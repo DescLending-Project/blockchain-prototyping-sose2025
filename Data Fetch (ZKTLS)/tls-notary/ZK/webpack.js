@@ -114,7 +114,7 @@ var options = {
     plugins: [
         // ...other plugins...
         new webpack.DefinePlugin({
-            'process.env.API_BASE': JSON.stringify(process.env.API_BASE),
+            'process.env.PROXY_API_URL': JSON.stringify(process.env.PROXY_API_URL),
         }),
         new CopyWebpackPlugin({
             patterns: [
@@ -145,8 +145,8 @@ var options = {
     //  - https://github.com/GoogleChromeLabs/wasm-bindgen-rayon#setting-up
     //  - https://web.dev/i18n/en/coop-coep/
     devServer: {
-        port: process.env.FRONTEND_PORT || 8080,
-        host: 'localhost',
+        port: process.env.PORT || 8080,
+        host: process.env.HOST || 'localhost',
         hot: true,
         headers: {
             'Cross-Origin-Embedder-Policy': 'require-corp',

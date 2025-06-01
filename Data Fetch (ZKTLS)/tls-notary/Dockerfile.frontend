@@ -1,6 +1,14 @@
 # ---------- Stage 1: Build ----------
 FROM node:20-slim AS build
 
+ARG PORT 
+ARG HOST_NAME
+ARG PROXY_API_URL
+
+ENV PROXY_API_URL=$PROXY_API_URL
+ENV HOST_NAME=$HOST_NAME
+ENV PORT=$PORT
+
 WORKDIR /app
 
 # Copy frontend and shared packages
@@ -8,11 +16,14 @@ COPY ZK/package*.json ./ZK/
 COPY shared ./shared
 COPY ZK ./ZK
 
-# Set working directory to frontend
-WORKDIR /app/ZK
-
-# Add shared as local dependency
+# Inside Dockerfile.frontend (in the build stage)
+WORKDIR /app/shared
 RUN npm install
+RUN npm run build
+
+WORKDIR /app/ZK
+RUN npm install
+
 
 # Build
 RUN npm run build
