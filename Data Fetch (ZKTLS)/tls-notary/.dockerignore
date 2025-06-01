@@ -1,0 +1,8 @@
+node_modules
+dist
+*.log
+
+# Ignore Node modules and build outputs
+**/node_modules
+ZK/build
+proxy/node_modules

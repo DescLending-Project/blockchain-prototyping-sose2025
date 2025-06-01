@@ -7,7 +7,9 @@ require('dotenv').config();
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 
-var alias = {};
+var alias = {
+    'tls-notary-shared': path.resolve(__dirname, '../shared'),
+}
 
 var fileExtensions = [
     'jpg',
@@ -110,7 +112,7 @@ var options = {
         },
     },
     plugins: [
-         // ...other plugins...
+        // ...other plugins...
         new webpack.DefinePlugin({
             'process.env.API_BASE': JSON.stringify(process.env.API_BASE),
         }),
@@ -124,7 +126,7 @@ var options = {
             ],
         }),
         new CopyWebpackPlugin({
-            patterns: [{ from: '../README.md', to: 'README.md' }],
+            patterns: [{ from: '../README.md', to: 'README.md', noErrorOnMissing: true }],
         }),
         new HtmlWebpackPlugin({
             template: path.join(__dirname, 'index.ejs'),

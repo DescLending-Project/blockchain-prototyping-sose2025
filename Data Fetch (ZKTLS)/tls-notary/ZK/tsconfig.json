@@ -6,6 +6,15 @@
       "dom.iterable",
       "esnext"
     ],
+    "baseUrl": ".",
+    "paths": {
+      "tls-notary-shared": [
+        "../shared/dist"
+      ],
+      "tls-notary-shared/*": [
+        "../shared/dist/*"
+      ]
+    },
     "allowJs": false,
     "skipLibCheck": true,
     "esModuleInterop": true,

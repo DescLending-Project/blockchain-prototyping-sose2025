@@ -5,6 +5,7 @@
   "main": "webpack.js",
   "scripts": {
     "dev": "webpack-dev-server --config webpack.js",
+    "build": "webpack --config webpack.js",
     "lint": "eslint ./src --ext .ts,.tsx",
     "lint:fix": "eslint ./src --ext .ts,.tsx --fix"
   },
