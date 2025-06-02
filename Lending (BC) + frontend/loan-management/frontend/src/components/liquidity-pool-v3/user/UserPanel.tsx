@@ -55,8 +55,13 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             const provider = new ethers.BrowserProvider(window.ethereum)
             const readOnlyContract = new ethers.Contract(contract.target, contract.interface, provider)
 
-            const debt = await contract.getMyDebt()
-            setUserDebt(ethers.formatEther(debt))
+            try {
+                const debt = await contract.getMyDebt()
+                setUserDebt(ethers.formatEther(debt))
+            } catch (err) {
+                console.error("Failed to fetch debt:", err)
+                setUserDebt("0")
+            }
 
             // Fetch total collateral value
             const totalCollateral = await readOnlyContract.getTotalCollateralValue(account);

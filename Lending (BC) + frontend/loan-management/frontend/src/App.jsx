@@ -4,13 +4,14 @@ import LiquidityPoolV3ABI from './LiquidityPoolV3.json'
 import { UserPanel } from './components/liquidity-pool-v3/user/UserPanel'
 import { AdminPanel } from './components/liquidity-pool-v3/admin/AdminPanel'
 import { LiquidatorPanel } from './components/liquidity-pool-v3/liquidator/LiquidatorPanel'
+import { LenderPanel } from './components/liquidity-pool-v3/lender/LenderPanel'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
 import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
 
-const CONTRACT_ADDRESS = '0xA0B6F323FdA6dDB47Efeb90F5F68Ac1f91929787'
+const CONTRACT_ADDRESS = '0xf30De718933577972094a37BE4373F7dda83E9e7'
 
 const COLLATERAL_TOKENS = [
   {
@@ -19,7 +20,7 @@ const COLLATERAL_TOKENS = [
     name: 'Coral Token'
   },
   {
-    address: '0xbA3E637a80A4D599284b3213A435a888d218D966',
+    address: '0x60Ca3b4064Cc9757196726DFB59a73878ac17bCa',
     symbol: 'GLINT',
     name: 'Glint Token'
   }
@@ -33,6 +34,7 @@ export default function App() {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
+  const [userError, setUserError] = useState("")
 
   const connectWallet = async () => {
     try {
@@ -230,76 +232,86 @@ export default function App() {
       })
     }
 
+    // Add UserError event listener
+    if (contract) {
+      contract.on("UserError", (user, message) => {
+        if (user.toLowerCase() === account?.toLowerCase()) {
+          setUserError(message)
+          // Clear the error after 5 seconds
+          setTimeout(() => setUserError(""), 5000)
+        }
+      })
+    }
+
     return () => {
       if (window.ethereum) {
         window.ethereum.removeListener("accountsChanged", () => { })
         window.ethereum.removeListener("chainChanged", () => { })
       }
+      // Remove UserError event listener
+      if (contract) {
+        contract.removeAllListeners("UserError")
+      }
     }
-  }, [])
+  }, [contract, account])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
-      <header className="container mx-auto p-6 flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Liquidity Pool V3 Dashboard</h1>
-        <div>
+    <div className="min-h-screen bg-gray-100">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Liquidity Pool V3</h1>
           {!account ? (
-            <Button
-              onClick={connectWallet}
-              className="h-12 px-8 text-lg"
-              disabled={isLoading}
-            >
-              {isLoading ? "Connecting..." : "Connect Wallet"}
+            <Button onClick={connectWallet} disabled={isLoading}>
+              <Wallet className="mr-2 h-4 w-4" />
+              Connect Wallet
             </Button>
           ) : (
-            <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={disconnectWallet}
-                disabled={isLoading}
-                className="flex items-center gap-2"
-              >
-                <Wallet className="h-5 w-5" />
-                <span className="text-lg font-semibold text-foreground">
-                  {formatAddress(account)}
-                </span>
-                <LogOut className="h-5 w-5" />
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">
+                {formatAddress(account)}
+              </span>
+              <Button variant="outline" onClick={switchAccount} disabled={isLoading}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Switch Account
+              </Button>
+              <Button variant="outline" onClick={disconnectWallet} disabled={isLoading}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Disconnect
               </Button>
             </div>
           )}
         </div>
-      </header>
 
-      <main className="container mx-auto p-6 pt-0">
         {error && (
-          <Alert variant="destructive" className="mb-6 animate-in fade-in slide-in-from-top-2">
+          <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {account ? (
-          <Dashboard
-            contract={contract}
-            account={account}
-            isAdmin={isAdmin}
-            isLiquidator={isLiquidator}
-            onDisconnect={disconnectWallet}
-            onSwitchAccount={switchAccount}
-            adminControls={{
-              isPaused,
-              togglePause,
-              isLoading
-            }}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6">
-            <p className="text-xl text-muted-foreground text-center max-w-2xl">
-              Connect your wallet to start managing your liquidity, borrowing, and lending.
-            </p>
+
+        {userError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{userError}</AlertDescription>
+          </Alert>
+        )}
+
+        {isPaused && (
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>The contract is currently paused</AlertDescription>
+          </Alert>
+        )}
+
+        {account && (
+          <div className="space-y-8">
+            <Dashboard contract={contract} account={account} />
+            <LenderPanel contract={contract} account={account} />
+            {isAdmin && <AdminPanel contract={contract} account={account} />}
+            {isLiquidator && <LiquidatorPanel contract={contract} account={account} />}
           </div>
         )}
-      </main>
+      </div>
     </div>
   )
 }

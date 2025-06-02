@@ -20,20 +20,23 @@ export function LiquidatorPanel({ contract, account }: LiquidatorPanelProps) {
     const [timeRemaining, setTimeRemaining] = useState<string | null>(null)
     const [debtAmount, setDebtAmount] = useState<string | null>(null)
     const [collateralInfo, setCollateralInfo] = useState<{ token: string, amount: string }[]>([])
+    const [targetUser, setTargetUser] = useState("")
 
     useEffect(() => {
-        if (account) {
+        if (contract && targetUser) {
             fetchLiquidationInfo()
         }
-    }, [contract, account])
+    }, [contract, targetUser])
 
     const fetchLiquidationInfo = async () => {
+        if (!targetUser) return;
+
         try {
             const [isLiquidatable, liquidationStartTime, debt, collateral] = await Promise.all([
-                contract.isLiquidatable(account),
-                contract.liquidationStartTime(account),
-                contract.getMyDebt(),
-                contract.getCollateral(account, recoveryToken)
+                contract.isLiquidatable(targetUser),
+                contract.liquidationStartTime(targetUser),
+                contract.userDebt(targetUser),
+                contract.getCollateral(targetUser, recoveryToken)
             ])
 
             if (isLiquidatable) {
@@ -57,7 +60,7 @@ export function LiquidatorPanel({ contract, account }: LiquidatorPanelProps) {
             const allowedTokens = await contract.getAllowedCollateralTokens()
             const collateralData = await Promise.all(
                 allowedTokens.map(async (token: string) => {
-                    const amount = await contract.getCollateral(account, token)
+                    const amount = await contract.getCollateral(targetUser, token)
                     return {
                         token,
                         amount: ethers.formatEther(amount)
@@ -67,6 +70,7 @@ export function LiquidatorPanel({ contract, account }: LiquidatorPanelProps) {
             setCollateralInfo(collateralData.filter(info => Number(info.amount) > 0))
         } catch (err) {
             console.error("Failed to fetch liquidation info:", err)
+            setError("Failed to fetch liquidation info. Please check the target user address.")
         }
     }
 
@@ -149,6 +153,19 @@ export function LiquidatorPanel({ contract, account }: LiquidatorPanelProps) {
                     )}
 
                     <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Target User Address</label>
+                            <Input
+                                placeholder="Enter target user address"
+                                value={targetUser}
+                                onChange={(e) => {
+                                    setTargetUser(e.target.value)
+                                    setError("")
+                                }}
+                                className="w-full"
+                            />
+                        </div>
+
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Token to Recover</label>
                             <Input

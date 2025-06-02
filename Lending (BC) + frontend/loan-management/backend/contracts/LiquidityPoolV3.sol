@@ -9,7 +9,6 @@ import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
-
 contract LiquidityPoolV3 is
     Initializable,
     OwnableUpgradeable,
@@ -51,10 +50,42 @@ contract LiquidityPoolV3 is
     uint256 public maxLiquidationGracePeriod;
     uint256 public interestRate;
 
+    // Lender interest state
+    uint256 public constant SECONDS_PER_DAY = 86400;
+    uint256 public constant WITHDRAWAL_COOLDOWN = 1 days; // Cooldown period between withdrawals
+    uint256 public EARLY_WITHDRAWAL_PENALTY; // Percentage (e.g., 5 for 5%)
+
+    uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01 ether; // Minimum 0.01 ETH deposit
+    uint256 public constant MAX_DEPOSIT_AMOUNT = 100 ether; // Maximum 100 ETH per user
+
+    struct LenderInfo {
+        uint256 balance; // Principal balance
+        uint256 depositTimestamp;
+        uint256 lastInterestUpdate;
+        uint256 interestIndex;
+        uint256 earnedInterest; // Accumulated interest
+        uint256 pendingPrincipalWithdrawal; // Renamed from pendingWithdrawal
+        uint256 withdrawalRequestTime;
+        uint256 lastInterestDistribution;
+        uint256 lastWithdrawalTime;
+    }
+
+    mapping(address => LenderInfo) public lenders;
+    uint256 public totalLent;
+    uint256 public currentDailyRate;
+    uint256 public lastRateUpdateDay;
+    mapping(uint256 => uint256) public dailyInterestRate;
+
+    struct InterestTier {
+        uint256 minAmount;
+        uint256 rate;
+    }
+
+    InterestTier[] public interestTiers;
+
     // added variables
     address[] public users;
     mapping(address => bool) public isKnownUser;
-
 
     event CollateralDeposited(
         address indexed user,
@@ -79,6 +110,29 @@ contract LiquidityPoolV3 is
         uint256 amount
     );
     event GracePeriodExtended(address indexed user, uint256 newDeadline);
+    event UserError(address indexed user, string message);
+    // New lending events
+    event FundsDeposited(address indexed lender, uint256 amount);
+    event InterestCredited(address indexed lender, uint256 interest);
+    event FundsWithdrawn(
+        address indexed lender,
+        uint256 amount,
+        uint256 penalty
+    );
+    event EarlyWithdrawalPenalty(address indexed lender, uint256 penaltyAmount);
+    event WithdrawalRequested(
+        address indexed lender,
+        uint256 amount,
+        uint256 unlockTime
+    );
+    event InterestClaimed(address indexed lender, uint256 interest);
+    event InterestAvailable(address indexed lender, uint256 amount);
+    event PrincipalWithdrawalRequested(
+        address indexed lender,
+        uint256 amount,
+        uint256 unlockTime
+    );
+    event WithdrawalCancelled(address indexed lender, uint256 amount);
 
     modifier noReentrancy() {
         require(!locked, "No reentrancy");
@@ -116,24 +170,41 @@ contract LiquidityPoolV3 is
         maxLiquidationDelay = 2 days;
         maxLiquidationGracePeriod = 3 days;
         interestRate = 5; // 5%
+
+        // Initialize lending parameters
+        currentDailyRate = 1.0001304e18; // ~5% APY daily rate
+        lastRateUpdateDay = block.timestamp / SECONDS_PER_DAY;
+        EARLY_WITHDRAWAL_PENALTY = 5; // 5% penalty
+
+        // Initialize interest tiers
+        interestTiers.push(InterestTier(10 ether, 1.0001500e18)); // 10+ ETH: 5.5% APY
+        interestTiers.push(InterestTier(5 ether, 1.0001400e18)); // 5+ ETH: 5.2% APY
+        interestTiers.push(InterestTier(1 ether, 1.0001304e18)); // 1+ ETH: 5% APY
     }
 
     // Chainlink Automation functions
 
     function getAllUsers() public view returns (address[] memory) {
-    return users;
+        return users;
     }
 
-
-    function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
-    address[] memory candidates = getAllUsers(); // You need to implement this
-    address[] memory toLiquidate = new address[](candidates.length);
-    uint count = 0;
+    function checkUpkeep(
+        bytes calldata
+    )
+        external
+        view
+        override
+        returns (bool upkeepNeeded, bytes memory performData)
+    {
+        address[] memory candidates = getAllUsers();
+        address[] memory toLiquidate = new address[](candidates.length);
+        uint count = 0;
 
         for (uint i = 0; i < candidates.length; i++) {
             address user = candidates[i];
             if (isLiquidatable[user]) {
-                uint256 deadline = liquidationStartTime[user] + maxLiquidationGracePeriod;
+                uint256 deadline = liquidationStartTime[user] +
+                    maxLiquidationGracePeriod;
                 if (block.timestamp >= deadline) {
                     toLiquidate[count] = user;
                     count++;
@@ -141,34 +212,44 @@ contract LiquidityPoolV3 is
             }
         }
 
-        if (count > 0) {
+        uint256 nextUpdate = _nextDistributionTime();
+        bool needsInterestUpdate = block.timestamp >= nextUpdate;
+
+        if (count > 0 || needsInterestUpdate) {
             address[] memory result = new address[](count);
             for (uint j = 0; j < count; j++) {
                 result[j] = toLiquidate[j];
             }
             upkeepNeeded = true;
-            performData = abi.encode(result);
+            performData = abi.encode(result, nextUpdate);
         } else {
             upkeepNeeded = false;
         }
     }
 
-
     function performUpkeep(bytes calldata performData) external override {
-    address[] memory liquidatableUsers  = abi.decode(performData, (address[]));
+        (address[] memory liquidatableUsers, uint256 nextUpdate) = abi.decode(
+            performData,
+            (address[], uint256)
+        );
 
+        // Handle liquidations
         for (uint i = 0; i < liquidatableUsers.length; i++) {
             address user = liquidatableUsers[i];
             if (isLiquidatable[user]) {
-                uint256 deadline = liquidationStartTime[user] + maxLiquidationGracePeriod;
+                uint256 deadline = liquidationStartTime[user] +
+                    maxLiquidationGracePeriod;
                 if (block.timestamp >= deadline) {
-                    executeLiquidation(user); // Use your existing logic
+                    executeLiquidation(user);
                 }
             }
         }
+
+        // Handle interest updates
+        if (block.timestamp >= nextUpdate) {
+            _updateGlobalInterest();
+        }
     }
-
-
 
     // Admin functions
     function setAdmin(address newAdmin) external onlyOwner {
@@ -305,14 +386,23 @@ contract LiquidityPoolV3 is
     }
 
     function depositCollateral(address token, uint256 amount) external {
-        require(isAllowedCollateral[token], "Token not allowed");
-        require(amount > 0, "Amount must be > 0");
-        require(!isLiquidatable[msg.sender], "Account is in liquidation");
+        if (!isAllowedCollateral[token]) {
+            emit UserError(msg.sender, "Token not allowed");
+            revert("Token not allowed");
+        }
+        if (amount == 0) {
+            emit UserError(msg.sender, "Amount must be > 0");
+            revert("Amount must be > 0");
+        }
+        if (isLiquidatable[msg.sender]) {
+            emit UserError(msg.sender, "Account is in liquidation");
+            revert("Account is in liquidation");
+        }
 
         if (!isKnownUser[msg.sender]) {
-        isKnownUser[msg.sender] = true;
-        users.push(msg.sender);
-}
+            isKnownUser[msg.sender] = true;
+            users.push(msg.sender);
+        }
 
         IERC20(token).transferFrom(msg.sender, address(this), amount);
         collateralBalance[token][msg.sender] += amount;
@@ -321,21 +411,32 @@ contract LiquidityPoolV3 is
     }
 
     function withdrawCollateral(address token, uint256 amount) external {
-        require(isAllowedCollateral[token], "Token not allowed");
-        require(
-            collateralBalance[token][msg.sender] >= amount,
-            "Insufficient balance"
-        );
-        require(!isLiquidatable[msg.sender], "Account is in liquidation");
+        if (!isAllowedCollateral[token]) {
+            emit UserError(msg.sender, "Token not allowed");
+            revert("Token not allowed");
+        }
+        if (collateralBalance[token][msg.sender] < amount) {
+            emit UserError(msg.sender, "Insufficient balance");
+            revert("Insufficient balance");
+        }
+        if (isLiquidatable[msg.sender]) {
+            emit UserError(msg.sender, "Account is in liquidation");
+            revert("Account is in liquidation");
+        }
 
         uint256 newCollateralValue = getTotalCollateralValue(msg.sender) -
             ((amount * getTokenValue(token)) / 1e18);
 
-        require(
-            newCollateralValue * 100 >=
-                userDebt[msg.sender] * getLiquidationThreshold(token),
-            "Withdrawal would make position undercollateralized"
-        );
+        if (
+            newCollateralValue * 100 <
+            userDebt[msg.sender] * getLiquidationThreshold(token)
+        ) {
+            emit UserError(
+                msg.sender,
+                "Withdrawal would make position undercollateralized"
+            );
+            revert("Withdrawal would make position undercollateralized");
+        }
 
         collateralBalance[token][msg.sender] -= amount;
         IERC20(token).transfer(msg.sender, amount);
@@ -355,30 +456,48 @@ contract LiquidityPoolV3 is
     }
 
     function borrow(uint256 amount) external whenNotPaused noReentrancy {
-        require(amount > 0, "Amount must be greater than 0");
-        require(creditScore[msg.sender] >= 60, "Credit score too low");
-        require(amount <= totalFunds / 2, "Insufficient funds in the pool");
-        require(amount <= maxBorrowAmount, "Exceeds max borrow amount");
-        require(userDebt[msg.sender] == 0, "Repay your existing debt first");
-
-        if (!isKnownUser[msg.sender]) {
-        isKnownUser[msg.sender] = true;
-        users.push(msg.sender);
+        if (amount == 0) {
+            emit UserError(msg.sender, "Amount must be greater than 0");
+            revert("Amount must be greater than 0");
+        }
+        if (creditScore[msg.sender] < 60) {
+            emit UserError(msg.sender, "Credit score too low");
+            revert("Credit score too low");
+        }
+        if (amount > totalLent / 2) {
+            emit UserError(
+                msg.sender,
+                "Borrow amount exceeds available lending capacity"
+            );
+            revert("Borrow amount exceeds available lending capacity");
+        }
+        if (amount > maxBorrowAmount) {
+            emit UserError(msg.sender, "Exceeds max borrow amount");
+            revert("Exceeds max borrow amount");
+        }
+        if (userDebt[msg.sender] != 0) {
+            emit UserError(msg.sender, "Repay your existing debt first");
+            revert("Repay your existing debt first");
         }
 
+        if (!isKnownUser[msg.sender]) {
+            isKnownUser[msg.sender] = true;
+            users.push(msg.sender);
+        }
 
         uint256 collateralValue = getTotalCollateralValue(msg.sender);
-        require(
-            collateralValue <= maxCollateralAmount,
-            "Exceeds max collateral amount"
-        );
+        if (collateralValue > maxCollateralAmount) {
+            emit UserError(msg.sender, "Exceeds max collateral amount");
+            revert("Exceeds max collateral amount");
+        }
 
-        require(
-            collateralValue * 100 >= amount * DEFAULT_LIQUIDATION_THRESHOLD,
-            "Insufficient collateral for this loan"
-        );
+        if (collateralValue * 100 < amount * DEFAULT_LIQUIDATION_THRESHOLD) {
+            emit UserError(msg.sender, "Insufficient collateral for this loan");
+            revert("Insufficient collateral for this loan");
+        }
 
         userDebt[msg.sender] += amount;
+        totalLent -= amount;
         totalFunds -= amount;
         borrowTimestamp[msg.sender] = block.timestamp;
 
@@ -387,17 +506,34 @@ contract LiquidityPoolV3 is
     }
 
     function repay() external payable whenNotPaused {
-        require(userDebt[msg.sender] > 0, "No outstanding debt");
-        require(msg.value >= userDebt[msg.sender], "Repayment too low");
-        require(msg.value > 0, "Must send funds to repay");
+        if (userDebt[msg.sender] == 0) {
+            emit UserError(msg.sender, "No outstanding debt");
+            revert("No outstanding debt");
+        }
+        if (msg.value == 0) {
+            emit UserError(msg.sender, "Must send funds to repay");
+            revert("Must send funds to repay");
+        }
 
-        uint repayAmount = msg.value > userDebt[msg.sender]
-            ? userDebt[msg.sender]
-            : msg.value;
+        uint256 interestOwed = calculateInterest(msg.sender);
+        uint256 totalOwed = userDebt[msg.sender] + interestOwed;
 
+        if (msg.value > totalOwed) {
+            emit UserError(msg.sender, "Repayment exceeds total debt");
+            revert("Repayment exceeds total debt");
+        }
+
+        _updateGlobalInterest();
+        totalLent += interestOwed;
+        totalFunds += msg.value;
+
+        uint256 repayAmount = msg.value;
         userDebt[msg.sender] -= repayAmount;
-        totalFunds += repayAmount;
-        borrowTimestamp[msg.sender] = 0;
+
+        // Only reset borrow timestamp if fully repaid
+        if (userDebt[msg.sender] == 0) {
+            borrowTimestamp[msg.sender] = 0;
+        }
 
         if (isLiquidatable[msg.sender]) {
             isLiquidatable[msg.sender] = false;
@@ -600,5 +736,347 @@ contract LiquidityPoolV3 is
         address _liquidator
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         liquidator = _liquidator;
+    }
+
+    // Frontend view functions for lending
+    function _nextDistributionTime() internal view returns (uint256) {
+        LenderInfo memory info = lenders[msg.sender];
+        if (info.balance == 0) return 0;
+
+        // Next distribution is 24 hours from last distribution
+        return info.lastInterestDistribution + SECONDS_PER_DAY;
+    }
+
+    function getWithdrawalStatus(
+        address lender
+    )
+        public
+        view
+        returns (
+            uint256 availableAt,
+            uint256 penaltyIfWithdrawnNow,
+            bool isAvailableWithoutPenalty,
+            uint256 nextInterestDistribution,
+            uint256 availableInterest
+        )
+    {
+        LenderInfo memory info = lenders[lender];
+        availableAt = info.depositTimestamp + WITHDRAWAL_COOLDOWN;
+
+        // Calculate penalty only for principal amount
+        penaltyIfWithdrawnNow = block.timestamp < availableAt
+            ? (info.balance * EARLY_WITHDRAWAL_PENALTY) / 100
+            : 0;
+
+        isAvailableWithoutPenalty = block.timestamp >= availableAt;
+
+        // Next interest distribution is 24 hours from last distribution
+        nextInterestDistribution =
+            info.lastInterestDistribution +
+            SECONDS_PER_DAY;
+
+        // Calculate available interest
+        if (info.balance > 0) {
+            uint256 currentIndex = _currentInterestIndex();
+            availableInterest =
+                ((info.balance * currentIndex) / info.interestIndex) -
+                info.balance;
+        }
+    }
+
+    function getLenderInfo(
+        address lender
+    )
+        public
+        view
+        returns (
+            uint256 balance,
+            uint256 pendingInterest,
+            uint256 earnedInterest,
+            uint256 nextInterestUpdate,
+            uint256 penaltyFreeWithdrawalTime,
+            uint256 lastDistributionTime
+        )
+    {
+        LenderInfo memory info = lenders[lender];
+        balance = info.balance;
+        earnedInterest = info.earnedInterest;
+        penaltyFreeWithdrawalTime = info.depositTimestamp + WITHDRAWAL_COOLDOWN;
+        lastDistributionTime = info.lastInterestDistribution;
+
+        if (balance > 0) {
+            uint256 currentIndex = _currentInterestIndex();
+            pendingInterest =
+                ((balance * currentIndex) / info.interestIndex) -
+                balance;
+        }
+
+        nextInterestUpdate = _nextDistributionTime();
+    }
+
+    // Lender functions with time tracking
+    function depositFunds() external payable whenNotPaused {
+        if (msg.value < MIN_DEPOSIT_AMOUNT) {
+            emit UserError(msg.sender, "Deposit amount too low");
+            revert("Deposit amount too low");
+        }
+        if (msg.value + lenders[msg.sender].balance > MAX_DEPOSIT_AMOUNT) {
+            emit UserError(msg.sender, "Deposit would exceed maximum limit");
+            revert("Deposit would exceed maximum limit");
+        }
+
+        LenderInfo storage lender = lenders[msg.sender];
+        _creditInterest(msg.sender);
+
+        if (lender.balance == 0) {
+            lender.interestIndex = _currentInterestIndex();
+            lender.depositTimestamp = block.timestamp;
+            if (!isKnownUser[msg.sender]) {
+                isKnownUser[msg.sender] = true;
+                users.push(msg.sender);
+            }
+        }
+
+        lender.balance += msg.value;
+        totalLent += msg.value;
+        totalFunds += msg.value;
+
+        emit FundsDeposited(msg.sender, msg.value);
+    }
+
+    function requestWithdrawal(uint256 amount) external whenNotPaused {
+        LenderInfo storage lender = lenders[msg.sender];
+        if (block.timestamp < lender.lastWithdrawalTime + WITHDRAWAL_COOLDOWN) {
+            emit UserError(msg.sender, "Must wait for cooldown period");
+            revert("Must wait for cooldown period");
+        }
+        if (amount > lender.balance) {
+            emit UserError(msg.sender, "Insufficient balance");
+            revert("Insufficient balance");
+        }
+
+        _creditInterest(msg.sender);
+        lender.pendingPrincipalWithdrawal = amount; // Only for principal
+        lender.withdrawalRequestTime = block.timestamp;
+        lender.lastWithdrawalTime = block.timestamp;
+
+        emit WithdrawalRequested(
+            msg.sender,
+            amount,
+            block.timestamp + WITHDRAWAL_COOLDOWN
+        );
+    }
+
+    function completeWithdrawal() external whenNotPaused noReentrancy {
+        LenderInfo storage lender = lenders[msg.sender];
+        if (lender.pendingPrincipalWithdrawal == 0) {
+            emit UserError(msg.sender, "No pending withdrawal");
+            revert("No pending withdrawal");
+        }
+
+        uint256 amount = lender.pendingPrincipalWithdrawal;
+        uint256 penalty = 0;
+
+        // Calculate penalty if withdrawing before cooldown
+        if (block.timestamp < lender.depositTimestamp + WITHDRAWAL_COOLDOWN) {
+            penalty = (amount * EARLY_WITHDRAWAL_PENALTY) / 100;
+            amount -= penalty;
+            emit EarlyWithdrawalPenalty(msg.sender, penalty);
+        }
+
+        lender.balance -= amount + penalty;
+        totalLent -= amount + penalty;
+        totalFunds -= amount;
+        lender.pendingPrincipalWithdrawal = 0;
+
+        payable(msg.sender).transfer(amount);
+        emit FundsWithdrawn(msg.sender, amount, penalty);
+    }
+
+    // Interest calculation core
+    function _getInterestRate(uint256 amount) internal view returns (uint256) {
+        for (uint i = interestTiers.length; i > 0; i--) {
+            if (amount >= interestTiers[i - 1].minAmount) {
+                return interestTiers[i - 1].rate;
+            }
+        }
+        return currentDailyRate;
+    }
+
+    function _currentInterestIndex() internal view returns (uint256) {
+        uint256 currentDay = block.timestamp / SECONDS_PER_DAY;
+        uint256 daysElapsed = currentDay - lastRateUpdateDay;
+
+        if (daysElapsed == 0) {
+            return
+                dailyInterestRate[currentDay] > 0
+                    ? dailyInterestRate[currentDay]
+                    : currentDailyRate;
+        }
+
+        uint256 index = currentDailyRate;
+        for (uint256 i = 0; i < daysElapsed; i++) {
+            index = (index * _getInterestRate(totalLent)) / 1e18;
+        }
+        return index;
+    }
+
+    function _creditInterest(address lender) internal {
+        LenderInfo storage info = lenders[lender];
+        if (info.balance == 0) return;
+
+        uint256 currentIndex = _currentInterestIndex();
+        uint256 interest = ((info.balance * currentIndex) /
+            info.interestIndex) - info.balance;
+
+        if (interest > 0) {
+            info.earnedInterest += interest;
+            info.balance += interest;
+            totalLent += interest;
+            info.lastInterestDistribution = block.timestamp;
+            emit InterestCredited(lender, interest);
+        }
+
+        info.interestIndex = currentIndex;
+        info.lastInterestUpdate = block.timestamp;
+    }
+
+    function _updateGlobalInterest() internal {
+        uint256 currentDay = block.timestamp / SECONDS_PER_DAY;
+        if (currentDay > lastRateUpdateDay) {
+            dailyInterestRate[currentDay] = _currentInterestIndex();
+            lastRateUpdateDay = currentDay;
+        }
+    }
+
+    function calculateInterest(
+        address lender
+    ) public view returns (uint256 interest) {
+        LenderInfo memory info = lenders[lender];
+        if (info.balance == 0) return 0;
+
+        uint256 currentIndex = _currentInterestIndex();
+        uint256 daysElapsed = (block.timestamp - info.lastInterestUpdate) /
+            SECONDS_PER_DAY;
+
+        if (daysElapsed > 0) {
+            interest =
+                ((info.balance * currentIndex) / info.interestIndex) -
+                info.balance;
+            for (uint256 i = 0; i < daysElapsed; i++) {
+                interest = (interest * currentIndex) / 1e18;
+            }
+        }
+
+        return interest;
+    }
+
+    function claimInterest() external whenNotPaused {
+        LenderInfo storage lender = lenders[msg.sender];
+        if (lender.balance == 0) {
+            emit UserError(msg.sender, "No funds deposited");
+            revert("No funds deposited");
+        }
+
+        _creditInterest(msg.sender);
+        uint256 interest = lender.earnedInterest;
+        if (interest == 0) {
+            emit UserError(msg.sender, "No interest to claim");
+            revert("No interest to claim");
+        }
+
+        lender.earnedInterest = 0;
+        totalLent -= interest;
+        totalFunds -= interest;
+
+        payable(msg.sender).transfer(interest);
+        emit InterestClaimed(msg.sender, interest);
+    }
+
+    function getHistoricalRates(
+        uint256 startDay,
+        uint256 endDay
+    ) external view returns (uint256[] memory rates) {
+        require(endDay >= startDay, "Invalid date range");
+        rates = new uint256[](endDay - startDay + 1);
+
+        for (uint256 i = 0; i <= endDay - startDay; i++) {
+            rates[i] = dailyInterestRate[startDay + i];
+        }
+        return rates;
+    }
+
+    function calculatePotentialInterest(
+        uint256 amount,
+        uint256 numDays
+    ) external view returns (uint256) {
+        uint256 currentIndex = _currentInterestIndex();
+        uint256 potentialIndex = currentIndex;
+
+        for (uint256 i = 0; i < numDays; i++) {
+            potentialIndex = (potentialIndex * currentDailyRate) / 1e18;
+        }
+
+        return ((amount * potentialIndex) / currentIndex) - amount;
+    }
+
+    // Admin function to manage interest tiers
+    function setInterestTier(
+        uint256 index,
+        uint256 minAmount,
+        uint256 rate
+    ) external onlyOwner {
+        require(rate >= 1e18, "Rate must be >= 1");
+        if (index >= interestTiers.length) {
+            interestTiers.push(InterestTier(minAmount, rate));
+        } else {
+            interestTiers[index] = InterestTier(minAmount, rate);
+        }
+    }
+
+    function getInterestTier(
+        uint256 index
+    ) external view returns (uint256 minAmount, uint256 rate) {
+        require(index < interestTiers.length, "Invalid tier index");
+        InterestTier memory tier = interestTiers[index];
+        return (tier.minAmount, tier.rate);
+    }
+
+    function getInterestTierCount() external view returns (uint256) {
+        return interestTiers.length;
+    }
+
+    function getAvailableInterest(
+        address lender
+    ) external view returns (uint256) {
+        LenderInfo memory info = lenders[lender];
+        if (info.balance == 0) return 0;
+
+        uint256 currentIndex = _currentInterestIndex();
+        return
+            ((info.balance * currentIndex) / info.interestIndex) - info.balance;
+    }
+
+    function canCompleteWithdrawal(
+        address lender
+    ) external view returns (bool) {
+        LenderInfo memory info = lenders[lender];
+        if (info.pendingPrincipalWithdrawal == 0) return false;
+        return
+            block.timestamp >= info.withdrawalRequestTime + WITHDRAWAL_COOLDOWN;
+    }
+
+    function cancelPrincipalWithdrawal() external whenNotPaused {
+        LenderInfo storage lender = lenders[msg.sender];
+        if (lender.pendingPrincipalWithdrawal == 0) {
+            emit UserError(msg.sender, "No pending withdrawal to cancel");
+            revert("No pending withdrawal to cancel");
+        }
+
+        uint256 amount = lender.pendingPrincipalWithdrawal;
+        lender.pendingPrincipalWithdrawal = 0;
+        lender.withdrawalRequestTime = 0;
+
+        emit WithdrawalCancelled(msg.sender, amount);
     }
 }

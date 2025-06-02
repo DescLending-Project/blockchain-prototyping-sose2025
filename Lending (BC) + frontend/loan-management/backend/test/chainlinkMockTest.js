@@ -2,74 +2,81 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("LiquidityPoolV3 - Chainlink Automation Simulation with Glint Token", function () {
+  let liquidityPool, glintToken, mockFeedGlint;
   let owner, user1, user2;
-  let pool, glint;
 
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
 
+    // Deploy GlintToken
     const GlintToken = await ethers.getContractFactory("GlintToken");
-    const initialSupply = ethers.parseEther("1000000");
-    glint = await GlintToken.deploy(initialSupply);
-    await glint.waitForDeployment();
+    const initialSupply = ethers.parseEther("100");
+    glintToken = await GlintToken.deploy(initialSupply);
+    await glintToken.waitForDeployment();
 
+    // Deploy Mock Price Feed
     const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-    const mockFeed = await MockPriceFeed.deploy(1e8, 8);
-    await mockFeed.waitForDeployment();
+    mockFeedGlint = await MockPriceFeed.deploy(1e8, 8); // $1 initial price
+    await mockFeedGlint.waitForDeployment();
 
-    const LiquidityPool = await ethers.getContractFactory("LiquidityPoolV3");
-    pool = await LiquidityPool.deploy();
-    await pool.waitForDeployment();
-    
+    // Deploy LiquidityPoolV3
+    const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
+    liquidityPool = await LiquidityPoolV3.deploy();
+    await liquidityPool.waitForDeployment();
 
-    await pool.initialize(owner.address);
-    await pool.setAllowedCollateral(glint.target, true);
-    await pool.setPriceFeed(glint.target, mockFeed.target);
+    // Initialize pool
+    await liquidityPool.initialize(owner.address);
 
+    // Set up collateral token
+    await liquidityPool.setAllowedCollateral(glintToken.target, true);
+    await liquidityPool.setPriceFeed(glintToken.target, mockFeedGlint.target);
 
-
-    // FUND CONTRACT
+    // Fund pool with enough ETH for lending
     await owner.sendTransaction({
-    to: pool.target,
-    value: ethers.parseEther("1000"),
+      to: await liquidityPool.getAddress(),
+      value: ethers.parseEther("10") // Send 10 ETH to ensure enough funds
     });
 
+    // Deposit as lender to set up totalLent
+    await liquidityPool.connect(owner).depositFunds({ value: ethers.parseEther("10") });
 
-    // Distribute and approve tokens
-    await glint.transfer(user1.address, ethers.parseEther("1000"));
-    await glint.connect(user1).approve(pool.target, ethers.parseEther("1000"));
+    // Transfer and approve Glint tokens to user1
+    await glintToken.transfer(user1.address, ethers.parseEther("10"));
+    await glintToken.connect(user1).approve(liquidityPool.target, ethers.parseEther("10"));
 
-    await glint.transfer(user2.address, ethers.parseEther("1000"));
-    await glint.connect(user2).approve(pool.target, ethers.parseEther("1000"));
-
-    // User1 deposits collateral and borrows
-    await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
-    await pool.setCreditScore(user1.address, 80);
-    await pool.connect(user1).borrow(ethers.parseEther("100"));
-
-    // now lets drop the price to 0.2 dollars
-    await mockFeed.setPrice(2e7);
-
-    // Mark user as liquidatable
-    await pool.startLiquidation(user1.address);
-    
-    //wait until grace period ends
-    const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
-    const gracePeriod = await pool.maxLiquidationGracePeriod();
-    await ethers.provider.send("evm_setNextBlockTimestamp", [Number(currentTime + Number(gracePeriod) + 1)]);
-    await ethers.provider.send("evm_mine", []);
+    // Set credit score
+    await liquidityPool.setCreditScore(user1.address, 80);
   });
 
   it("should trigger upkeep and execute liquidation", async function () {
-    const [upkeepNeeded, performData] = await pool.checkUpkeep("0x");
-    expect(upkeepNeeded).to.equal(true);
+    // Deposit collateral
+    await liquidityPool.connect(user1).depositCollateral(glintToken.target, ethers.parseEther("5"));
 
-    await pool.performUpkeep(performData);
+    // Borrow funds (less than half of totalLent)
+    await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
 
-    const debt = await pool.userDebt(user1.address);
-    expect(debt).to.equal(0);
-    const isLiquid = await pool.isLiquidatable(user1.address);
-    expect(isLiquid).to.equal(false);
+    // Drop price to trigger liquidation
+    await mockFeedGlint.setPrice(2e7); // $0.20
+
+    // Start liquidation
+    await liquidityPool.startLiquidation(user1.address);
+
+    // Fast forward past grace period
+    await ethers.provider.send("evm_increaseTime", [3 * 86400 + 1]); // 3 days + 1 second
+    await ethers.provider.send("evm_mine", []);
+
+    // Check if upkeep is needed
+    const [upkeepNeeded, performData] = await liquidityPool.checkUpkeep("0x");
+    expect(upkeepNeeded).to.be.true;
+
+    // Perform upkeep
+    await expect(liquidityPool.performUpkeep(performData))
+      .to.emit(liquidityPool, "LiquidationExecuted");
+
+    // Verify liquidation was executed
+    expect(await liquidityPool.isLiquidatable(user1.address)).to.be.false;
+    expect(await liquidityPool.userDebt(user1.address)).to.equal(0);
+    expect(await liquidityPool.getCollateral(user1.address, glintToken.target)).to.equal(0);
   });
 });
 
