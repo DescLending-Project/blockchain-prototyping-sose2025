@@ -1,10 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { HttpMethod, type TLSFormData } from 'tls-notary-shared';
 import { getMethodColor } from '../../utils/common';
 import React from 'react';
+import { nanoid } from "nanoid";
 
 interface TLSFormProps {
   onSubmit: (formData: TLSFormData) => void;
+}
+
+interface HeaderItem {
+  key: string;
+  value: string;
+  id: string;
 }
 
 const httpMethodOptions = Object.values(HttpMethod);
@@ -21,6 +28,34 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
     method: HttpMethod.GET,
   });
 
+  const [headerItems, setHeaderItems] = useState<HeaderItem[]>([]);
+
+  useEffect(() => {
+    try {
+      const parsedHeaders = JSON.parse(form.headers);
+      const items: HeaderItem[] = Object.entries(parsedHeaders).map(([key, value]) => ({
+        key,
+        value: value as string,
+        id: nanoid(),
+      }));
+      setHeaderItems(items);
+    } catch (error) {
+      console.error("Error parsing headers:", error);
+      setHeaderItems([]);
+    }
+  }, []);
+
+  const headersToJsonString = (items: HeaderItem[]): string => {
+    const headersObj = items.reduce((acc, item) => {
+      if (item.key.trim()) {
+        acc[item.key] = item.value;
+      }
+      return acc;
+    }, {} as Record<string, string>);
+
+    return JSON.stringify(headersObj);
+  };
+
   const [touched, setTouched] = useState({
     url: false,
     notaryUrl: false,
@@ -33,6 +68,43 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const addHeader = () => {
+    setHeaderItems([...headerItems, { key: "", value: "", id: nanoid() }]);
+  };
+
+  const updateHeader = (id: string, field: 'key' | 'value', value: string) => {
+    setHeaderItems(
+      headerItems.map(item =>
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
+
+    const updatedJsonString = headersToJsonString(
+      headerItems.map(item =>
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
+    setForm(prev => ({ ...prev, headers: updatedJsonString }));
+  };
+
+  const removeHeader = (id: string) => {
+    const updatedItems = headerItems.filter(item => item.id !== id);
+    setHeaderItems(updatedItems);
+
+    const updatedJsonString = headersToJsonString(updatedItems);
+    setForm(prev => ({ ...prev, headers: updatedJsonString }));
+  };
+
+  const extractDomainFromUrl = (url: string): string => {
+    try {
+      const urlWithProtocol = url.startsWith('http') ? url : `https://${url}`;
+      const { hostname } = new URL(urlWithProtocol);
+      return hostname;
+    } catch (error) {
+      return url;
+    }
+  };
+
   const handleBlur = (field: keyof typeof touched) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
@@ -43,7 +115,19 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.url.trim() || !form.notaryUrl.trim()) return;
-    onSubmit(form);
+
+    const headersJson = headersToJsonString(headerItems);
+
+    const formData = {
+      ...form,
+      headers: headersJson
+    };
+
+    if (formData.method === HttpMethod.GET) {
+      formData.body = "";
+    }
+
+    onSubmit(formData);
   };
 
   return (
@@ -70,6 +154,7 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
               handleChange('url', `https://${dns}/`);
             }}
             onBlur={() => handleBlur('remoteDNS')}
+            disabled
             placeholder="example.com"
             className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${isInvalid('remoteDNS') ? 'border-red-500' : 'border-gray-300'
               }`}
@@ -136,8 +221,15 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
           <input
             type="text"
             value={form.url}
-            onChange={(e) => handleChange('url', e.target.value)}
-            onBlur={() => handleBlur('url')}
+            onChange={(e) => {
+              const url = e.target.value;
+              handleChange('url', url);
+              const domain = extractDomainFromUrl(url);
+              if (domain) {
+                handleChange('remoteDNS', domain);
+              }
+            }}
+            onBlur={() => handleBlur("url")}
             placeholder="https://example.com"
             className={`flex-1 h-[42px] px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${isInvalid('url') ? 'border-red-500' : 'border-gray-300'
               }`}
@@ -164,17 +256,59 @@ export function TLSForm({ onSubmit }: TLSFormProps) {
 
       {/* Request Headers */}
       <div>
-        <label htmlFor="headers" className="block text-sm font-medium text-gray-700">
-          Request Headers
-        </label>
-        <textarea
-          id="headers"
-          value={form.headers}
-          onChange={(e) => handleChange('headers', e.target.value)}
-          rows={4}
-          placeholder='{ "Content-Type": "application/json" }'
-          className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-        />
+        <div className="flex justify-between items-center mb-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Request Headers
+          </label>
+          <button
+            type="button"
+            onClick={addHeader}
+            className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            + Add Header
+          </button>
+        </div>
+
+        <div className="border rounded-md p-2 bg-gray-50">
+          {headerItems.length === 0 ? (
+            <div className="text-gray-500 text-sm p-2 text-center">
+              No headers added. Click "Add Header" to add one.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {headerItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item.key}
+                    onChange={(e) => updateHeader(item.id, 'key', e.target.value)}
+                    placeholder="Key"
+                    className="flex-1 px-3 py-1 border rounded-md text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={item.value}
+                    onChange={(e) => updateHeader(item.id, 'value', e.target.value)}
+                    placeholder="Value"
+                    className="flex-1 px-3 py-1 border rounded-md text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeHeader(item.id)}
+                    className="p-1 text-red-600 hover:text-red-800"
+                    title="Remove header"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-1 text-xs text-gray-500">
+          Generated JSON: <code className="font-mono">{headersToJsonString(headerItems)}</code>
+        </div>
       </div>
 
       {/* Request Body */}

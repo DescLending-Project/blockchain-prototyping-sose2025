@@ -99,14 +99,24 @@ export function TLSModal({ onClose, onDownload, onVerify, record }: TLSModalProp
               >
                 Download Proof
               </button>
-              <button
-                onClick={() => onVerify(record)}
-                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded hover:bg-purple-700 disabled:opacity-50"
-                disabled={record.status !== RequestStatus.Received}
-              >
-                Verify Proof
-              </button>
+              {record.status !== RequestStatus.Verified && (
+                <button
+                  onClick={() => onVerify(record)}
+                  className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded hover:bg-purple-700 disabled:opacity-50"
+                  disabled={record.status !== RequestStatus.Received}
+                >
+                  Verify Proof
+                </button>
+              )}
             </>
+          )}
+          {verifyResult && (
+            <button
+              onClick={() => onDownload(verifyResult, `verification-${record.id}.json`)}
+              className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded hover:bg-amber-700"
+            >
+              Download Verification
+            </button>
           )}
         </div>
       </div>
