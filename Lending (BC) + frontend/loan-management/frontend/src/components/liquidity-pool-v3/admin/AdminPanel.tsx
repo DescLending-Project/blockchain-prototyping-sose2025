@@ -12,7 +12,7 @@ type LiquidityPoolContract = Contract & {
     // Read-only functions
     paused: () => Promise<boolean>;
     getAdmin: () => Promise<string>;
-    getLiquidator: () => Promise<string>;
+    liquidator: () => Promise<string>;
     getLiquidationThreshold: (token: string) => Promise<bigint>;
     getPriceFeed: (token: string) => Promise<string>;
     isAllowedCollateral: (token: string) => Promise<boolean>;
@@ -28,6 +28,7 @@ type LiquidityPoolContract = Contract & {
     getMaxLiquidationDelay: () => Promise<number>;
     getMaxLiquidationGracePeriod: () => Promise<number>;
     getBalance: () => Promise<bigint>;
+    getTokenValue: (token: string) => Promise<bigint>;
 
     // Write functions
     togglePause: () => Promise<ContractTransactionResponse>;
@@ -48,7 +49,7 @@ type LiquidityPoolContract = Contract & {
     setMaxLiquidationRatio: (ratio: bigint) => Promise<ContractTransactionResponse>;
     setMaxLiquidationDelay: (delay: number) => Promise<ContractTransactionResponse>;
     setMaxLiquidationGracePeriod: (period: number) => Promise<ContractTransactionResponse>;
-    withdraw: (amount: bigint) => Promise<ContractTransactionResponse>;
+    extract: (amount: bigint) => Promise<ContractTransactionResponse>;
 }
 
 interface AdminPanelProps {
@@ -60,6 +61,23 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
     const [error, setError] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [isPaused, setIsPaused] = useState(false)
+    const [contractState, setContractState] = useState({
+        isPaused: false,
+        admin: '',
+        liquidator: '',
+        interestRate: 0,
+        maxBorrowAmount: '0',
+        maxCollateralAmount: '0',
+        maxLiquidationBonus: 0,
+        maxLiquidationPenalty: 0,
+        maxLiquidationThreshold: 0,
+        maxLiquidationTime: 0,
+        maxLiquidationAmount: '0',
+        maxLiquidationRatio: 0,
+        maxLiquidationDelay: 0,
+        maxLiquidationGracePeriod: 0,
+        balance: '0'
+    })
     const [currentBalance, setCurrentBalance] = useState<string | null>(null)
     const [selectedToken, setSelectedToken] = useState("")
     const [liquidationThreshold, setLiquidationThreshold] = useState("")
@@ -87,84 +105,81 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
     const [extractAmount, setExtractAmount] = useState("")
     const [targetUser, setTargetUser] = useState("")
     const [liquidationTimeRemaining, setLiquidationTimeRemaining] = useState<string | null>(null)
+    const [creditScore, setCreditScore] = useState("")
 
-    useEffect(() => {
-        const checkPauseStatus = async () => {
-            try {
-                const paused = await contract.paused(); // Direct call
-                setIsPaused(paused);
-            } catch (err) {
-                console.error("Failed to check pause status:", err);
-            }
-        };
+    const fetchInitialData = async () => {
+        try {
+            const [
+                isPaused,
+                admin,
+                liquidator,
+                interestRate,
+                maxBorrowAmount,
+                maxCollateralAmount,
+                maxLiquidationBonus,
+                maxLiquidationPenalty,
+                maxLiquidationThreshold,
+                maxLiquidationTime,
+                maxLiquidationAmount,
+                maxLiquidationRatio,
+                maxLiquidationDelay,
+                maxLiquidationGracePeriod,
+                balance
+            ] = await Promise.all([
+                contract.paused(),
+                contract.getAdmin(),
+                contract.liquidator(),
+                contract.getInterestRate(),
+                contract.getMaxBorrowAmount(),
+                contract.getMaxCollateralAmount(),
+                contract.getMaxLiquidationBonus(),
+                contract.getMaxLiquidationPenalty(),
+                contract.getMaxLiquidationThreshold(),
+                contract.getMaxLiquidationTime(),
+                contract.getMaxLiquidationAmount(),
+                contract.getMaxLiquidationRatio(),
+                contract.getMaxLiquidationDelay(),
+                contract.getMaxLiquidationGracePeriod(),
+                contract.getBalance()
+            ]);
 
-        checkPauseStatus();
-    }, [contract]);
-
-    useEffect(() => {
-        const fetchInitialData = async () => {
-            try {
-                const provider = new ethers.BrowserProvider(window.ethereum)
-                const contractWithProvider = new ethers.Contract(
-                    contract.target,
-                    contract.interface.format(),
-                    provider
-                ) as unknown as LiquidityPoolContract
-
-                // Fetch all current values
-                const [
-                    liquidator,
-                    admin,
-                    interestRate,
-                    maxBorrowAmount,
-                    maxCollateralAmount,
-                    maxLiquidationBonus,
-                    maxLiquidationPenalty,
-                    maxLiquidationThreshold,
-                    maxLiquidationTime,
-                    maxLiquidationAmount,
-                    maxLiquidationRatio,
-                    maxLiquidationDelay,
-                    maxLiquidationGracePeriod,
-                    balance
-                ] = await Promise.all([
-                    contractWithProvider.liquidator(),
-                    contractWithProvider.getAdmin(),
-                    contractWithProvider.getInterestRate(),
-                    contractWithProvider.getMaxBorrowAmount(),
-                    contractWithProvider.getMaxCollateralAmount(),
-                    contractWithProvider.getMaxLiquidationBonus(),
-                    contractWithProvider.getMaxLiquidationPenalty(),
-                    contractWithProvider.getMaxLiquidationThreshold(),
-                    contractWithProvider.getMaxLiquidationTime(),
-                    contractWithProvider.getMaxLiquidationAmount(),
-                    contractWithProvider.getMaxLiquidationRatio(),
-                    contractWithProvider.getMaxLiquidationDelay(),
-                    contractWithProvider.getMaxLiquidationGracePeriod(),
-                    contractWithProvider.getBalance()
-                ])
-
-                setCurrentLiquidator(liquidator)
-                setCurrentAdmin(admin)
-                setCurrentInterestRate(interestRate)
-                setMaxBorrowAmount(ethers.formatUnits(maxBorrowAmount, 18))
-                setMaxCollateralAmount(ethers.formatUnits(maxCollateralAmount, 18))
-                setMaxLiquidationBonus(ethers.formatUnits(maxLiquidationBonus, 18))
-                setMaxLiquidationPenalty(ethers.formatUnits(maxLiquidationPenalty, 18))
-                setMaxLiquidationThreshold(ethers.formatUnits(maxLiquidationThreshold, 18))
-                setMaxLiquidationTime(maxLiquidationTime.toString())
-                setMaxLiquidationAmount(ethers.formatUnits(maxLiquidationAmount, 18))
-                setMaxLiquidationRatio(ethers.formatUnits(maxLiquidationRatio, 18))
-                setMaxLiquidationDelay(maxLiquidationDelay.toString())
-                setMaxLiquidationGracePeriod(maxLiquidationGracePeriod.toString())
-                setCurrentBalance(ethers.formatEther(balance))
-            } catch (err) {
-                console.error("Failed to fetch initial data:", err)
-            }
+            setContractState({
+                isPaused,
+                admin,
+                liquidator,
+                interestRate: Number(interestRate),
+                maxBorrowAmount: ethers.formatEther(maxBorrowAmount),
+                maxCollateralAmount: ethers.formatEther(maxCollateralAmount),
+                maxLiquidationBonus: Number(maxLiquidationBonus),
+                maxLiquidationPenalty: Number(maxLiquidationPenalty),
+                maxLiquidationThreshold: Number(maxLiquidationThreshold),
+                maxLiquidationTime: Number(maxLiquidationTime),
+                maxLiquidationAmount: ethers.formatEther(maxLiquidationAmount),
+                maxLiquidationRatio: Number(maxLiquidationRatio),
+                maxLiquidationDelay: Number(maxLiquidationDelay),
+                maxLiquidationGracePeriod: Number(maxLiquidationGracePeriod),
+                balance: ethers.formatEther(balance)
+            });
+        } catch (err) {
+            console.error('Failed to fetch initial data:', err);
         }
+    };
 
-        fetchInitialData()
-    }, [contract])
+    const checkPauseStatus = async () => {
+        try {
+            const paused = await contract.paused();
+            setIsPaused(paused);
+        } catch (err) {
+            console.error("Failed to check pause status:", err);
+        }
+    };
+
+    useEffect(() => {
+        if (contract && account) {
+            checkPauseStatus();
+            fetchInitialData();
+        }
+    }, [contract, account]);
 
     const handleSetLiquidationThreshold = async () => {
         if (!selectedToken) return setError("Please select a token");
@@ -218,7 +233,7 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                 contract.interface.format(),
                 provider
             ) as unknown as LiquidityPoolContract
-            const updatedLiquidator = await contractWithProvider.getLiquidator()
+            const updatedLiquidator = await contractWithProvider.liquidator()
             setCurrentLiquidator(updatedLiquidator)
         } catch (err) {
             console.error("Failed to set liquidator:", err);
@@ -479,29 +494,16 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
     };
 
     const handleExtractFunds = async () => {
-        if (!extractAmount || Number(extractAmount) <= 0) {
-            setError("Please enter a valid amount to extract");
-            return;
-        }
         try {
             setIsLoading(true);
-            const tx = await contract.withdraw(ethers.parseEther(extractAmount));
+            setError('');
+            const tx = await contract.extract(ethers.parseEther(extractAmount));
             await tx.wait();
+            await fetchInitialData();
             setExtractAmount("");
-            setError("Funds extracted successfully!");
-
-            // Refresh balance after extraction
-            const provider = new ethers.BrowserProvider(window.ethereum)
-            const contractWithProvider = new ethers.Contract(
-                contract.target,
-                contract.interface.format(),
-                provider
-            ) as unknown as LiquidityPoolContract
-            const newBalance = await contractWithProvider.getBalance()
-            setCurrentBalance(ethers.formatEther(newBalance))
         } catch (err) {
-            console.error("Failed to extract funds:", err);
-            setError(err instanceof Error ? err.message : "Failed to extract funds");
+            console.error('Failed to extract funds:', err);
+            setError(err instanceof Error ? err.message : 'Failed to extract funds');
         } finally {
             setIsLoading(false);
         }
@@ -541,20 +543,45 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
     };
 
     const handleGetPriceFeed = async () => {
-        if (!selectedToken) {
-            setError("Please enter a token address");
-            return;
-        }
         try {
-            setIsLoading(true);
-            const feed = await contract.getPriceFeed(selectedToken);
-            setTokenPriceFeed(feed);
-            setError("");
+            if (!selectedToken) {
+                setError('Please enter a token address');
+                return;
+            }
+
+            console.log('Getting price feed info for:', selectedToken);
+            try {
+                // First check if token is allowed as collateral
+                const isAllowed = await contract.isAllowedCollateral(selectedToken);
+                console.log('Is token allowed as collateral:', isAllowed);
+
+                if (!isAllowed) {
+                    setError('Token is not allowed as collateral');
+                    return;
+                }
+
+                // Get the price feed address
+                const feedAddress = await contract.getPriceFeed(selectedToken);
+                console.log('Price feed address:', feedAddress);
+
+                if (feedAddress === ethers.ZeroAddress) {
+                    setTokenPriceFeed('No price feed set for this token');
+                } else {
+                    // Get the token value
+                    const value = await contract.getTokenValue(selectedToken);
+                    console.log('Raw token value:', value.toString());
+                    console.log('Token value in ETH:', ethers.formatEther(value));
+
+                    setTokenPriceFeed(`Price Feed: ${feedAddress}\nToken Value: ${ethers.formatEther(value)} ETH`);
+                }
+                setError('');
+            } catch (err) {
+                console.error('Error details:', err);
+                setError('Failed to get price feed info: ' + (err instanceof Error ? err.message : 'Unknown error'));
+            }
         } catch (err) {
-            console.error("Failed to get price feed:", err);
-            setError("Failed to get price feed");
-        } finally {
-            setIsLoading(false);
+            console.error('Failed to get price feed info:', err);
+            setError('Failed to get price feed info');
         }
     };
 
@@ -591,6 +618,26 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         } catch (err) {
             console.error("Failed to execute liquidation:", err);
             setError(err instanceof Error ? err.message : "Failed to execute liquidation");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSetCreditScore = async () => {
+        if (!targetUser) return setError("Please enter a user address");
+        if (!creditScore || Number(creditScore) < 0 || Number(creditScore) > 100)
+            return setError("Please enter a valid credit score (0-100)");
+
+        try {
+            setIsLoading(true);
+            const tx = await contract.setCreditScore(targetUser, Number(creditScore));
+            await tx.wait();
+            setTargetUser("");
+            setCreditScore("");
+            setError("");
+        } catch (err) {
+            console.error("Failed to set credit score:", err);
+            setError(err instanceof Error ? err.message : "Failed to set credit score");
         } finally {
             setIsLoading(false);
         }
@@ -634,6 +681,7 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                     <TabsTrigger value="interest">Interest</TabsTrigger>
                     <TabsTrigger value="limits">Limits</TabsTrigger>
                     <TabsTrigger value="funds">Funds</TabsTrigger>
+                    <TabsTrigger value="users">Users</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="threshold">
@@ -1295,6 +1343,62 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                             >
                                 {isLoading ? "Processing..." : "Extract Funds"}
                             </Button>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="users">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Users className="h-5 w-5" />
+                                User Management
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-semibold">Set Credit Score</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm font-medium">User Address</label>
+                                        <Input
+                                            placeholder="Enter user address"
+                                            value={targetUser}
+                                            onChange={(e) => setTargetUser(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium">Credit Score (0-100)</label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            placeholder="Enter credit score"
+                                            value={creditScore}
+                                            onChange={(e) => setCreditScore(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <Button
+                                    onClick={handleSetCreditScore}
+                                    disabled={isLoading || !targetUser || !creditScore}
+                                >
+                                    Set Credit Score
+                                </Button>
+                            </div>
+
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-semibold">Liquidation Management</h3>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Liquidation Time Remaining</label>
+                                    <Input
+                                        type="text"
+                                        placeholder="Enter liquidation time remaining"
+                                        value={liquidationTimeRemaining || ''}
+                                        onChange={(e) => setLiquidationTimeRemaining(e.target.value)}
+                                    />
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>

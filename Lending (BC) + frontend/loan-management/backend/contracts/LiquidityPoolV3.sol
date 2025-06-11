@@ -464,7 +464,7 @@ contract LiquidityPoolV3 is
             emit UserError(msg.sender, "Credit score too low");
             revert("Credit score too low");
         }
-        if (amount > totalLent / 2) {
+        if (amount > totalFunds / 2) {
             emit UserError(
                 msg.sender,
                 "Borrow amount exceeds available lending capacity"
@@ -529,6 +529,7 @@ contract LiquidityPoolV3 is
 
         uint256 repayAmount = msg.value;
         userDebt[msg.sender] -= repayAmount;
+        totalLent += repayAmount;
 
         // Only reset borrow timestamp if fully repaid
         if (userDebt[msg.sender] == 0) {
@@ -572,6 +573,11 @@ contract LiquidityPoolV3 is
         priceFeed[token] = feed;
     }
 
+    function getPriceFeed(address token) public view returns (address) {
+        require(isAllowedCollateral[token], "Token not allowed as collateral");
+        return priceFeed[token];
+    }
+
     function setLiquidationThreshold(
         address token,
         uint256 threshold
@@ -588,10 +594,18 @@ contract LiquidityPoolV3 is
         uint256 totalCollateralValue = getTotalCollateralValue(user);
         uint256 debt = userDebt[user];
 
-        if (debt == 0) return (true, type(uint256).max);
+        if (debt == 0) {
+            return (true, type(uint256).max);
+        }
+
+        // Calculate ratio with safety checks
+        if (totalCollateralValue == 0) {
+            return (false, 0);
+        }
 
         ratio = (totalCollateralValue * 100) / debt;
         isHealthy = ratio >= getMinCollateralRatio();
+        return (isHealthy, ratio);
     }
 
     function startLiquidation(address user) external {

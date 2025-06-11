@@ -12,6 +12,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "../../ui/tooltip"
+import { LendingPoolStatus } from '../shared/LendingPoolStatus'
 
 function CountdownTimer({ targetDate, label }) {
     const [timeLeft, setTimeLeft] = useState('')
@@ -63,9 +64,11 @@ export function LenderPanel({ contract, account }) {
     const [potentialInterest, setPotentialInterest] = useState(null)
     const [withdrawalStatus, setWithdrawalStatus] = useState(null)
     const [withdrawalType, setWithdrawalType] = useState('principal') // 'principal' or 'interest'
+    const [tokenSymbol, setTokenSymbol] = useState('ETH')
 
     useEffect(() => {
         if (contract && account) {
+            checkNetwork()
             loadLenderInfo()
             loadInterestTiers()
             loadHistoricalRates()
@@ -73,17 +76,73 @@ export function LenderPanel({ contract, account }) {
         }
     }, [contract, account])
 
+    // Add a network change listener
+    useEffect(() => {
+        if (window.ethereum) {
+            window.ethereum.on('chainChanged', () => {
+                checkNetwork()
+            })
+        }
+        return () => {
+            if (window.ethereum) {
+                window.ethereum.removeListener('chainChanged', checkNetwork)
+            }
+        }
+    }, [])
+
+    const checkNetwork = async () => {
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const network = await provider.getNetwork()
+            // Set SONIC for all networks since we're using SONIC
+            setTokenSymbol('SONIC')
+        } catch (err) {
+            console.error('Failed to check network:', err)
+            setTokenSymbol('SONIC')
+        }
+    }
+
+    // Call checkNetwork immediately when component mounts
+    useEffect(() => {
+        checkNetwork()
+    }, [])
+
+    // Add network change listener
+    useEffect(() => {
+        if (window.ethereum) {
+            const handleChainChanged = () => {
+                console.log('Chain changed, checking network...')
+                checkNetwork()
+            }
+
+            window.ethereum.on('chainChanged', handleChainChanged)
+
+            return () => {
+                window.ethereum.removeListener('chainChanged', handleChainChanged)
+            }
+        }
+    }, [])
+
     const loadLenderInfo = async () => {
         try {
             const info = await contract.getLenderInfo(account)
+            const totalLent = await contract.totalLent()
+
             setLenderInfo({
                 balance: formatEther(info.balance),
                 pendingInterest: formatEther(info.pendingInterest),
                 earnedInterest: formatEther(info.earnedInterest),
                 nextInterestUpdate: new Date(Number(info.nextInterestUpdate) * 1000),
                 penaltyFreeWithdrawalTime: new Date(Number(info.penaltyFreeWithdrawalTime) * 1000),
-                lastDistributionTime: new Date(Number(info.lastDistributionTime) * 1000)
+                lastDistributionTime: new Date(Number(info.lastDistributionTime) * 1000),
+                totalLent: formatEther(totalLent)
             })
+
+            // Update the display immediately
+            const balanceDisplay = document.querySelector('.lender-balance')
+            if (balanceDisplay) {
+                balanceDisplay.textContent = `${formatEther(totalLent)} SONIC`
+            }
         } catch (err) {
             console.error('Failed to load lender info:', err)
         }
@@ -160,19 +219,25 @@ export function LenderPanel({ contract, account }) {
     }
 
     const handleDeposit = async () => {
+        // Log values before any contract interaction
+        console.log('Raw deposit amount:', depositAmount);
+        const amountInWei = ethers.parseEther(depositAmount);
+        console.log('Deposit amount in Wei:', amountInWei.toString());
+        console.log('Deposit amount in Gwei:', ethers.formatUnits(amountInWei, 'gwei'));
+
         try {
-            setIsLoading(true)
-            setError('')
-            const tx = await contract.depositFunds({ value: parseEther(depositAmount) })
-            await tx.wait()
-            await loadLenderInfo()
-            setDepositAmount('')
+            setIsLoading(true);
+            setError('');
+            const tx = await contract.depositFunds({ value: amountInWei });
+            await tx.wait();
+            await loadLenderInfo();
+            setDepositAmount('');
         } catch (err) {
-            setError(err.message || 'Failed to deposit funds')
+            setError(err.message || 'Failed to deposit funds');
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
+    };
 
     const handleRequestWithdrawal = async () => {
         try {
@@ -227,6 +292,8 @@ export function LenderPanel({ contract, account }) {
 
     return (
         <div className="space-y-4">
+            <LendingPoolStatus contract={contract} />
+
             <Card>
                 <CardHeader>
                     <CardTitle>Lending Dashboard</CardTitle>
@@ -271,16 +338,16 @@ export function LenderPanel({ contract, account }) {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-sm text-gray-500">Current Balance</p>
-                                    <p className="text-lg font-semibold">{lenderInfo.balance} ETH</p>
+                                    <p className="text-sm text-gray-500">Your Balance</p>
+                                    <p className="text-lg font-semibold">{lenderInfo.balance} SONIC</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Pending Interest</p>
-                                    <p className="text-lg font-semibold">{lenderInfo.pendingInterest} ETH</p>
+                                    <p className="text-lg font-semibold">{lenderInfo.pendingInterest} SONIC</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Earned Interest</p>
-                                    <p className="text-lg font-semibold">{lenderInfo.earnedInterest} ETH</p>
+                                    <p className="text-lg font-semibold">{lenderInfo.earnedInterest} SONIC</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Next Interest Update</p>
@@ -311,7 +378,7 @@ export function LenderPanel({ contract, account }) {
                                 <h3 className="text-lg font-semibold mb-2">Interest Calculator</h3>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium">Amount (ETH)</label>
+                                        <label className="text-sm font-medium">Amount ({tokenSymbol})</label>
                                         <Input
                                             type="number"
                                             placeholder="Enter amount"
@@ -355,7 +422,7 @@ export function LenderPanel({ contract, account }) {
                                 {potentialInterest && (
                                     <div className="mt-2 p-2 border rounded">
                                         <p className="text-sm text-gray-500">Potential Interest</p>
-                                        <p className="font-medium">{potentialInterest} ETH</p>
+                                        <p className="font-medium">{potentialInterest} {tokenSymbol}</p>
                                     </div>
                                 )}
                             </div>
@@ -366,16 +433,16 @@ export function LenderPanel({ contract, account }) {
                                         <Info className="h-4 w-4" />
                                         <AlertDescription>
                                             <div className="space-y-2">
-                                                <p>• Minimum deposit: 0.01 ETH</p>
-                                                <p>• Maximum deposit: 100 ETH</p>
+                                                <p>• Minimum deposit: 0.01 {tokenSymbol}</p>
+                                                <p>• Maximum deposit: 100 {tokenSymbol}</p>
                                                 <p>• Withdrawal cooldown: 24 hours</p>
                                                 {!withdrawalStatus.isAvailableWithoutPenalty && (
                                                     <p className="text-red-500">
-                                                        • Early withdrawal penalty: {withdrawalStatus.penaltyIfWithdrawnNow} ETH
+                                                        • Early withdrawal penalty: {withdrawalStatus.penaltyIfWithdrawnNow} {tokenSymbol}
                                                     </p>
                                                 )}
                                                 <p>• Next interest distribution: {withdrawalStatus.nextInterestDistribution.toLocaleString()}</p>
-                                                <p>• Available interest: {withdrawalStatus.availableInterest} ETH</p>
+                                                <p>• Available interest: {withdrawalStatus.availableInterest} {tokenSymbol}</p>
                                             </div>
                                         </AlertDescription>
                                     </Alert>
@@ -406,7 +473,7 @@ export function LenderPanel({ contract, account }) {
                                                         <p className="text-sm text-gray-500">Principal Withdrawal</p>
                                                         <p className="text-lg font-semibold">
                                                             {lenderInfo?.pendingPrincipalWithdrawal ?
-                                                                `${formatEther(lenderInfo.pendingPrincipalWithdrawal)} ETH` :
+                                                                `${formatEther(lenderInfo.pendingPrincipalWithdrawal)} ${tokenSymbol}` :
                                                                 'No pending withdrawal'}
                                                         </p>
                                                         {lenderInfo?.pendingPrincipalWithdrawal > 0 && (
@@ -416,7 +483,7 @@ export function LenderPanel({ contract, account }) {
                                                                 </p>
                                                                 {!withdrawalStatus.isAvailableWithoutPenalty && (
                                                                     <p className="text-sm text-red-500">
-                                                                        Early withdrawal penalty: {withdrawalStatus.penaltyIfWithdrawnNow} ETH
+                                                                        Early withdrawal penalty: {withdrawalStatus.penaltyIfWithdrawnNow} {tokenSymbol}
                                                                     </p>
                                                                 )}
                                                             </div>
@@ -424,7 +491,7 @@ export function LenderPanel({ contract, account }) {
                                                     </div>
                                                     <div>
                                                         <p className="text-sm text-gray-500">Available Interest</p>
-                                                        <p className="text-lg font-semibold">{withdrawalStatus.availableInterest} ETH</p>
+                                                        <p className="text-lg font-semibold">{withdrawalStatus.availableInterest} {tokenSymbol}</p>
                                                         <p className="text-sm text-gray-500 mt-2">
                                                             Can be withdrawn anytime
                                                         </p>
@@ -440,7 +507,7 @@ export function LenderPanel({ contract, account }) {
                                 <div>
                                     <Input
                                         type="number"
-                                        placeholder="Amount to deposit (ETH)"
+                                        placeholder={`Amount to deposit (${tokenSymbol})`}
                                         value={depositAmount}
                                         onChange={(e) => setDepositAmount(e.target.value)}
                                     />
@@ -474,7 +541,7 @@ export function LenderPanel({ contract, account }) {
                                             <div className="relative">
                                                 <Input
                                                     type="number"
-                                                    placeholder="Amount to withdraw (ETH)"
+                                                    placeholder={`Amount to withdraw (${tokenSymbol})`}
                                                     value={withdrawAmount}
                                                     onChange={(e) => setWithdrawAmount(e.target.value)}
                                                 />
@@ -524,7 +591,7 @@ export function LenderPanel({ contract, account }) {
                                                 disabled={isLoading || Number(withdrawalStatus?.availableInterest) === 0}
                                                 className="w-full"
                                             >
-                                                Withdraw Interest ({withdrawalStatus?.availableInterest} ETH)
+                                                Withdraw Interest ({withdrawalStatus?.availableInterest} {tokenSymbol})
                                             </Button>
                                             <p className="text-sm text-gray-500 text-center">
                                                 Interest can be withdrawn at any time without cooldown

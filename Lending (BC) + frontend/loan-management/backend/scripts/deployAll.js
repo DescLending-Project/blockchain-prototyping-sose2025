@@ -55,7 +55,7 @@ async function main() {
 
     // Set up CORAL as collateral
     console.log("\nSetting up CORAL as collateral...");
-    const coralTokenAddress = "0xAF93888cbD250300470A1618206e036E11470149";
+    const coralTokenAddress = "0xecc6f14f4b64eedd56111d80f46ce46933dc2d64";
     const setCoralCollateralTx = await liquidityPoolV3.setAllowedCollateral(coralTokenAddress, true);
     await setCoralCollateralTx.wait();
     console.log("CORAL set as allowed collateral");

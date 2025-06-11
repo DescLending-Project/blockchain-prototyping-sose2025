@@ -1,14 +1,17 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
 import { AdminPanel } from "./admin/AdminPanel"
-import { UserPanel } from "./user/UserPanel"
 import { LiquidatorPanel } from "./liquidator/LiquidatorPanel"
+import BorrowerPanel from "./borrower/BorrowerPanel"
+import { LenderPanel } from "./lender/LenderPanel"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
+import { CollateralPanel } from "./user/CollateralPanel"
+import { Contract } from "ethers"
 
 interface DashboardProps {
-    contract: any;
+    contract: Contract;
     account: string | null;
     isAdmin: boolean;
     isLiquidator: boolean;
@@ -39,9 +42,10 @@ export function Dashboard({ contract, account, isAdmin, isLiquidator }: Dashboar
             )}
 
             <Tabs defaultValue="user" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="user">User Dashboard</TabsTrigger>
-                    <TabsTrigger value="lend">Lend & Provide</TabsTrigger>
+                    <TabsTrigger value="lend">Lend</TabsTrigger>
+                    <TabsTrigger value="borrow">Borrow</TabsTrigger>
                     {isLiquidator && (
                         <TabsTrigger value="liquidator">Liquidator Panel</TabsTrigger>
                     )}
@@ -49,20 +53,26 @@ export function Dashboard({ contract, account, isAdmin, isLiquidator }: Dashboar
 
                 <TabsContent value="user">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <UserPanel contract={contract} account={account} />
+                        <CollateralPanel contract={contract} account={account || ''} tokenAddress="0x37FCbD04f138B68F9b41879B35C7c321cd1027ae" />
                     </Card>
                 </TabsContent>
 
                 <TabsContent value="lend">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <UserPanel contract={contract} account={account} mode="lend" />
+                        <LenderPanel contract={contract} account={account || ''} />
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="borrow">
+                    <Card className="p-6 bg-muted/30 backdrop-blur-sm">
+                        <BorrowerPanel contract={contract} account={account || ''} />
                     </Card>
                 </TabsContent>
 
                 {isLiquidator && (
                     <TabsContent value="liquidator">
                         <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                            <LiquidatorPanel contract={contract} account={account} />
+                            <LiquidatorPanel contract={contract} account={account || ''} />
                         </Card>
                     </TabsContent>
                 )}

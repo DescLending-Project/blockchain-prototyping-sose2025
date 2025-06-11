@@ -1,26 +1,26 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import LiquidityPoolV3ABI from './LiquidityPoolV3.json'
-import { UserPanel } from './components/liquidity-pool-v3/user/UserPanel'
 import { AdminPanel } from './components/liquidity-pool-v3/admin/AdminPanel'
 import { LiquidatorPanel } from './components/liquidity-pool-v3/liquidator/LiquidatorPanel'
-import { LenderPanel } from './components/liquidity-pool-v3/lender/LenderPanel'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
 import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
+import BorrowerPanel from './components/liquidity-pool-v3/borrower/BorrowerPanel'
+import { CollateralPanel } from './components/liquidity-pool-v3/user/CollateralPanel'
 
-const CONTRACT_ADDRESS = '0xf30De718933577972094a37BE4373F7dda83E9e7'
+const CONTRACT_ADDRESS = '0xe05334647312926a1C5F75F1810Ac485b0018913'
 
 const COLLATERAL_TOKENS = [
   {
-    address: '0xB2B051D52e816305BbB37ee83A2dB4aFaae0c55C',
+    address: '0xecc6f14f4b64eedd56111d80f46ce46933dc2d64',
     symbol: 'CORAL',
     name: 'Coral Token'
   },
   {
-    address: '0x60Ca3b4064Cc9757196726DFB59a73878ac17bCa',
+    address: '0xC88ac012Cc1Bfa11Bfd5f73fd076555c7d230f6D',
     symbol: 'GLINT',
     name: 'Glint Token'
   }
@@ -256,42 +256,45 @@ export default function App() {
   }, [contract, account])
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Liquidity Pool V3</h1>
-          {!account ? (
-            <Button onClick={connectWallet} disabled={isLoading}>
-              <Wallet className="mr-2 h-4 w-4" />
-              Connect Wallet
-            </Button>
-          ) : (
-            <div className="flex items-center space-x-4">
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Liquidity Pool V3</h1>
+          {account ? (
+            <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600">
-                {formatAddress(account)}
+                Connected: {formatAddress(account)}
               </span>
-              <Button variant="outline" onClick={switchAccount} disabled={isLoading}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Switch Account
-              </Button>
-              <Button variant="outline" onClick={disconnectWallet} disabled={isLoading}>
-                <LogOut className="mr-2 h-4 w-4" />
+              <Button
+                variant="outline"
+                onClick={disconnectWallet}
+                disabled={isLoading}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
                 Disconnect
               </Button>
             </div>
+          ) : (
+            <Button
+              onClick={connectWallet}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <Wallet className="h-4 w-4" />
+              Connect Wallet
+            </Button>
           )}
         </div>
 
         {error && (
           <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
         {userError && (
           <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
             <AlertDescription>{userError}</AlertDescription>
           </Alert>
         )}
@@ -299,17 +302,19 @@ export default function App() {
         {isPaused && (
           <Alert className="mb-4">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>The contract is currently paused</AlertDescription>
+            <AlertDescription>
+              The contract is currently paused. Some functions may be unavailable.
+            </AlertDescription>
           </Alert>
         )}
 
-        {account && (
-          <div className="space-y-8">
-            <Dashboard contract={contract} account={account} />
-            <LenderPanel contract={contract} account={account} />
-            {isAdmin && <AdminPanel contract={contract} account={account} />}
-            {isLiquidator && <LiquidatorPanel contract={contract} account={account} />}
-          </div>
+        {account && contract && (
+          <Dashboard
+            contract={contract}
+            account={account}
+            isAdmin={isAdmin}
+            isLiquidator={isLiquidator}
+          />
         )}
       </div>
     </div>
