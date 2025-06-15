@@ -524,12 +524,24 @@ contract LiquidityPoolV3 is
         }
 
         _updateGlobalInterest();
-        totalLent += interestOwed;
-        totalFunds += msg.value;
 
-        uint256 repayAmount = msg.value;
-        userDebt[msg.sender] -= repayAmount;
-        totalLent += repayAmount;
+        // First apply payment to interest
+        uint256 remainingPayment = msg.value;
+        if (interestOwed > 0) {
+            uint256 interestPayment = remainingPayment > interestOwed
+                ? interestOwed
+                : remainingPayment;
+            totalLent += interestPayment; // Interest becomes available to lend again
+            remainingPayment -= interestPayment;
+        }
+
+        // Then apply remaining payment to principal
+        if (remainingPayment > 0) {
+            userDebt[msg.sender] -= remainingPayment;
+            totalLent += remainingPayment; // Principal becomes available to lend again
+        }
+
+        totalFunds += msg.value;
 
         // Only reset borrow timestamp if fully repaid
         if (userDebt[msg.sender] == 0) {
@@ -540,7 +552,7 @@ contract LiquidityPoolV3 is
             isLiquidatable[msg.sender] = false;
             liquidationStartTime[msg.sender] = 0;
         }
-        emit Repaid(msg.sender, repayAmount);
+        emit Repaid(msg.sender, msg.value);
     }
 
     function extract(uint256 amount) external onlyOwner noReentrancy {

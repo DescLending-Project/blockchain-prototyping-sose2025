@@ -26,6 +26,8 @@ const COLLATERAL_TOKENS = [
   }
 ]
 
+export { COLLATERAL_TOKENS };
+
 export default function App() {
   const [account, setAccount] = useState(null)
   const [contract, setContract] = useState(null)

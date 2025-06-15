@@ -3,76 +3,77 @@ import { ethers } from 'ethers';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Alert, AlertDescription } from '../../ui/alert';
 
+// Import COLLATERAL_TOKENS for symbol lookup
+import { COLLATERAL_TOKENS } from '../../../App';
+
 interface CollateralPanelProps {
     contract: ethers.Contract;
     account: string;
-    tokenAddress: string;
 }
 
 interface HealthStatus {
     isHealthy: boolean;
 }
 
-export function CollateralPanel({ contract, account, tokenAddress }: CollateralPanelProps) {
+export function CollateralPanel({ contract, account }: CollateralPanelProps) {
     const [healthStatus, setHealthStatus] = useState<HealthStatus>({
         isHealthy: false
     });
     const [error, setError] = useState<string>('');
-    const [collateralValue, setCollateralValue] = useState<string>('0');
-    const [collateralBalance, setCollateralBalance] = useState<string>('0');
+    const [collaterals, setCollaterals] = useState<any[]>([]);
+    const [totalValue, setTotalValue] = useState<string>('0');
     const [pendingInterest, setPendingInterest] = useState<string>('0');
+    const [loading, setLoading] = useState<boolean>(false);
 
     const fetchCollateralData = async () => {
-        if (!contract || !account || !tokenAddress) {
-            console.log('Missing required data:', { contract: !!contract, account: !!account, tokenAddress: !!tokenAddress });
-            return;
-        }
-
+        if (!contract || !account) return;
+        setLoading(true);
         try {
-            console.log('Fetching collateral data for:', { account, tokenAddress });
+            // Get allowed collateral tokens
+            const allowedTokens: string[] = await contract.getAllowedCollateralTokens();
+            let total = 0;
+            const rows = await Promise.all(
+                allowedTokens.map(async (token) => {
+                    const balance = await contract.getCollateral(account, token);
+                    const value = await contract.getTokenValue(token);
+                    const formattedBalance = ethers.formatEther(balance);
+                    const valueInUsd = Number(ethers.formatEther(balance)) * Number(ethers.formatEther(value));
+                    total += valueInUsd;
+                    // Lookup symbol
+                    const meta = COLLATERAL_TOKENS.find(t => t.address.toLowerCase() === token.toLowerCase());
+                    return {
+                        token,
+                        symbol: meta ? meta.symbol : token.substring(0, 6),
+                        balance: formattedBalance,
+                        value: valueInUsd
+                    };
+                })
+            );
+            setCollaterals(rows.filter(row => Number(row.balance) > 0));
+            setTotalValue(total.toFixed(2));
 
-            // Get collateral balance using getCollateral
-            const balance = await contract.getCollateral(account, tokenAddress);
-            console.log('Raw collateral balance:', balance.toString());
-            const formattedBalance = ethers.formatEther(balance);
-            console.log('Formatted collateral balance:', formattedBalance);
-            setCollateralBalance(formattedBalance);
-
-            // Get total collateral value using getTotalCollateralValue
-            const totalValue = await contract.getTotalCollateralValue(account);
-            console.log('Total collateral value:', totalValue.toString());
-
-            // Convert to USD (using a fixed rate for now)
-            const usdRate = 1; // Replace with actual price feed in production
-            const valueInUsd = Number(ethers.formatEther(totalValue)) * usdRate;
-            setCollateralValue(valueInUsd.toFixed(2));
-
-            // Get health status - only use the boolean
+            // Get health status
             const [isHealthy] = await contract.checkCollateralization(account);
-            setHealthStatus({
-                isHealthy
-            });
+            setHealthStatus({ isHealthy });
 
             // Get pending interest
             const lenderInfo = await contract.getLenderInfo(account);
             const pendingInterestInWei = lenderInfo.pendingInterest;
-            const pendingInterestInUsd = Number(ethers.formatEther(pendingInterestInWei)) * usdRate;
-            setPendingInterest(pendingInterestInUsd.toFixed(2));
+            setPendingInterest(Number(ethers.formatEther(pendingInterestInWei)).toFixed(2));
 
             setError('');
         } catch (err) {
-            console.error('Failed to fetch collateral data:', err);
             setError('Failed to fetch collateral data. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Initial data fetch
     useEffect(() => {
-        console.log('CollateralPanel mounted with:', { account, tokenAddress });
         fetchCollateralData();
-    }, [contract, account, tokenAddress]);
+        // eslint-disable-next-line
+    }, [contract, account]);
 
-    // Add a refresh button
     const handleRefresh = async () => {
         await fetchCollateralData();
     };
@@ -86,26 +87,40 @@ export function CollateralPanel({ contract, account, tokenAddress }: CollateralP
                         <button
                             onClick={handleRefresh}
                             className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                            disabled={loading}
                         >
-                            Refresh
+                            {loading ? 'Loading...' : 'Refresh'}
                         </button>
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-sm text-gray-500">Current Balance</p>
-                            <p className="text-lg font-semibold">{collateralBalance} GLINT</p>
+                    {collaterals.length === 0 ? (
+                        <div className="py-4 text-center text-gray-500">No collateral deposited yet.</div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full text-sm">
+                                <thead>
+                                    <tr className="border-b">
+                                        <th className="text-left py-2 px-2">Token</th>
+                                        <th className="text-left py-2 px-2">Balance</th>
+                                        <th className="text-left py-2 px-2">Current Value ($)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {collaterals.map(row => (
+                                        <tr key={row.token} className="border-b hover:bg-gray-50">
+                                            <td className="py-2 px-2 font-semibold">{row.symbol}</td>
+                                            <td className="py-2 px-2">{row.balance} {row.symbol}</td>
+                                            <td className="py-2 px-2">${row.value.toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="mt-4 text-right font-bold text-lg">
+                                Total Collateral Value: ${totalValue}
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Current Value</p>
-                            <p className="text-lg font-semibold">${collateralValue}</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Pending Interest</p>
-                            <p className="text-lg font-semibold">${pendingInterest}</p>
-                        </div>
-                    </div>
+                    )}
 
                     {error && (
                         <Alert variant="destructive" className="mt-4">
@@ -113,11 +128,17 @@ export function CollateralPanel({ contract, account, tokenAddress }: CollateralP
                         </Alert>
                     )}
 
-                    <div className="mt-4">
-                        <p className="text-sm text-gray-500">Health Status</p>
-                        <p className={`text-lg font-semibold ${healthStatus.isHealthy ? 'text-green-500' : 'text-red-500'}`}>
-                            {healthStatus.isHealthy ? 'Healthy' : 'Unhealthy'}
-                        </p>
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-sm text-gray-500">Pending Interest</p>
+                            <p className="text-lg font-semibold">${pendingInterest}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500">Health Status</p>
+                            <p className={`text-lg font-semibold ${healthStatus.isHealthy ? 'text-green-500' : 'text-red-500'}`}>
+                                {healthStatus.isHealthy ? 'Healthy' : 'Unhealthy'}
+                            </p>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

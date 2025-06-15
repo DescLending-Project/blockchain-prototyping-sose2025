@@ -53,7 +53,7 @@ export function Dashboard({ contract, account, isAdmin, isLiquidator }: Dashboar
 
                 <TabsContent value="user">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <CollateralPanel contract={contract} account={account || ''} tokenAddress="0x37FCbD04f138B68F9b41879B35C7c321cd1027ae" />
+                        <CollateralPanel contract={contract} account={account || ''} />
                     </Card>
                 </TabsContent>
 
