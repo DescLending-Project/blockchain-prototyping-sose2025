@@ -12,12 +12,13 @@ import { Contract } from "ethers"
 
 interface DashboardProps {
     contract: Contract;
+    lendingManagerContract: Contract;
     account: string | null;
     isAdmin: boolean;
     isLiquidator: boolean;
 }
 
-export function Dashboard({ contract, account, isAdmin, isLiquidator }: DashboardProps) {
+export function Dashboard({ contract, lendingManagerContract, account, isAdmin, isLiquidator }: DashboardProps) {
     const [showAdminControls, setShowAdminControls] = useState(false)
 
     return (
@@ -59,7 +60,7 @@ export function Dashboard({ contract, account, isAdmin, isLiquidator }: Dashboar
 
                 <TabsContent value="lend">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <LenderPanel contract={contract} account={account || ''} />
+                        <LenderPanel contract={lendingManagerContract} liquidityPoolContract={contract} account={account || ''} />
                     </Card>
                 </TabsContent>
 

@@ -50,6 +50,7 @@ type LiquidityPoolContract = Contract & {
     setMaxLiquidationDelay: (delay: number) => Promise<ContractTransactionResponse>;
     setMaxLiquidationGracePeriod: (period: number) => Promise<ContractTransactionResponse>;
     extract: (amount: bigint) => Promise<ContractTransactionResponse>;
+    setStablecoinParams: (token: string, allowed: boolean, ltv: string, liquidationThreshold: string) => Promise<ContractTransactionResponse>;
 }
 
 interface AdminPanelProps {
@@ -106,6 +107,10 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
     const [targetUser, setTargetUser] = useState("")
     const [liquidationTimeRemaining, setLiquidationTimeRemaining] = useState<string | null>(null)
     const [creditScore, setCreditScore] = useState("")
+    const [stablecoinParams, setStablecoinParams] = useState({
+        ltv: "80",
+        liquidationThreshold: "105"
+    })
 
     const fetchInitialData = async () => {
         try {
@@ -643,6 +648,46 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
     };
 
+    const handleSetStablecoinParams = async () => {
+        if (!newCollateralToken) {
+            setError("Please enter a token address")
+            return
+        }
+        try {
+            setIsLoading(true)
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+
+            // Get the stablecoinManager address from the main contract
+            const stablecoinManagerAddress = await contract.stablecoinManager()
+
+            // Create contract instance for StablecoinManager
+            const stablecoinManagerABI = [
+                "function setStablecoinParams(address token, bool isStable, uint256 ltv, uint256 liquidationThreshold) external"
+            ]
+            const stablecoinManagerContract = new ethers.Contract(
+                stablecoinManagerAddress,
+                stablecoinManagerABI,
+                signer
+            ) as any
+
+            const tx = await stablecoinManagerContract.setStablecoinParams(
+                newCollateralToken,
+                true,
+                stablecoinParams.ltv,
+                stablecoinParams.liquidationThreshold
+            )
+            await tx.wait()
+            setError("")
+            await handleCheckCollateralToken()
+        } catch (err) {
+            console.error("Failed to set stablecoin parameters:", err)
+            setError(err instanceof Error ? err.message : "Failed to set stablecoin parameters")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
     return (
         <div className="space-y-6 w-full">
             {error && (
@@ -893,10 +938,55 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                             </div>
 
                             {isTokenCollateral !== null && (
-                                <div className="p-4 bg-muted rounded-lg">
-                                    <p className="text-sm font-medium">
-                                        Token Status: {isTokenCollateral ? "Is Collateral" : "Not Collateral"}
-                                    </p>
+                                <div className="space-y-4">
+                                    <div className="p-4 bg-muted rounded-lg">
+                                        <p className="text-sm font-medium">
+                                            Token Status: {isTokenCollateral ? "Is Collateral" : "Not Collateral"}
+                                        </p>
+                                    </div>
+
+                                    {isTokenCollateral && (
+                                        <div className="space-y-4">
+                                            <h3 className="text-lg font-medium">Stablecoin Parameters</h3>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-sm font-medium">LTV (%)</label>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        max="95"
+                                                        value={stablecoinParams.ltv}
+                                                        onChange={(e) => setStablecoinParams(prev => ({
+                                                            ...prev,
+                                                            ltv: e.target.value
+                                                        }))}
+                                                        className="w-full"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-sm font-medium">Liquidation Threshold (%)</label>
+                                                    <Input
+                                                        type="number"
+                                                        min="105"
+                                                        max="150"
+                                                        value={stablecoinParams.liquidationThreshold}
+                                                        onChange={(e) => setStablecoinParams(prev => ({
+                                                            ...prev,
+                                                            liquidationThreshold: e.target.value
+                                                        }))}
+                                                        className="w-full"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <Button
+                                                onClick={handleSetStablecoinParams}
+                                                className="w-full h-12"
+                                                disabled={isLoading}
+                                            >
+                                                {isLoading ? "Processing..." : "Set Stablecoin Parameters"}
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </CardContent>

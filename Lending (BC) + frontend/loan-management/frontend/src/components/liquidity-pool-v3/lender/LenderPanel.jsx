@@ -51,7 +51,7 @@ function CountdownTimer({ targetDate, label }) {
     )
 }
 
-export function LenderPanel({ contract, account }) {
+export function LenderPanel({ contract, liquidityPoolContract, account }) {
     const [lenderInfo, setLenderInfo] = useState(null)
     const [depositAmount, setDepositAmount] = useState('')
     const [withdrawAmount, setWithdrawAmount] = useState('')
@@ -292,7 +292,7 @@ export function LenderPanel({ contract, account }) {
 
     return (
         <div className="space-y-4">
-            <LendingPoolStatus contract={contract} />
+            <LendingPoolStatus contract={liquidityPoolContract} />
 
             <Card>
                 <CardHeader>

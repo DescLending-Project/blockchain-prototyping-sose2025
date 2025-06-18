@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import LiquidityPoolV3ABI from './LiquidityPoolV3.json'
+import LendingManagerABI from './LendingManager.json'
 import { AdminPanel } from './components/liquidity-pool-v3/admin/AdminPanel'
 import { LiquidatorPanel } from './components/liquidity-pool-v3/liquidator/LiquidatorPanel'
 import { Button } from './components/ui/button'
@@ -11,18 +12,37 @@ import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
 import BorrowerPanel from './components/liquidity-pool-v3/borrower/BorrowerPanel'
 import { CollateralPanel } from './components/liquidity-pool-v3/user/CollateralPanel'
 
-const CONTRACT_ADDRESS = '0xe05334647312926a1C5F75F1810Ac485b0018913'
+const CONTRACT_ADDRESS = '0xB2B051D52e816305BbB37ee83A2dB4aFaae0c55C'
+const LENDING_MANAGER_ADDRESS = '0x59a0f2A32F34633Cef830EAe11BF41801C4a2F0C' // This will be updated by the deployment script
+
+// Network: sepolia
 
 const COLLATERAL_TOKENS = [
   {
-    address: '0xecc6f14f4b64eedd56111d80f46ce46933dc2d64',
-    symbol: 'CORAL',
-    name: 'Coral Token'
+    address: '0xE5C80108C124Ac916cDc0D59ACdBd99D23Ed827c',
+    symbol: 'GLINT',
+    name: 'Glint Token',
+    isStablecoin: false
   },
   {
-    address: '0xC88ac012Cc1Bfa11Bfd5f73fd076555c7d230f6D',
-    symbol: 'GLINT',
-    name: 'Glint Token'
+    address: '0xecc6f14f4b64eedd56111d80f46ce46933dc2d64',
+    symbol: 'CORAL',
+    name: 'Coral Token',
+    isStablecoin: false
+  },
+  {
+    address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', // USDC on Sepolia
+    symbol: 'USDC',
+    name: 'USD Coin',
+    isStablecoin: true,
+    decimals: 6
+  },
+  {
+    address: '0x7169d38820dfd117c3fa1f22a697dba58d90ba06', // USDT on Sepolia
+    symbol: 'USDT',
+    name: 'Tether USD',
+    isStablecoin: true,
+    decimals: 6
   }
 ]
 
@@ -31,6 +51,7 @@ export { COLLATERAL_TOKENS };
 export default function App() {
   const [account, setAccount] = useState(null)
   const [contract, setContract] = useState(null)
+  const [lendingManagerContract, setLendingManagerContract] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLiquidator, setIsLiquidator] = useState(false)
   const [error, setError] = useState("")
@@ -50,10 +71,16 @@ export default function App() {
       const provider = new ethers.BrowserProvider(window.ethereum)
       const accounts = await provider.send("eth_requestAccounts", [])
       const signer = await provider.getSigner()
+
+      // Create LiquidityPoolV3 contract instance
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+
+      // Create LendingManager contract instance
+      const lendingManagerContract = new ethers.Contract(LENDING_MANAGER_ADDRESS, LendingManagerABI.abi, signer)
 
       setAccount(accounts[0])
       setContract(contract)
+      setLendingManagerContract(lendingManagerContract)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
 
@@ -76,6 +103,7 @@ export default function App() {
       setIsLiquidator(false)
       setIsPaused(false)
       setContract(null)
+      setLendingManagerContract(null)
 
       // Clear connection state from localStorage
       localStorage.removeItem('walletConnected')
@@ -99,10 +127,16 @@ export default function App() {
       const provider = new ethers.BrowserProvider(window.ethereum)
       const accounts = await provider.send("eth_requestAccounts", [])
       const signer = await provider.getSigner()
+
+      // Create LiquidityPoolV3 contract instance
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+
+      // Create LendingManager contract instance
+      const lendingManagerContract = new ethers.Contract(LENDING_MANAGER_ADDRESS, LendingManagerABI.abi, signer)
 
       setAccount(accounts[0])
       setContract(contract)
+      setLendingManagerContract(lendingManagerContract)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
 
@@ -197,9 +231,16 @@ export default function App() {
 
             if (isAccountAvailable) {
               const signer = await provider.getSigner()
+
+              // Create LiquidityPoolV3 contract instance
               const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+
+              // Create LendingManager contract instance
+              const lendingManagerContract = new ethers.Contract(LENDING_MANAGER_ADDRESS, LendingManagerABI.abi, signer)
+
               setAccount(accounts[0])
               setContract(contract)
+              setLendingManagerContract(lendingManagerContract)
               await checkRoles(contract, accounts[0])
               await checkPauseStatus(contract)
             } else {
@@ -310,9 +351,10 @@ export default function App() {
           </Alert>
         )}
 
-        {account && contract && (
+        {account && contract && lendingManagerContract && (
           <Dashboard
             contract={contract}
+            lendingManagerContract={lendingManagerContract}
             account={account}
             isAdmin={isAdmin}
             isLiquidator={isLiquidator}
