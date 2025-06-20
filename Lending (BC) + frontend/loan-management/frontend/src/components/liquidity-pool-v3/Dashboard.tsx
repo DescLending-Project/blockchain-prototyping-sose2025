@@ -3,6 +3,8 @@ import { Card } from "@/components/ui/card"
 import { AdminPanel } from "./admin/AdminPanel"
 import { UserPanel } from "./user/UserPanel"
 import { LiquidatorPanel } from "./liquidator/LiquidatorPanel"
+// @ts-ignore
+import { LenderPanel } from "./lender/LenderPanel.jsx"
 import { TransactionHistory } from "./shared/TransactionHistory"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -59,12 +61,7 @@ export function Dashboard({ contract, account, isAdmin, isLiquidator, provider }
 
                 <TabsContent value="lend">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <div className="text-center py-8">
-                            <h3 className="text-lg font-semibold mb-2">Lending Dashboard</h3>
-                            <p className="text-muted-foreground">
-                                The lending functionality is available in the main lending dashboard below.
-                            </p>
-                        </div>
+                        <LenderPanel contract={contract} account={account} />
                     </Card>
                 </TabsContent>
 

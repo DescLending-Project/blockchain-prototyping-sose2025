@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import LiquidityPoolV3ABI from './LiquidityPoolV3.json'
-import { UserPanel } from './components/liquidity-pool-v3/user/UserPanel'
-import { AdminPanel } from './components/liquidity-pool-v3/admin/AdminPanel'
-import { LiquidatorPanel } from './components/liquidity-pool-v3/liquidator/LiquidatorPanel'
-import { LenderPanel } from './components/liquidity-pool-v3/lender/LenderPanel'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'
@@ -337,9 +333,6 @@ export default function App() {
               isLiquidator={isLiquidator}
               provider={provider}
             />
-            <LenderPanel contract={contract} account={account} />
-            {isAdmin && <AdminPanel contract={contract} account={account} />}
-            {isLiquidator && <LiquidatorPanel contract={contract} account={account} />}
           </div>
         )}
       </div>
