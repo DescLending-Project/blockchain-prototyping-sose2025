@@ -10,17 +10,19 @@ import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
 import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
+import contractJson from "./LiquidityPoolV3.json";
+const ABI = contractJson.abi;
 
-const CONTRACT_ADDRESS = '0xf30De718933577972094a37BE4373F7dda83E9e7'
+const CONTRACT_ADDRESS = '0x3B6006C45E2bc05daaa1e088DA81cE5f0D02e908'
 
 const COLLATERAL_TOKENS = [
   {
-    address: '0xB2B051D52e816305BbB37ee83A2dB4aFaae0c55C',
+    address: '0xAF93888cbD250300470A1618206e036E11470149',
     symbol: 'CORAL',
     name: 'Coral Token'
   },
   {
-    address: '0x60Ca3b4064Cc9757196726DFB59a73878ac17bCa',
+    address: '0x545d52814b0A6B8cF4a89D5E7b0330a83e71AdE4',
     symbol: 'GLINT',
     name: 'Glint Token'
   }
@@ -29,6 +31,7 @@ const COLLATERAL_TOKENS = [
 export default function App() {
   const [account, setAccount] = useState(null)
   const [contract, setContract] = useState(null)
+  const [provider, setProvider] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLiquidator, setIsLiquidator] = useState(false)
   const [error, setError] = useState("")
@@ -45,15 +48,22 @@ export default function App() {
         throw new Error("Please install MetaMask to use this application")
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum)
-      const accounts = await provider.send("eth_requestAccounts", [])
-      const signer = await provider.getSigner()
+      const newProvider = new ethers.BrowserProvider(window.ethereum)
+      const accounts = await newProvider.send("eth_requestAccounts", [])
+      const signer = await newProvider.getSigner()
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
 
       setAccount(accounts[0])
       setContract(contract)
+      setProvider(newProvider)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
+
+      // Debug information
+      const owner = await contract.owner()
+      console.log('Contract Owner:', owner)
+      console.log('Current User Address:', accounts[0])
+      console.log('Is Owner:', owner.toLowerCase() === accounts[0].toLowerCase())
 
       // Store connection state in localStorage
       localStorage.setItem('walletConnected', 'true')
@@ -74,6 +84,7 @@ export default function App() {
       setIsLiquidator(false)
       setIsPaused(false)
       setContract(null)
+      setProvider(null)
 
       // Clear connection state from localStorage
       localStorage.removeItem('walletConnected')
@@ -94,15 +105,22 @@ export default function App() {
         throw new Error("Please install MetaMask to use this application")
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum)
-      const accounts = await provider.send("eth_requestAccounts", [])
-      const signer = await provider.getSigner()
+      const newProvider = new ethers.BrowserProvider(window.ethereum)
+      const accounts = await newProvider.send("eth_requestAccounts", [])
+      const signer = await newProvider.getSigner()
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
 
       setAccount(accounts[0])
       setContract(contract)
+      setProvider(newProvider)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
+
+      // Debug information
+      const owner = await contract.owner()
+      console.log('Contract Owner:', owner)
+      console.log('Current User Address:', accounts[0])
+      console.log('Is Owner:', owner.toLowerCase() === accounts[0].toLowerCase())
 
       // Update last connected account in localStorage
       localStorage.setItem('lastConnectedAccount', accounts[0])
@@ -198,8 +216,15 @@ export default function App() {
               const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
               setAccount(accounts[0])
               setContract(contract)
+              setProvider(provider)
               await checkRoles(contract, accounts[0])
               await checkPauseStatus(contract)
+
+              // Debug information
+              const owner = await contract.owner()
+              console.log('Contract Owner:', owner)
+              console.log('Current User Address:', accounts[0])
+              console.log('Is Owner:', owner.toLowerCase() === accounts[0].toLowerCase())
             } else {
               // Account is no longer available, clear stored state
               localStorage.removeItem('walletConnected')
@@ -305,7 +330,13 @@ export default function App() {
 
         {account && (
           <div className="space-y-8">
-            <Dashboard contract={contract} account={account} />
+            <Dashboard 
+              contract={contract} 
+              account={account} 
+              isAdmin={isAdmin}
+              isLiquidator={isLiquidator}
+              provider={provider}
+            />
             <LenderPanel contract={contract} account={account} />
             {isAdmin && <AdminPanel contract={contract} account={account} />}
             {isLiquidator && <LiquidatorPanel contract={contract} account={account} />}

@@ -3,18 +3,21 @@ import { Card } from "@/components/ui/card"
 import { AdminPanel } from "./admin/AdminPanel"
 import { UserPanel } from "./user/UserPanel"
 import { LiquidatorPanel } from "./liquidator/LiquidatorPanel"
+import { TransactionHistory } from "./shared/TransactionHistory"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
+import { ethers } from "ethers"
 
 interface DashboardProps {
     contract: any;
     account: string | null;
     isAdmin: boolean;
     isLiquidator: boolean;
+    provider?: ethers.Provider;
 }
 
-export function Dashboard({ contract, account, isAdmin, isLiquidator }: DashboardProps) {
+export function Dashboard({ contract, account, isAdmin, isLiquidator, provider }: DashboardProps) {
     const [showAdminControls, setShowAdminControls] = useState(false)
 
     return (
@@ -39,9 +42,10 @@ export function Dashboard({ contract, account, isAdmin, isLiquidator }: Dashboar
             )}
 
             <Tabs defaultValue="user" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="user">User Dashboard</TabsTrigger>
                     <TabsTrigger value="lend">Lend & Provide</TabsTrigger>
+                    <TabsTrigger value="history">Transaction History</TabsTrigger>
                     {isLiquidator && (
                         <TabsTrigger value="liquidator">Liquidator Panel</TabsTrigger>
                     )}
@@ -49,21 +53,28 @@ export function Dashboard({ contract, account, isAdmin, isLiquidator }: Dashboar
 
                 <TabsContent value="user">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <UserPanel contract={contract} account={account} />
+                        <UserPanel contract={contract} account={account} mode="user" />
                     </Card>
                 </TabsContent>
 
                 <TabsContent value="lend">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <UserPanel contract={contract} account={account} mode="lend" />
+                        <div className="text-center py-8">
+                            <h3 className="text-lg font-semibold mb-2">Lending Dashboard</h3>
+                            <p className="text-muted-foreground">
+                                The lending functionality is available in the main lending dashboard below.
+                            </p>
+                        </div>
                     </Card>
+                </TabsContent>
+
+                <TabsContent value="history">
+                    <TransactionHistory contract={contract} account={account} provider={provider} />
                 </TabsContent>
 
                 {isLiquidator && (
                     <TabsContent value="liquidator">
-                        <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                            <LiquidatorPanel contract={contract} account={account} />
-                        </Card>
+                        <LiquidatorPanel contract={contract} account={account} />
                     </TabsContent>
                 )}
             </Tabs>

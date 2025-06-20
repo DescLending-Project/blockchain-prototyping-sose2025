@@ -28,6 +28,7 @@ type LiquidityPoolContract = Contract & {
     getMaxLiquidationDelay: () => Promise<number>;
     getMaxLiquidationGracePeriod: () => Promise<number>;
     getBalance: () => Promise<bigint>;
+    getCreditScore: (user: string) => Promise<bigint>;
 
     // Write functions
     togglePause: () => Promise<ContractTransactionResponse>;
@@ -87,6 +88,9 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
     const [extractAmount, setExtractAmount] = useState("")
     const [targetUser, setTargetUser] = useState("")
     const [liquidationTimeRemaining, setLiquidationTimeRemaining] = useState<string | null>(null)
+    const [creditScoreUser, setCreditScoreUser] = useState("")
+    const [creditScore, setCreditScore] = useState("")
+    const [currentCreditScore, setCurrentCreditScore] = useState<bigint | null>(null)
 
     useEffect(() => {
         const checkPauseStatus = async () => {
@@ -596,6 +600,54 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
         }
     };
 
+    const handleGetCreditScore = async () => {
+        if (!creditScoreUser) {
+            setError("Please enter a user address");
+            return;
+        }
+        try {
+            setIsLoading(true);
+            const score = await contract.getCreditScore(creditScoreUser);
+            setCurrentCreditScore(score);
+            setError("");
+        } catch (err) {
+            console.error("Failed to get credit score:", err);
+            setError("Failed to get credit score");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSetCreditScore = async () => {
+        if (!creditScoreUser || !creditScore || Number(creditScore) < 0) {
+            setError("Please enter a valid user address and credit score");
+            return;
+        }
+        try {
+            setIsLoading(true);
+            const tx = await contract.setCreditScore(creditScoreUser, Number(creditScore));
+            await tx.wait();
+            setCreditScoreUser("");
+            setCreditScore("");
+            setError("");
+            
+            // Refresh the current credit score display
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const contractWithProvider = new ethers.Contract(
+                contract.target,
+                contract.interface.format(),
+                provider
+            ) as unknown as LiquidityPoolContract
+            const updatedCreditScore = await contractWithProvider.getCreditScore(creditScoreUser);
+            setCurrentCreditScore(updatedCreditScore);
+        } catch (err) {
+            console.error("Failed to set credit score:", err);
+            setError("Failed to set credit score");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6 w-full">
             {error && (
@@ -631,6 +683,7 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                     <TabsTrigger value="collateral">Collateral</TabsTrigger>
                     <TabsTrigger value="liquidator">Liquidator</TabsTrigger>
                     <TabsTrigger value="admin">Admin</TabsTrigger>
+                    <TabsTrigger value="credit">Credit</TabsTrigger>
                     <TabsTrigger value="interest">Interest</TabsTrigger>
                     <TabsTrigger value="limits">Limits</TabsTrigger>
                     <TabsTrigger value="funds">Funds</TabsTrigger>
@@ -928,6 +981,61 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                                 disabled={isLoading}
                             >
                                 {isLoading ? "Processing..." : "Set Admin"}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="credit">
+                    <Card className="bg-background/50 border-none shadow-none">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <UserCog className="h-5 w-5" />
+                                Credit Score
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            {currentCreditScore !== null && (
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <p className="text-sm font-medium">Current Credit Score: {currentCreditScore.toString()}</p>
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">User Address</label>
+                                <Input
+                                    placeholder="Enter user address"
+                                    value={creditScoreUser}
+                                    onChange={(e) => {
+                                        setCreditScoreUser(e.target.value)
+                                        setError("")
+                                    }}
+                                    className="w-full"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Credit Score</label>
+                                <Input
+                                    type="number"
+                                    placeholder="Enter credit score"
+                                    value={creditScore}
+                                    onChange={(e) => {
+                                        setCreditScore(e.target.value)
+                                        setError("")
+                                    }}
+                                    min="0"
+                                    step="1"
+                                    className="w-full"
+                                />
+                            </div>
+
+                            <Button
+                                onClick={handleSetCreditScore}
+                                className="w-full h-12"
+                                disabled={isLoading}
+                            >
+                                {isLoading ? "Processing..." : "Set Credit Score"}
                             </Button>
                         </CardContent>
                     </Card>

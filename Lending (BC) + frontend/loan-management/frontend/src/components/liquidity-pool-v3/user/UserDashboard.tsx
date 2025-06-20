@@ -5,15 +5,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect } from "react"
 import { ethers } from "ethers"
 import { Alert, AlertDescription } from "../../../components/ui/alert"
-import { AlertCircle, Wallet, Coins, Shield, AlertTriangle, ArrowUpDown, ArrowDownUp, DollarSign, Percent } from "lucide-react"
+import { AlertCircle, Coins, Shield, AlertTriangle, ArrowUpDown, ArrowDownUp, Percent } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Contract } from "ethers"
 
-interface UserPanelProps {
+interface UserDashboardProps {
     contract: Contract;
     account: string | null;
-    mode?: 'user' | 'lend';
 }
 
 // Token configurations
@@ -30,8 +29,7 @@ const COLLATERAL_TOKENS = [
     }
 ];
 
-export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) {
-    const [isLiquidatable, setIsLiquidatable] = useState(false)
+export function UserDashboard({ contract, account }: UserDashboardProps) {
     const [selectedToken, setSelectedToken] = useState("")
     const [tokenBalance, setTokenBalance] = useState("0")
     const [collateralAmount, setCollateralAmount] = useState("")
@@ -43,15 +41,11 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
     const [healthStatus, setHealthStatus] = useState({ isHealthy: true, ratio: 0 })
     const [totalCollateralValue, setTotalCollateralValue] = useState("0")
     const [userDebt, setUserDebt] = useState("0")
-    const [lendAmount, setLendAmount] = useState("")
-    const [lendingAPY, setLendingAPY] = useState("0")
-    const [totalLent, setTotalLent] = useState("0")
     const [creditScore, setCreditScore] = useState<number | null>(null)
 
     const fetchData = async () => {
-        if (!account) return // Do not fetch if no account connected
+        if (!account) return
         try {
-            // Use a contract instance connected to a Provider for read operations
             const provider = new ethers.BrowserProvider(window.ethereum)
             const readOnlyContract = new ethers.Contract(contract.target, contract.interface, provider)
 
@@ -63,19 +57,12 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                 setUserDebt("0")
             }
 
-            // Fetch total collateral value
             const totalCollateral = await readOnlyContract.getTotalCollateralValue(account);
             setTotalCollateralValue(ethers.formatUnits(totalCollateral, 18));
 
-            // Fetch total pool balance
-            const poolBalance = await readOnlyContract.getBalance();
-            setTotalLent(ethers.formatEther(poolBalance));
-
-            // Fetch credit score
             const userCreditScore = await readOnlyContract.getCreditScore(account);
             setCreditScore(Number(userCreditScore));
 
-            // Fetch health status
             const healthCheck = await readOnlyContract.checkCollateralization(account);
             if (healthCheck && Array.isArray(healthCheck) && healthCheck.length >= 2) {
                 const ratio = Number(ethers.formatUnits(healthCheck[1], 0));
@@ -109,19 +96,16 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         if (contract && account) {
             fetchData()
         }
-        // Re-fetch data when account or contract changes
     }, [contract, account])
 
     const fetchTokenBalance = async () => {
-        if (!account || !selectedToken) return // Do not fetch if no account or token selected
+        if (!account || !selectedToken) return
         try {
             setIsLoading(true)
-            // TODO: Implement token balance fetching using readOnlyContract or token contract
             const provider = new ethers.BrowserProvider(window.ethereum);
-            const tokenContract = new ethers.Contract(selectedToken, ["function balanceOf(address owner) view returns (uint256)"], provider); // Basic ERC20 ABI for balanceOf
+            const tokenContract = new ethers.Contract(selectedToken, ["function balanceOf(address owner) view returns (uint256)"], provider);
             const balance = await tokenContract.balanceOf(account);
-            setTokenBalance(ethers.formatUnits(balance, 18)); // Assuming 18 decimals
-
+            setTokenBalance(ethers.formatUnits(balance, 18));
         } catch (err) {
             setError("Failed to fetch token balance")
         } finally {
@@ -130,17 +114,15 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
     }
 
     const fetchTokenValue = async () => {
-        if (!account || !selectedToken) return // Do not fetch if no account or token selected
+        if (!account || !selectedToken) return
         try {
             setIsLoading(true)
-            // TODO: Implement token value fetching using readOnlyContract and priceFeed
             const provider = new ethers.BrowserProvider(window.ethereum);
             const readOnlyContract = new ethers.Contract(contract.target, contract.interface, provider)
             const value = await readOnlyContract.getTokenValue(selectedToken);
-            setTokenValue(ethers.formatUnits(value, 18)); // Assuming value is returned in 1e18 units
+            setTokenValue(ethers.formatUnits(value, 18));
         } catch (err) {
             console.error("Failed to fetch token value:", err);
-            // setError("Failed to fetch token value")
         } finally {
             setIsLoading(false)
         }
@@ -153,7 +135,6 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         }
         try {
             setIsLoading(true)
-            // Use read-only contract for checking health status (it's a view function)
             const provider = new ethers.BrowserProvider(window.ethereum)
             const readOnlyContract = new ethers.Contract(contract.target, contract.interface, provider)
             const result = await readOnlyContract.checkCollateralization(account)
@@ -161,14 +142,14 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             if (result && Array.isArray(result) && result.length >= 2) {
                 setHealthStatus({
                     isHealthy: result[0],
-                    ratio: Number(ethers.formatUnits(result[1], 0)) // Assuming ratio is returned as a big number, format to a number
+                    ratio: Number(ethers.formatUnits(result[1], 0))
                 });
             } else {
                 setError("Failed to parse health status result");
-                setHealthStatus({ isHealthy: true, ratio: 0 }); // Reset to default on parse error
+                setHealthStatus({ isHealthy: true, ratio: 0 });
             }
 
-            setError("") // Clear previous errors on success
+            setError("")
 
         } catch (err) {
             console.error("Failed to check health status:", err)
@@ -193,24 +174,23 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         }
         try {
             setIsLoading(true)
-            setError("") // Clear previous errors
-            // For ERC20 tokens, first approve the contract to spend the tokens
+            setError("")
             const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
-            const tokenContract = new ethers.Contract(selectedToken, ["function approve(address spender, uint256 amount) returns (bool)"], signer); // Basic ERC20 ABI for approve
-            const amountParsed = ethers.parseUnits(collateralAmount, 18); // Assuming 18 decimals for collateral tokens
-            let tx = await tokenContract.approve(contract.target, amountParsed);
-            await tx.wait();
+            const tokenContract = new ethers.Contract(selectedToken, ["function approve(address spender, uint256 amount) returns (bool)"], signer);
+            const amountParsed = ethers.parseUnits(collateralAmount, 18);
+            
+            const approveTx = await tokenContract.approve(contract.target, amountParsed);
+            await approveTx.wait();
 
-            // Then call the depositCollateral function
-            tx = await contract.depositCollateral(selectedToken, amountParsed)
-            await tx.wait()
-            setError("Collateral deposited successfully!"); // Success message
-            await fetchTokenBalance()
-            await fetchData(); // Refresh overall data
+            const depositTx = await contract.depositCollateral(selectedToken, amountParsed);
+            await depositTx.wait();
+
             setCollateralAmount("")
+            await fetchData()
+            setError("Collateral deposited successfully!")
         } catch (err) {
-            console.error("Failed to deposit collateral:", err);
-            setError(`Failed to deposit collateral: ${err instanceof Error ? err.message : String(err)}`);
+            console.error("Failed to deposit collateral:", err)
+            setError(err instanceof Error ? err.message : "Failed to deposit collateral")
         } finally {
             setIsLoading(false)
         }
@@ -231,16 +211,16 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         }
         try {
             setIsLoading(true)
-            setError("") // Clear previous errors
-            const tx = await contract.withdrawCollateral(selectedToken, ethers.parseUnits(collateralAmount, 18))
-            await tx.wait()
-            setError("Collateral withdrawn successfully!"); // Success message
-            await fetchTokenBalance()
-            await fetchData(); // Refresh overall data
+            setError("")
+            const amountParsed = ethers.parseUnits(collateralAmount, 18);
+            const tx = await contract.withdrawCollateral(selectedToken, amountParsed);
+            await tx.wait();
             setCollateralAmount("")
+            await fetchData()
+            setError("Collateral withdrawn successfully!")
         } catch (err) {
-            console.error("Failed to withdraw collateral:", err);
-            setError(`Failed to withdraw collateral: ${err instanceof Error ? err.message : String(err)}`);
+            console.error("Failed to withdraw collateral:", err)
+            setError(err instanceof Error ? err.message : "Failed to withdraw collateral")
         } finally {
             setIsLoading(false)
         }
@@ -248,7 +228,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
 
     const handleBorrow = async () => {
         if (!borrowAmount || Number(borrowAmount) <= 0) {
-            setError("Please enter a valid amount to borrow")
+            setError("Please enter a valid amount")
             return
         }
         if (!account) {
@@ -257,15 +237,16 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         }
         try {
             setIsLoading(true)
-            setError("") // Clear previous errors
-            const tx = await contract.borrow(ethers.parseEther(borrowAmount))
-            await tx.wait()
-            setError("Tokens borrowed successfully!"); // Success message
-            await fetchData()
+            setError("")
+            const amountParsed = ethers.parseEther(borrowAmount);
+            const tx = await contract.borrow(amountParsed);
+            await tx.wait();
             setBorrowAmount("")
+            await fetchData()
+            setError("Borrow successful!")
         } catch (err) {
-            console.error("Failed to borrow:", err);
-            setError(`Failed to borrow: ${err instanceof Error ? err.message : String(err)}`);
+            console.error("Failed to borrow:", err)
+            setError(err instanceof Error ? err.message : "Failed to borrow")
         } finally {
             setIsLoading(false)
         }
@@ -273,7 +254,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
 
     const handleRepay = async () => {
         if (!repayAmount || Number(repayAmount) <= 0) {
-            setError("Please enter a valid amount to repay")
+            setError("Please enter a valid amount")
             return
         }
         if (!account) {
@@ -282,138 +263,25 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         }
         try {
             setIsLoading(true)
-            setError("") // Clear previous errors
-            const tx = await contract.repay({ value: ethers.parseEther(repayAmount) })
-            await tx.wait()
-            setError("Tokens repaid successfully!"); // Success message
-            await fetchData()
+            setError("")
+            const amountParsed = ethers.parseEther(repayAmount);
+            const tx = await contract.repay({ value: amountParsed });
+            await tx.wait();
             setRepayAmount("")
+            await fetchData()
+            setError("Repayment successful!")
         } catch (err) {
-            console.error("Failed to repay:", err);
-            setError(`Failed to repay: ${err instanceof Error ? err.message : String(err)}`);
+            console.error("Failed to repay:", err)
+            setError(err instanceof Error ? err.message : "Failed to repay")
         } finally {
             setIsLoading(false)
         }
-    }
-
-    const handleLend = async () => {
-        if (!lendAmount || Number(lendAmount) <= 0) {
-            setError("Please enter a valid amount to lend")
-            return
-        }
-        if (!account) {
-            setError("Please connect your wallet to lend")
-            return
-        }
-        try {
-            setIsLoading(true)
-            setError("") // Clear previous errors
-
-            // Send native tokens to the contract address to trigger the receive function
-            const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
-            const tx = await signer.sendTransaction({
-                to: contract.target, // Contract address
-                value: ethers.parseEther(lendAmount) // Amount in native token units
-            });
-
-            // Wait for transaction to be mined
-            const receipt = await tx.wait();
-            console.log("Transaction confirmed:", receipt);
-
-            // Add a small delay to ensure the contract state is updated
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Refresh the data
-            await fetchData();
-
-            setError("Tokens lent successfully!"); // Success message
-            setLendAmount("");
-
-        } catch (err) {
-            console.error("Failed to lend tokens:", err);
-            setError(`Failed to lend tokens: ${err instanceof Error ? err.message : String(err)}`);
-        } finally {
-            setIsLoading(false);
-        }
-    }
-
-    if (mode === 'lend') {
-        return (
-            <div className="space-y-6 w-full">
-                {error && (
-                    <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                )}
-
-                <Card className="bg-gradient-to-br from-background to-muted/50">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <DollarSign className="h-5 w-5" />
-                            Liquidity Provision Overview
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <p className="text-sm text-muted-foreground">Total native tokens in the pool (from lending and repayments)</p>
-                        {/* TODO: Fetch and display actual total pool balance */}
-                        <p className="text-2xl font-bold">{totalLent} Sonic</p>
-                        {/* APY is not directly trackable for individual contributions via receive() */}
-                        {/* <div className="p-4 rounded-lg bg-background/50 border>
-                                <p className="text-sm text-muted-foreground">Current APY</p>
-                                <p className="text-2xl font-bold">{lendingAPY}%</p>
-                            </div> */}
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-background to-muted/50">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <ArrowUpDown className="h-5 w-5" />
-                            Provide Liquidity (Lend Native Tokens)
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <p className="text-sm text-muted-foreground">Send native testnet tokens to the pool contract address to provide liquidity.</p>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Amount (Native Token)</label>
-                            <Input
-                                type="number"
-                                placeholder="Enter amount to lend"
-                                value={lendAmount}
-                                onChange={(e) => {
-                                    setLendAmount(e.target.value)
-                                    setError("")
-                                }}
-                                min="0"
-                                step="0.01"
-                                className="w-full"
-                            />
-                        </div>
-
-                        <Button
-                            onClick={handleLend}
-                            className="w-full h-12"
-                            disabled={isLoading || !account}
-                        >
-                            {isLoading ? "Processing..." : "Lend Native Tokens"}
-                        </Button>
-                        {/* Removed Withdraw button */}
-                    </CardContent>
-                </Card>
-            </div>
-        )
     }
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-semibold">User Dashboard</h2>
-                {/* Wallet connection is now handled in App.jsx header */}
-                {/* <Button variant="outline" className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4" />
-                    Connect Wallet
-                </Button> */}
             </div>
 
             {error && (
@@ -507,16 +375,14 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                                 </Select>
                             </div>
 
-                            {selectedToken && ( // Only show token info if a token is selected
+                            {selectedToken && (
                                 <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-background/50 border">
                                     <div>
                                         <p className="text-sm text-muted-foreground">Token Balance</p>
-                                        {/* TODO: Fetch and display actual token balance */}
                                         <p className="text-lg font-medium">{tokenBalance} {COLLATERAL_TOKENS.find(t => t.address === selectedToken)?.symbol}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Current Value</p>
-                                        {/* TODO: Fetch and display actual token value */}
                                         <p className="text-lg font-medium">${tokenValue}</p>
                                     </div>
                                 </div>
@@ -630,7 +496,6 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                         </CardContent>
                     </Card>
                 </TabsContent>
-
             </Tabs>
 
             {/* Health Check Section */}
