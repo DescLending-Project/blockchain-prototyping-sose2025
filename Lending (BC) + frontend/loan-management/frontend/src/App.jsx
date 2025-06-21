@@ -2,24 +2,23 @@ import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import LiquidityPoolV3ABI from './LiquidityPoolV3.json'
 import LendingManagerABI from './LendingManager.json'
-import { AdminPanel } from './components/liquidity-pool-v3/admin/AdminPanel'
-import { LiquidatorPanel } from './components/liquidity-pool-v3/liquidator/LiquidatorPanel'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
 import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
+import contractJson from "./LiquidityPoolV3.json";
 import BorrowerPanel from './components/liquidity-pool-v3/borrower/BorrowerPanel'
 import { CollateralPanel } from './components/liquidity-pool-v3/user/CollateralPanel'
 
-const CONTRACT_ADDRESS = '0xB2B051D52e816305BbB37ee83A2dB4aFaae0c55C'
-const LENDING_MANAGER_ADDRESS = '0x59a0f2A32F34633Cef830EAe11BF41801C4a2F0C' // This will be updated by the deployment script
+const CONTRACT_ADDRESS = '0xDfC3cc5022154Ff836C7d77970e01a7d06c8de04'
+const LENDING_MANAGER_ADDRESS = '0x8E7CeD5Ecf54B4Fa1f70595F89350ad9061904Bf' // This will be updated by the deployment script
 
-// Network: sepolia
+// Network: sonicTestnet
 
 const COLLATERAL_TOKENS = [
   {
-    address: '0xE5C80108C124Ac916cDc0D59ACdBd99D23Ed827c',
+    address: '0x2c7Ec117630D6f05Fbdadfe618B8CF8e907ff287',
     symbol: 'GLINT',
     name: 'Glint Token',
     isStablecoin: false
@@ -52,6 +51,7 @@ export default function App() {
   const [account, setAccount] = useState(null)
   const [contract, setContract] = useState(null)
   const [lendingManagerContract, setLendingManagerContract] = useState(null)
+  const [provider, setProvider] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLiquidator, setIsLiquidator] = useState(false)
   const [error, setError] = useState("")
@@ -68,9 +68,9 @@ export default function App() {
         throw new Error("Please install MetaMask to use this application")
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum)
-      const accounts = await provider.send("eth_requestAccounts", [])
-      const signer = await provider.getSigner()
+      const newProvider = new ethers.BrowserProvider(window.ethereum)
+      const accounts = await newProvider.send("eth_requestAccounts", [])
+      const signer = await newProvider.getSigner()
 
       // Create LiquidityPoolV3 contract instance
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
@@ -81,6 +81,7 @@ export default function App() {
       setAccount(accounts[0])
       setContract(contract)
       setLendingManagerContract(lendingManagerContract)
+      setProvider(newProvider)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
 
@@ -104,6 +105,7 @@ export default function App() {
       setIsPaused(false)
       setContract(null)
       setLendingManagerContract(null)
+      setProvider(null)
 
       // Clear connection state from localStorage
       localStorage.removeItem('walletConnected')
@@ -124,9 +126,9 @@ export default function App() {
         throw new Error("Please install MetaMask to use this application")
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum)
-      const accounts = await provider.send("eth_requestAccounts", [])
-      const signer = await provider.getSigner()
+      const newProvider = new ethers.BrowserProvider(window.ethereum)
+      const accounts = await newProvider.send("eth_requestAccounts", [])
+      const signer = await newProvider.getSigner()
 
       // Create LiquidityPoolV3 contract instance
       const contract = new ethers.Contract(CONTRACT_ADDRESS, LiquidityPoolV3ABI.abi, signer)
@@ -137,6 +139,7 @@ export default function App() {
       setAccount(accounts[0])
       setContract(contract)
       setLendingManagerContract(lendingManagerContract)
+      setProvider(newProvider)
       await checkRoles(contract, accounts[0])
       await checkPauseStatus(contract)
 
@@ -241,6 +244,7 @@ export default function App() {
               setAccount(accounts[0])
               setContract(contract)
               setLendingManagerContract(lendingManagerContract)
+              setProvider(provider)
               await checkRoles(contract, accounts[0])
               await checkPauseStatus(contract)
             } else {
@@ -358,6 +362,7 @@ export default function App() {
             account={account}
             isAdmin={isAdmin}
             isLiquidator={isLiquidator}
+            provider={provider}
           />
         )}
       </div>

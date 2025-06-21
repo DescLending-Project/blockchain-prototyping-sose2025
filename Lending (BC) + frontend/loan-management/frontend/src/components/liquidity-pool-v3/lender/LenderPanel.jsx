@@ -167,6 +167,13 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
 
     const loadHistoricalRates = async () => {
         try {
+            // Check if the contract has the getHistoricalRates function
+            if (typeof contract.getHistoricalRates !== 'function') {
+                console.log('Historical rates function not available in contract')
+                setHistoricalRates([])
+                return
+            }
+
             const currentDay = Math.floor(Date.now() / (24 * 60 * 60 * 1000))
             // Get the user's first deposit timestamp
             const info = await contract.getLenderInfo(account)
@@ -186,6 +193,7 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
             }))
         } catch (err) {
             console.error('Failed to load historical rates:', err)
+            setHistoricalRates([])
         }
     }
 
@@ -357,21 +365,28 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
 
                             <div className="mt-6">
                                 <h3 className="text-lg font-semibold mb-2">Interest Rate History</h3>
-                                <div className="grid grid-cols-7 gap-2">
-                                    {historicalRates.map((rateData, index) => (
-                                        <div key={index} className="p-2 border rounded text-center">
-                                            <p className="text-sm text-gray-500">
-                                                {rateData.date.toLocaleDateString(undefined, {
-                                                    month: 'short',
-                                                    day: 'numeric'
-                                                })}
-                                            </p>
-                                            <p className="font-medium">
-                                                {rateData.rate === null ? '-' : `${rateData.rate.toFixed(2)}%`}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
+                                {historicalRates.length > 0 ? (
+                                    <div className="grid grid-cols-7 gap-2">
+                                        {historicalRates.map((rateData, index) => (
+                                            <div key={index} className="p-2 border rounded text-center">
+                                                <p className="text-sm text-gray-500">
+                                                    {rateData.date.toLocaleDateString(undefined, {
+                                                        month: 'short',
+                                                        day: 'numeric'
+                                                    })}
+                                                </p>
+                                                <p className="font-medium">
+                                                    {rateData.rate === null ? '-' : `${rateData.rate.toFixed(2)}%`}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-4 border rounded bg-gray-50 text-center">
+                                        <p className="text-gray-500">Historical rate data is not available in the current contract.</p>
+                                        <p className="text-sm text-gray-400 mt-1">This feature requires contract support for historical rate tracking.</p>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mt-6">

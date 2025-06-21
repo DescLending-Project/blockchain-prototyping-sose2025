@@ -220,6 +220,11 @@
       "address": "0xc5a57f0FC206D81b77cE34afd784F28E3E6fBC8B",
       "txHash": "0x6d061bd598bc93df61655d6ecff4e51136fa4abcb2d497515987328749677f00",
       "kind": "transparent"
+    },
+    {
+      "address": "0xDfC3cc5022154Ff836C7d77970e01a7d06c8de04",
+      "txHash": "0x5faf9c0a074ce73c46b961dc28fdfd9ef391bd4f5f7eb0295a665b4598d006e5",
+      "kind": "transparent"
     }
   ],
   "impls": {
