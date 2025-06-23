@@ -1,4 +1,6 @@
-node_modules/
-.env
-dist/
+.env 
 
+Cargo.lock
+target/
+*.rs.bk
+     
