@@ -55,10 +55,11 @@ type LiquidityPoolContract = Contract & {
 
 interface AdminPanelProps {
     contract: Contract;
-    account: string | null;
+    lendingManagerContract: Contract;
+    account: string;
 }
 
-export function AdminPanel({ contract, account }: AdminPanelProps) {
+export function AdminPanel({ contract, lendingManagerContract, account }: AdminPanelProps) {
     const [error, setError] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [isPaused, setIsPaused] = useState(false)
@@ -119,32 +120,12 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                 admin,
                 liquidator,
                 interestRate,
-                maxBorrowAmount,
-                maxCollateralAmount,
-                maxLiquidationBonus,
-                maxLiquidationPenalty,
-                maxLiquidationThreshold,
-                maxLiquidationTime,
-                maxLiquidationAmount,
-                maxLiquidationRatio,
-                maxLiquidationDelay,
-                maxLiquidationGracePeriod,
                 balance
             ] = await Promise.all([
                 contract.paused(),
                 contract.getAdmin(),
                 contract.liquidator(),
-                contract.getInterestRate(),
-                contract.getMaxBorrowAmount(),
-                contract.getMaxCollateralAmount(),
-                contract.getMaxLiquidationBonus(),
-                contract.getMaxLiquidationPenalty(),
-                contract.getMaxLiquidationThreshold(),
-                contract.getMaxLiquidationTime(),
-                contract.getMaxLiquidationAmount(),
-                contract.getMaxLiquidationRatio(),
-                contract.getMaxLiquidationDelay(),
-                contract.getMaxLiquidationGracePeriod(),
+                lendingManagerContract.getInterestRate(ethers.parseEther("1")), // Get base interest rate for 1 ETH
                 contract.getBalance()
             ]);
 
@@ -152,17 +133,7 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
                 isPaused,
                 admin,
                 liquidator,
-                interestRate: Number(interestRate),
-                maxBorrowAmount: ethers.formatEther(maxBorrowAmount),
-                maxCollateralAmount: ethers.formatEther(maxCollateralAmount),
-                maxLiquidationBonus: Number(maxLiquidationBonus),
-                maxLiquidationPenalty: Number(maxLiquidationPenalty),
-                maxLiquidationThreshold: Number(maxLiquidationThreshold),
-                maxLiquidationTime: Number(maxLiquidationTime),
-                maxLiquidationAmount: ethers.formatEther(maxLiquidationAmount),
-                maxLiquidationRatio: Number(maxLiquidationRatio),
-                maxLiquidationDelay: Number(maxLiquidationDelay),
-                maxLiquidationGracePeriod: Number(maxLiquidationGracePeriod),
+                interestRate: Number(ethers.formatUnits(interestRate, 18)),
                 balance: ethers.formatEther(balance)
             });
         } catch (err) {
@@ -318,9 +289,10 @@ export function AdminPanel({ contract, account }: AdminPanelProps) {
 
         try {
             setIsLoading(true);
-            const tx = await contract.setInterestRate(ethers.parseUnits(interestRate, 18));
+            const tx = await lendingManagerContract.setCurrentDailyRate(ethers.parseUnits(interestRate, 18));
             await tx.wait();
             setInterestRate("");
+            await fetchInitialData(); // Refresh the data
         } catch (err) {
             setError("Failed to set interest rate");
         } finally {

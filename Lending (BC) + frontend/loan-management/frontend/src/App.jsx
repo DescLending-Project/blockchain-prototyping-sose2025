@@ -16,8 +16,8 @@ import { CollateralPanel } from './components/liquidity-pool-v3/user/CollateralP
 import { DEFAULT_NETWORK } from './config/networks'
 
 // Contract addresses
-const POOL_ADDRESS = '0x924b040cE3e1E8e761106Fefb76e35588CEF0EBF';
-const LENDING_MANAGER_ADDRESS = '0x5327c6C798fc669912361667752EFE65D349112E';
+const POOL_ADDRESS = '0x1dfb73Fc78445f59A967e74Ecb5d230F09af49Cc';
+const LENDING_MANAGER_ADDRESS = '0x05D41Bef61a1dAbA9D48Ad298d287891c8D6F0CA';
 
 // Network-specific token addresses
 const NETWORK_TOKENS = {
@@ -45,7 +45,7 @@ const CONTRACT_ADDRESSES = {
 // Collateral tokens array - will be updated based on network
 const COLLATERAL_TOKENS = [
   {
-    address: '0x18374A647EC1dacDF24EF773cD76998C64b77126', // GLINT
+    address: '0x06bC9f72Aaa5F0Db0DF658f00CeDF219e915c351', // GLINT
     symbol: 'GLINT',
     name: 'Glint Token',
     isStablecoin: false

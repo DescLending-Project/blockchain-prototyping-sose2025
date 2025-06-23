@@ -2,7 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
 import { AdminPanel } from "./admin/AdminPanel"
 import { LiquidatorPanel } from "./liquidator/LiquidatorPanel"
-import BorrowerPanel from "./borrower/BorrowerPanel"
+import { BorrowerPanel } from "./borrower/BorrowerPanel"
 import { LenderPanel } from "./lender/LenderPanel"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -38,7 +38,7 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
 
             {showAdminControls && isAdmin && (
                 <div className="mb-6 p-6 border-2 border-primary/20 rounded-lg bg-muted/30 backdrop-blur-sm">
-                    <AdminPanel contract={contract} account={account} />
+                    <AdminPanel contract={contract} lendingManagerContract={lendingManagerContract} account={account || ''} />
                 </div>
             )}
 

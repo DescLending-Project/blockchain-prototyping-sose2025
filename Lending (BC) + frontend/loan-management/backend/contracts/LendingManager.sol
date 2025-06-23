@@ -325,6 +325,10 @@ contract LendingManager is Ownable {
             block.timestamp >= info.withdrawalRequestTime + WITHDRAWAL_COOLDOWN;
     }
 
+    function getInterestRate(uint256 amount) public view returns (uint256) {
+        return _getInterestRate(amount);
+    }
+
     // Internal functions
     function _getInterestRate(uint256 amount) internal view returns (uint256) {
         for (uint i = interestTiers.length; i > 0; i--) {

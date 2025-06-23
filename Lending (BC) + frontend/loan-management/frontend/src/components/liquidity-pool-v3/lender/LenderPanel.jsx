@@ -5,7 +5,7 @@ import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
 import { Alert, AlertDescription } from '../../ui/alert'
 import { formatEther, parseEther } from 'ethers'
-import { Info, Clock } from 'lucide-react'
+import { Info, Clock, TrendingUp } from 'lucide-react'
 import {
     Tooltip,
     TooltipContent,
@@ -73,6 +73,7 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
     const [potentialInterest, setPotentialInterest] = useState(null)
     const [withdrawalType, setWithdrawalType] = useState('principal') // 'principal' or 'interest'
     const [tokenSymbol, setTokenSymbol] = useState('ETH')
+    const [interestHistory, setInterestHistory] = useState([])
 
     useEffect(() => {
         if (contract && account) {
@@ -80,6 +81,7 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
             loadInterestTiers()
             loadWithdrawalStatus()
             checkNetwork()
+            loadInterestHistory()
         }
     }, [contract, account])
 
@@ -218,6 +220,35 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
             setError(err.message || 'Failed to cancel withdrawal')
         } finally {
             setIsLoading(false)
+        }
+    }
+
+    const loadInterestHistory = async () => {
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const block = await provider.getBlock('latest')
+            const now = block.timestamp
+            const SECONDS_PER_DAY = 86400
+            const currentDay = Math.floor(now / SECONDS_PER_DAY)
+            const history = []
+            for (let i = 6; i >= 0; i--) {
+                const dayIndex = currentDay - i
+                try {
+                    const rate = await contract.dailyInterestRate(dayIndex)
+                    history.push({
+                        day: new Date((dayIndex * SECONDS_PER_DAY) * 1000),
+                        rate: ethers.formatUnits(rate, 18)
+                    })
+                } catch (err) {
+                    history.push({
+                        day: new Date((dayIndex * SECONDS_PER_DAY) * 1000),
+                        rate: null
+                    })
+                }
+            }
+            setInterestHistory(history)
+        } catch (err) {
+            setInterestHistory([])
         }
     }
 
@@ -520,6 +551,125 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
                     )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                        7-Day Interest Rate History
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-6">
+                        {/* Interest Rate Line Chart */}
+                        <div className="h-48 w-full">
+                            <div className="relative h-full w-full">
+                                <svg className="h-full w-full" viewBox="0 0 700 200" preserveAspectRatio="none">
+                                    {/* Chart Background Grid */}
+                                    <g className="grid">
+                                        {[0, 1, 2, 3, 4].map((i) => (
+                                            <line
+                                                key={`grid-${i}`}
+                                                x1="0"
+                                                y1={40 * i}
+                                                x2="700"
+                                                y2={40 * i}
+                                                stroke="#e5e7eb"
+                                                strokeWidth="1"
+                                            />
+                                        ))}
+                                    </g>
+
+                                    {/* Interest Rate Line */}
+                                    {interestHistory.length > 0 && (
+                                        <>
+                                            <path
+                                                d={interestHistory.map((entry, i) => {
+                                                    const x = (i / (interestHistory.length - 1)) * 700;
+                                                    const y = entry.rate ? (1 - Number(entry.rate)) * 160 + 20 : null;
+                                                    return i === 0 ? `M ${x} ${y || 100}` : `L ${x} ${y || 100}`;
+                                                }).join(' ')}
+                                                fill="none"
+                                                stroke="hsl(var(--primary))"
+                                                strokeWidth="2"
+                                            />
+                                            {/* Data Points */}
+                                            {interestHistory.map((entry, i) => {
+                                                const x = (i / (interestHistory.length - 1)) * 700;
+                                                const y = entry.rate ? (1 - Number(entry.rate)) * 160 + 20 : 100;
+                                                return (
+                                                    <circle
+                                                        key={i}
+                                                        cx={x}
+                                                        cy={y}
+                                                        r="4"
+                                                        fill="hsl(var(--primary))"
+                                                    />
+                                                );
+                                            })}
+                                        </>
+                                    )}
+                                </svg>
+
+                                {/* X-axis Labels */}
+                                <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-gray-500">
+                                    {interestHistory.map((entry, i) => (
+                                        <div key={i} className="text-center" style={{ width: '14.28%' }}>
+                                            {entry.day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Interest Rate Table */}
+                        <div className="rounded-lg border bg-card">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b bg-muted/50">
+                                            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
+                                            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Daily Rate</th>
+                                            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Change</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {interestHistory.map((entry, idx) => {
+                                            const prevRate = idx > 0 ? Number(interestHistory[idx - 1].rate) : null;
+                                            const currentRate = Number(entry.rate);
+                                            const change = prevRate !== null && !isNaN(currentRate)
+                                                ? ((currentRate - prevRate) / prevRate * 100).toFixed(2)
+                                                : null;
+
+                                            return (
+                                                <tr key={idx} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                                    <td className="px-4 py-3 text-sm">
+                                                        {entry.day.toLocaleDateString(undefined, {
+                                                            weekday: 'short',
+                                                            month: 'short',
+                                                            day: 'numeric'
+                                                        })}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm font-medium">
+                                                        {entry.rate !== null ? `${Number(entry.rate).toFixed(4)}%` : 'N/A'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm">
+                                                        {change !== null ? (
+                                                            <span className={`${Number(change) > 0 ? 'text-green-600' : Number(change) < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                                {change > 0 ? '+' : ''}{change}%
+                                                            </span>
+                                                        ) : '—'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>
