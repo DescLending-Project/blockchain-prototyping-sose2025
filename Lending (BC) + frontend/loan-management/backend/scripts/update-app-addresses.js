@@ -18,82 +18,104 @@ const NETWORK_TOKENS = {
 };
 
 function updateTokenAddress(content, symbol, newAddress) {
+    // Regex: find the address field inside the object with symbol: 'SYMBOL'
+    // This matches { ... address: '...', ... symbol: 'SYMBOL', ... }
+    // and only replaces the address inside the same object
+    const regex = new RegExp(
+        `(\{[^}]*?address:\s*['"])\w+(['"].*?symbol:\s*['"]${symbol}['"][^}]*?\})`,
+        'gs'
+    );
+    return content.replace(regex, `$1${newAddress}$2`);
+}
+
+function updateTokenAddressBySymbol(content, symbol, newAddress) {
     // Match the address field in the object where symbol: 'SYMBOL' (allowing comments/fields in between)
     const regex = new RegExp(
-        `(address: ['"])[^'"]+(['"].*?symbol: ['"]${symbol}['"])`,
+        `(address:\s*['\"]).*?(['\"].*?symbol:\s*['\"]${symbol}['\"])`,
         's'
     );
     return content.replace(regex, `$1${newAddress}$2`);
 }
 
-function updateAppAddresses(deploymentData, networkName = 'sepolia') {
-    const appJsxPath = path.join(__dirname, '../../frontend/src/App.jsx');
+function updateTokenAddressInNetwork(content, network, symbol, newAddress) {
+    // Step 1: Find the array for the correct network (global, multiline)
+    const arrayRegex = new RegExp(`(${network}:\s*\[)([\s\S]*?)(\])`, 'gm');
+    const match = arrayRegex.exec(content);
+    if (!match) return content; // Network array not found
+    const arrayStart = match[1];
+    const arrayContent = match[2];
+    const arrayEnd = match[3];
 
-    if (!fs.existsSync(appJsxPath)) {
-        console.error('App.jsx not found at:', appJsxPath);
-        return false;
-    }
+    // Step 2: Replace the address for the correct symbol in the array content
+    // Only match address field in the object with the correct symbol
+    const tokenRegex = new RegExp(
+        `(address:\s*['"])[^'"]+(['"][^}]*symbol:\s*['"]${symbol}['"])`,
+        'gs'
+    );
+    const updatedArrayContent = arrayContent.replace(tokenRegex, `$1${newAddress}$2`);
+
+    // Step 3: Replace only the array content in the file
+    const updatedContent = content.replace(arrayRegex, `${arrayStart}${updatedArrayContent}${arrayEnd}`);
+    return updatedContent;
+}
+
+function updateAppAddresses(deploymentData) {
+    const appJsxPath = path.join(__dirname, '../../frontend/src/App.jsx');
+    console.log('DEBUG: Using App.jsx path:', appJsxPath);
 
     try {
-        // Read the current App.jsx file
+        if (!fs.existsSync(appJsxPath)) {
+            console.error('App.jsx not found at path:', appJsxPath);
+            return false;
+        }
+
         let content = fs.readFileSync(appJsxPath, 'utf8');
+        console.log('\nOriginal contract addresses:');
+        console.log('POOL_ADDRESS:', content.match(/const POOL_ADDRESS = '([^']+)'/)?.[1]);
+        console.log('LENDING_MANAGER_ADDRESS:', content.match(/const LENDING_MANAGER_ADDRESS = '([^']+)'/)?.[1]);
 
-        // Update CONTRACT_ADDRESS (LiquidityPoolV3)
-        const contractAddressRegex = /const CONTRACT_ADDRESS = ['"]([^'"]+)['"]/;
-        if (contractAddressRegex.test(content)) {
-            content = content.replace(contractAddressRegex, `const CONTRACT_ADDRESS = '${deploymentData.liquidityPoolV3Address}'`);
-            console.log('Updated CONTRACT_ADDRESS');
-        } else {
-            console.log('Could not find CONTRACT_ADDRESS in App.jsx');
-        }
+        // Update the contract addresses
+        content = content.replace(
+            /(const POOL_ADDRESS = ')[^']+(')/,
+            `$1${deploymentData.liquidityPoolV3Address}$2`
+        );
+        content = content.replace(
+            /(const LENDING_MANAGER_ADDRESS = ')[^']+(')/,
+            `$1${deploymentData.lendingManagerAddress}$2`
+        );
 
-        // Add LendingManager address if it doesn't exist
-        const lendingManagerAddressRegex = /const LENDING_MANAGER_ADDRESS = ['"]([^'"]+)['"]/;
-        if (lendingManagerAddressRegex.test(content)) {
-            content = content.replace(lendingManagerAddressRegex, `const LENDING_MANAGER_ADDRESS = '${deploymentData.lendingManagerAddress}'`);
-            console.log('Updated LENDING_MANAGER_ADDRESS');
-        } else {
-            // Add LendingManager address after CONTRACT_ADDRESS
-            const contractAddressLineRegex = /(const CONTRACT_ADDRESS = ['"][^'"]+['"])/;
-            content = content.replace(contractAddressLineRegex, `$1\nconst LENDING_MANAGER_ADDRESS = '${deploymentData.lendingManagerAddress}'`);
-            console.log('Added LENDING_MANAGER_ADDRESS');
-        }
+        // Update CONTRACT_ADDRESSES for both networks
+        ['sepolia', 'sonic'].forEach(network => {
+            content = content.replace(
+                new RegExp(`(${network}:\\s*{[^}]*pool:\\s*')[^']*(')`, 'm'),
+                `$1${deploymentData.liquidityPoolV3Address}$2`
+            );
+            content = content.replace(
+                new RegExp(`(${network}:\\s*{[^}]*lending:\\s*')[^']*(')`, 'm'),
+                `$1${deploymentData.lendingManagerAddress}$2`
+            );
+        });
 
-        // Update GLINT token address
-        content = updateTokenAddress(content, 'GLINT', deploymentData.glintTokenAddress);
-        // Get network-specific stablecoin addresses
-        const networkTokens = NETWORK_TOKENS[networkName] || NETWORK_TOKENS['sepolia'];
-        // Update USDC token address based on network
-        const usdcAddress = deploymentData.usdcTokenAddress || networkTokens.usdc;
-        content = updateTokenAddress(content, 'USDC', usdcAddress);
-        // Update USDT token address based on network
-        const usdtAddress = deploymentData.usdtTokenAddress || networkTokens.usdt;
-        content = updateTokenAddress(content, 'USDT', usdtAddress);
-
-        // Add a comment about the network
-        const networkCommentRegex = /\/\/ Network: .*/;
-        const networkComment = `// Network: ${networkName}`;
-        if (networkCommentRegex.test(content)) {
-            content = content.replace(networkCommentRegex, networkComment);
-        } else {
-            // Add network comment after the CONTRACT_ADDRESS line
-            const contractAddressLineRegex = /(const CONTRACT_ADDRESS = ['"][^'"]+['"])/;
-            content = content.replace(contractAddressLineRegex, `$1\n\n${networkComment}`);
+        // Update token addresses in COLLATERAL_TOKENS array
+        if (deploymentData.tokens) {
+            Object.entries(deploymentData.tokens).forEach(([symbol, address]) => {
+                const regex = new RegExp(`(address:\\s*['"])[^'"]*(['"][^}]*symbol:\\s*['"]${symbol}['"])`, 'gs');
+                content = content.replace(regex, `$1${address}$2`);
+            });
         }
 
         // Write the updated content back to the file
-        fs.writeFileSync(appJsxPath, content, 'utf8');
-        console.log('Successfully updated App.jsx with new contract addresses');
-        console.log(`Network: ${networkName}`);
-        console.log(`LiquidityPoolV3: ${deploymentData.liquidityPoolV3Address}`);
-        console.log(`LendingManager: ${deploymentData.lendingManagerAddress}`);
-        console.log(`GLINT: ${deploymentData.glintTokenAddress}`);
-        console.log(`USDC: ${usdcAddress}`);
-        console.log(`USDT: ${usdtAddress}`);
+        fs.writeFileSync(appJsxPath, content);
+
+        // Verify the updates
+        const updatedContent = fs.readFileSync(appJsxPath, 'utf8');
+        console.log('\nUpdated contract addresses:');
+        console.log('POOL_ADDRESS:', updatedContent.match(/const POOL_ADDRESS = '([^']+)'/)?.[1]);
+        console.log('LENDING_MANAGER_ADDRESS:', updatedContent.match(/const LENDING_MANAGER_ADDRESS = '([^']+)'/)?.[1]);
 
         return true;
     } catch (error) {
-        console.error('Error updating App.jsx:', error.message);
+        console.error('Error updating App.jsx:', error);
         return false;
     }
 }

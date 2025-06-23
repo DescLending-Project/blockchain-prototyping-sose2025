@@ -19,8 +19,17 @@ function CountdownTimer({ targetDate, label }) {
 
     useEffect(() => {
         const updateTimer = () => {
+            let target;
+            if (typeof targetDate === 'bigint') {
+                target = new Date(Number(targetDate));
+            } else if (typeof targetDate === 'number') {
+                target = new Date(targetDate);
+            } else if (typeof targetDate === 'string') {
+                target = new Date(Number(targetDate));
+            } else {
+                target = new Date(targetDate);
+            }
             const now = new Date()
-            const target = new Date(targetDate)
             const diff = target - now
 
             if (diff <= 0) {
@@ -54,41 +63,25 @@ function CountdownTimer({ targetDate, label }) {
 export function LenderPanel({ contract, liquidityPoolContract, account }) {
     const [lenderInfo, setLenderInfo] = useState(null)
     const [depositAmount, setDepositAmount] = useState('')
-    const [withdrawAmount, setWithdrawAmount] = useState('')
+    const [withdrawAmount, setWithdrawalAmount] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
     const [interestTiers, setInterestTiers] = useState([])
-    const [historicalRates, setHistoricalRates] = useState([])
+    const [withdrawalStatus, setWithdrawalStatus] = useState(null)
     const [calculatorAmount, setCalculatorAmount] = useState('')
     const [calculatorDays, setCalculatorDays] = useState('')
     const [potentialInterest, setPotentialInterest] = useState(null)
-    const [withdrawalStatus, setWithdrawalStatus] = useState(null)
     const [withdrawalType, setWithdrawalType] = useState('principal') // 'principal' or 'interest'
     const [tokenSymbol, setTokenSymbol] = useState('ETH')
 
     useEffect(() => {
         if (contract && account) {
-            checkNetwork()
             loadLenderInfo()
             loadInterestTiers()
-            loadHistoricalRates()
             loadWithdrawalStatus()
+            checkNetwork()
         }
     }, [contract, account])
-
-    // Add a network change listener
-    useEffect(() => {
-        if (window.ethereum) {
-            window.ethereum.on('chainChanged', () => {
-                checkNetwork()
-            })
-        }
-        return () => {
-            if (window.ethereum) {
-                window.ethereum.removeListener('chainChanged', checkNetwork)
-            }
-        }
-    }, [])
 
     const checkNetwork = async () => {
         try {
@@ -102,107 +95,54 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
         }
     }
 
-    // Call checkNetwork immediately when component mounts
-    useEffect(() => {
-        checkNetwork()
-    }, [])
-
-    // Add network change listener
-    useEffect(() => {
-        if (window.ethereum) {
-            const handleChainChanged = () => {
-                console.log('Chain changed, checking network...')
-                checkNetwork()
-            }
-
-            window.ethereum.on('chainChanged', handleChainChanged)
-
-            return () => {
-                window.ethereum.removeListener('chainChanged', handleChainChanged)
-            }
-        }
-    }, [])
-
     const loadLenderInfo = async () => {
         try {
             const info = await contract.getLenderInfo(account)
-            const totalLent = await contract.totalLent()
-
             setLenderInfo({
-                balance: formatEther(info.balance),
-                pendingInterest: formatEther(info.pendingInterest),
-                earnedInterest: formatEther(info.earnedInterest),
-                nextInterestUpdate: new Date(Number(info.nextInterestUpdate) * 1000),
-                penaltyFreeWithdrawalTime: new Date(Number(info.penaltyFreeWithdrawalTime) * 1000),
-                lastDistributionTime: new Date(Number(info.lastDistributionTime) * 1000),
-                totalLent: formatEther(totalLent)
+                balance: info[0],
+                pendingInterest: info[1],
+                earnedInterest: info[2],
+                nextInterestUpdate: info[3],
+                penaltyFreeWithdrawalTime: info[4],
+                lastDistributionTime: info[5]
             })
-
-            // Update the display immediately
-            const balanceDisplay = document.querySelector('.lender-balance')
-            if (balanceDisplay) {
-                balanceDisplay.textContent = `${formatEther(totalLent)} SONIC`
-            }
         } catch (err) {
             console.error('Failed to load lender info:', err)
+            setError('Failed to load lender information')
         }
     }
 
     const loadInterestTiers = async () => {
         try {
-            const count = await contract.getInterestTierCount()
+            const tierCount = await contract.getInterestTierCount()
             const tiers = []
-            for (let i = 0; i < count; i++) {
-                const [minAmount, rate] = await contract.getInterestTier(i)
+            for (let i = 0; i < tierCount; i++) {
+                const tier = await contract.getInterestTier(i)
                 tiers.push({
-                    minAmount: formatEther(minAmount),
-                    rate: (Number(rate) / 1e18 - 1) * 100 // Convert to percentage
+                    minAmount: tier[0],
+                    rate: tier[1]
                 })
             }
             setInterestTiers(tiers)
         } catch (err) {
             console.error('Failed to load interest tiers:', err)
-        }
-    }
-
-    const loadHistoricalRates = async () => {
-        try {
-            const currentDay = Math.floor(Date.now() / (24 * 60 * 60 * 1000))
-            // Get the user's first deposit timestamp
-            const info = await contract.getLenderInfo(account)
-            const firstDepositDay = Math.floor(Number(info.penaltyFreeWithdrawalTime) / (24 * 60 * 60))
-
-            // If user hasn't deposited yet, show last 7 days
-            const startDay = info.balance > 0 ? firstDepositDay : currentDay - 7
-
-            const rates = await contract.getHistoricalRates(startDay, currentDay)
-            setHistoricalRates(rates.map((rate, index) => {
-                const date = new Date()
-                date.setDate(date.getDate() - (rates.length - 1 - index))
-                return {
-                    rate: Number(rate) === 0 ? null : (Number(rate) / 1e18 - 1) * 100, // Convert to percentage
-                    date: date
-                }
-            }))
-        } catch (err) {
-            console.error('Failed to load historical rates:', err)
+            setError('Failed to load interest tier information')
         }
     }
 
     const loadWithdrawalStatus = async () => {
         try {
             const status = await contract.getWithdrawalStatus(account)
-            const canComplete = await contract.canCompleteWithdrawal(account)
             setWithdrawalStatus({
-                availableAt: new Date(Number(status.availableAt) * 1000),
-                penaltyIfWithdrawnNow: formatEther(status.penaltyIfWithdrawnNow),
-                isAvailableWithoutPenalty: status.isAvailableWithoutPenalty,
-                nextInterestDistribution: new Date(Number(status.nextInterestDistribution) * 1000),
-                canComplete,
-                availableInterest: formatEther(status.availableInterest)
+                availableAt: status[0],
+                penaltyIfWithdrawnNow: status[1],
+                isAvailableWithoutPenalty: status[2],
+                nextInterestDistribution: status[3],
+                availableInterest: status[4]
             })
         } catch (err) {
             console.error('Failed to load withdrawal status:', err)
+            setError('Failed to load withdrawal status')
         }
     }
 
@@ -219,41 +159,32 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
     }
 
     const handleDeposit = async () => {
-        // Log values before any contract interaction
-        console.log('Raw deposit amount:', depositAmount);
-        const amountInWei = ethers.parseEther(depositAmount);
-        console.log('Deposit amount in Wei:', amountInWei.toString());
-        console.log('Deposit amount in Gwei:', ethers.formatUnits(amountInWei, 'gwei'));
-
         try {
-            setIsLoading(true);
-            setError('');
-            const tx = await contract.depositFunds({ value: amountInWei });
-            await tx.wait();
-            await loadLenderInfo();
-            setDepositAmount('');
+            setIsLoading(true)
+            setError('')
+            const tx = await contract.depositFunds({ value: ethers.parseEther(depositAmount) })
+            await tx.wait()
+            await loadLenderInfo()
+            setDepositAmount('')
         } catch (err) {
-            setError(err.message || 'Failed to deposit funds');
+            console.error('Failed to deposit:', err)
+            setError(err.message || 'Failed to deposit funds')
         } finally {
-            setIsLoading(false);
+            setIsLoading(false)
         }
-    };
+    }
 
     const handleRequestWithdrawal = async () => {
         try {
             setIsLoading(true)
             setError('')
-            if (withdrawalType === 'principal') {
-                const tx = await contract.requestWithdrawal(parseEther(withdrawAmount))
-                await tx.wait()
-            } else {
-                const tx = await contract.claimInterest()
-                await tx.wait()
-            }
+            const tx = await contract.requestWithdrawal(ethers.parseEther(withdrawAmount))
+            await tx.wait()
             await loadLenderInfo()
             await loadWithdrawalStatus()
-            setWithdrawAmount('')
+            setWithdrawalAmount('')
         } catch (err) {
+            console.error('Failed to request withdrawal:', err)
             setError(err.message || 'Failed to request withdrawal')
         } finally {
             setIsLoading(false)
@@ -324,11 +255,11 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <CountdownTimer
-                                                targetDate={lenderInfo.nextInterestUpdate}
+                                                targetDate={Number(lenderInfo.nextInterestUpdate)}
                                                 label="Time until next interest distribution"
                                             />
                                             <CountdownTimer
-                                                targetDate={lenderInfo.penaltyFreeWithdrawalTime}
+                                                targetDate={Number(lenderInfo.penaltyFreeWithdrawalTime)}
                                                 label="Time until penalty-free withdrawal"
                                             />
                                         </div>
@@ -352,25 +283,6 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                                 <div>
                                     <p className="text-sm text-gray-500">Next Interest Update</p>
                                     <p className="text-lg font-semibold">{lenderInfo.nextInterestUpdate.toLocaleString()}</p>
-                                </div>
-                            </div>
-
-                            <div className="mt-6">
-                                <h3 className="text-lg font-semibold mb-2">Interest Rate History</h3>
-                                <div className="grid grid-cols-7 gap-2">
-                                    {historicalRates.map((rateData, index) => (
-                                        <div key={index} className="p-2 border rounded text-center">
-                                            <p className="text-sm text-gray-500">
-                                                {rateData.date.toLocaleDateString(undefined, {
-                                                    month: 'short',
-                                                    day: 'numeric'
-                                                })}
-                                            </p>
-                                            <p className="font-medium">
-                                                {rateData.rate === null ? '-' : `${rateData.rate.toFixed(2)}%`}
-                                            </p>
-                                        </div>
-                                    ))}
                                 </div>
                             </div>
 
