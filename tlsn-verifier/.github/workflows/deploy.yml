@@ -1,0 +1,46 @@
+name: Deploy to Phala Cloud
+
+on:
+  push:
+    branches: [tlsn-verificaton-ms-on-phala]
+    paths:
+      - Dockerfile
+      - docker-compose.yml
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_IMAGE }}:latest
+            ${{ secrets.DOCKER_IMAGE }}:${{ github.sha }}
+
+      - name: Update Docker Compose image reference
+        run: |
+          sed -i "s|image: .*|image: ${{ secrets.DOCKER_IMAGE }}:latest|" docker-compose.yml
+
+      - name: Deploy to Phala Cloud
+        uses: Leechael/phala-deploy-action@v2
+        with:
+          phala-api-key: ${{ secrets.PHALA_CLOUD_API_KEY }}
+          cvm-name: ${{ secrets.APP_NAME }}
+          compose-file: './docker-compose.yml'
+          vcpu: '2'
+          memory: '2048'
+          disk-size: '10'
