@@ -4,8 +4,9 @@ on:
   push:
     branches: [feat/tlsn-verification-ms-on-phala]
     paths:
-      - Dockerfile
-      - docker-compose.yml
+      - tlsn-verifier/Dockerfile
+      - tlsn-verifier/docker-compose.yml
+      - tlsn-verifier/**
   workflow_dispatch:
 
 jobs:
@@ -25,7 +26,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./tlsn-verifier
+          file: ./tlsn-verifier/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKER_IMAGE }}:latest
@@ -33,14 +35,14 @@ jobs:
 
       - name: Update Docker Compose image reference
         run: |
-          sed -i "s|image: .*|image: ${{ secrets.DOCKER_IMAGE }}:latest|" docker-compose.yml
+          sed -i "s|image: .*|image: ${{ secrets.DOCKER_IMAGE }}:latest|" tlsn-verifier/docker-compose.yml
 
       - name: Deploy to Phala Cloud
         uses: Leechael/phala-deploy-action@v2
         with:
           phala-api-key: ${{ secrets.PHALA_CLOUD_API_KEY }}
           cvm-name: ${{ secrets.APP_NAME }}
-          compose-file: './docker-compose.yml'
+          compose-file: './tlsn-verifier/docker-compose.yml'
           vcpu: '2'
           memory: '2048'
           disk-size: '10'
