@@ -1,0 +1,9 @@
+services:
+  tlsn-verifier:
+    container_name: tlsn-verifier
+    image: docker.io/rbbozkurt/tlsn-verifier:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/tappd.sock:/var/run/tappd.sock
+    platform: linux/amd64
