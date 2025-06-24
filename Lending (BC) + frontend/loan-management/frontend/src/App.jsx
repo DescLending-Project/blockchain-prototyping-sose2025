@@ -16,8 +16,8 @@ import { CollateralPanel } from './components/liquidity-pool-v3/user/CollateralP
 import { DEFAULT_NETWORK } from './config/networks'
 
 // Contract addresses
-const POOL_ADDRESS = '0x1dfb73Fc78445f59A967e74Ecb5d230F09af49Cc';
-const LENDING_MANAGER_ADDRESS = '0x05D41Bef61a1dAbA9D48Ad298d287891c8D6F0CA';
+const POOL_ADDRESS = '0x6f751AE8b22d7f0D29428256F0c626D5613eF9B5';
+const LENDING_MANAGER_ADDRESS = '0xff3bb967163c2fD1650Adb6ad3DFa8fA15d5a0FA';
 
 // Network-specific token addresses
 const NETWORK_TOKENS = {
@@ -45,7 +45,7 @@ const CONTRACT_ADDRESSES = {
 // Collateral tokens array - will be updated based on network
 const COLLATERAL_TOKENS = [
   {
-    address: '0x06bC9f72Aaa5F0Db0DF658f00CeDF219e915c351', // GLINT
+    address: '0x1B45F1c058D6936Db65dAdFE669c47D12CeD8900', // GLINT
     symbol: 'GLINT',
     name: 'Glint Token',
     isStablecoin: false
@@ -57,14 +57,14 @@ const COLLATERAL_TOKENS = [
     isStablecoin: false
   },
   {
-    address: '0xA4879Fed32Ecbef99399e5cbC247E533421C4eC6', // USDC - will be set based on network
+    address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', // USDC - will be set based on network
     symbol: 'USDC',
     name: 'USD Coin',
     isStablecoin: true,
     decimals: 6
   },
   {
-    address: '0x6047828dc181963ba44974801ff68e538da5eaf9', // USDT - will be set based on network
+    address: '0x7169d38820dfd117c3fa1f22a697dba58d90ba06', // USDT - will be set based on network
     symbol: 'USDT',
     name: 'Tether USD',
     isStablecoin: true,
