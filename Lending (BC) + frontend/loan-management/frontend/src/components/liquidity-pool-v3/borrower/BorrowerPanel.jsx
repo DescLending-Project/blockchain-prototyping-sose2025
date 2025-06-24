@@ -8,6 +8,7 @@ import { formatEther, parseEther } from 'ethers'
 import { ArrowUpDown, AlertCircle, Coins } from 'lucide-react'
 import { LendingPoolStatus } from '../shared/LendingPoolStatus'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
+import { COLLATERAL_TOKENS } from '../../../App'
 
 export default function BorrowerPanel({ contract, account }) {
     const [userInfo, setUserInfo] = useState(null)
@@ -207,7 +208,9 @@ export default function BorrowerPanel({ contract, account }) {
                                 <div className="space-y-2">
                                     <p className="font-medium">Your Collateral Position:</p>
                                     <ul className="list-disc list-inside space-y-1">
-                                        <li>Current Collateral: {currentValues.collateralValue} {selectedCollateral === collateralTokens[0] ? 'GLINT' : 'CORAL'}</li>
+                                        <li>Current Collateral: {currentValues.collateralValue} {
+                                            COLLATERAL_TOKENS.find(t => t.address.toLowerCase() === selectedCollateral?.toLowerCase())?.symbol || 'Token'
+                                        }</li>
                                         <li>Collateral Value in SONIC: {currentValues.collateralValueInSonic} SONIC</li>
                                         <li>Required Collateral Ratio: 130% of borrow amount</li>
                                     </ul>
@@ -222,15 +225,20 @@ export default function BorrowerPanel({ contract, account }) {
                                 value={selectedCollateral}
                                 onValueChange={handleCollateralChange}
                             >
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-[180px] flex items-center justify-between">
                                     <SelectValue placeholder="Select collateral" />
+                                    <span className="text-gray-500">▼</span>
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {collateralTokens.map((token, index) => (
-                                        <SelectItem key={token} value={token}>
-                                            {index === 0 ? 'GLINT' : 'CORAL'} (${collateralPrices[token]})
-                                        </SelectItem>
-                                    ))}
+                                    {collateralTokens.map((token) => {
+                                        const tokenInfo = COLLATERAL_TOKENS.find(t => t.address.toLowerCase() === token.toLowerCase());
+                                        if (!tokenInfo) return null;
+                                        return (
+                                            <SelectItem key={token} value={token}>
+                                                {tokenInfo.symbol} {tokenInfo.isStablecoin && '(Stablecoin)'} (${collateralPrices[token]})
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -238,7 +246,8 @@ export default function BorrowerPanel({ contract, account }) {
                         <div className="flex items-center gap-2">
                             <Input
                                 type="number"
-                                placeholder={`Enter amount to deposit (${selectedCollateral === collateralTokens[0] ? 'GLINT' : 'CORAL'})`}
+                                placeholder={`Enter amount to deposit (${COLLATERAL_TOKENS.find(t => t.address.toLowerCase() === selectedCollateral?.toLowerCase())?.symbol || 'Token'
+                                    })`}
                                 value={depositAmount}
                                 onChange={(e) => setDepositAmount(e.target.value)}
                                 min="0"
@@ -257,7 +266,8 @@ export default function BorrowerPanel({ contract, account }) {
                         <div className="flex items-center gap-2">
                             <Input
                                 type="number"
-                                placeholder={`Enter amount to withdraw (${selectedCollateral === collateralTokens[0] ? 'GLINT' : 'CORAL'})`}
+                                placeholder={`Enter amount to withdraw (${COLLATERAL_TOKENS.find(t => t.address.toLowerCase() === selectedCollateral?.toLowerCase())?.symbol || 'Token'
+                                    })`}
                                 value={withdrawAmount}
                                 onChange={(e) => setWithdrawAmount(e.target.value)}
                                 min="0"
