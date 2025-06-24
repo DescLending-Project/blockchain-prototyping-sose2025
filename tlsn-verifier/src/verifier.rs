@@ -13,7 +13,7 @@ pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError>
             message: format!("Invalid JSON format: {}", e),
         })?;
 
-    let expected_version = config::get_tlsn_core_version();
+        let expected_version = config::get_tlsn_core_version();
     if presentation_json.version != expected_version {
         return Err(VerificationError {
             message: format!(
@@ -36,13 +36,13 @@ pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError>
         });
     }
 
-    let mut pres_out = presentation
+    let pres_out = presentation
         .verify(&CryptoProvider::default())
         .map_err(|e| VerificationError {
             message: format!("Presentation verification failed: {}", e),
         })?;
 
-    let server_name = pres_out
+        let server_name = pres_out
         .server_name
         .map(|sn| sn.to_string())
         .unwrap_or_else(|| "<no server_name>".to_string());
@@ -70,7 +70,7 @@ pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError>
     let recv_bytes = transcript.received_unsafe().to_vec();
     let sent = String::from_utf8_lossy(&sent_bytes);
     let recv = String::from_utf8_lossy(&recv_bytes);
-
+    
     let host_line = sent
         .lines()
         .find(|line| line.to_lowercase().starts_with("host:"))

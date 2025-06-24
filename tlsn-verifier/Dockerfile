@@ -1,13 +1,20 @@
-FROM rust:1.78 as builder
+FROM rust:1.86 as builder
 
-WORKDIR /usr/src/app
+# Install musl tools
+RUN apt-get update && apt-get install -y musl-tools && \
+    rustup target add x86_64-unknown-linux-musl
+
+WORKDIR /app
 COPY . .
-RUN cargo build --release
 
-FROM debian:buster-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+# Build statically linked binary
+RUN cargo build --release --target x86_64-unknown-linux-musl
 
-COPY --from=builder /usr/src/app/target/release/rust-microservice /usr/local/bin/app
-COPY .env .env
+# Use scratch image for minimal size and no glibc
+FROM scratch
 
-CMD ["app"]
+# Copy statically built binary
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/tlsn-verifier /tlsn-verifier
+
+EXPOSE 8080
+CMD ["/tlsn-verifier"]

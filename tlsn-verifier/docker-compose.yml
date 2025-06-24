@@ -1,7 +1,9 @@
 services:
-  rust_service:
+  tlsn-verifier:
+    container_name: tlsn-verifier
     build: .
     ports:
       - "8080:8080"
     env_file:
       - .env
+    platform: linux/amd64

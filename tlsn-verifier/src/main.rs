@@ -20,7 +20,6 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(ApiKeyAuth)
             .service(health_check)
-            .service(secure_data)
             .service(verify_proof_route)
     })
     .bind((host.as_str(), port))?

@@ -46,8 +46,6 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let api_key = config::get_api_key();
 
-        println!("API Key: {}", api_key); // Debugging line to check API key
-        println!("Request Headers: {:?}", req.headers()); // Debugging line to check request headers
         let authorized = req
             .headers()
             .get("x-api-key")
