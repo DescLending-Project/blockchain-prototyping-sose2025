@@ -31,7 +31,6 @@ module.exports = {
       patterns: [
         {from: ".", to: "../", context: "public"},
         {from: "src/popup.html", to: "../popup.html"},
-        {from: ".env", to: "../"},
         {from: "css", to: "../css"},
         {
           from: 'node_modules/tlsn-js/build',

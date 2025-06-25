@@ -7,7 +7,14 @@ import { RequestStatus, VerifyProofResult } from "../types/tls";
 import { generateProof, verifyProof } from "../script/generateProofs";
 
 // Create a local instance of TunnelService to avoid circular dependency
-const tunnelService = new TunnelService();
+let tunnelService = new TunnelService();
+
+export function updateTunnelServiceApiBase(apiBase: string): void {
+  if (apiBase && apiBase !== tunnelService.getApiBase()) {
+    console.log(`Updating TunnelService API base address to: ${apiBase}`);
+    tunnelService.setApiBase(apiBase);
+  }
+}
 
 export class MockTLSNotaryService implements ITLSNotaryService {
   private records: ProofRecord[] = [];

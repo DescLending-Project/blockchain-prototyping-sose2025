@@ -5,7 +5,8 @@
   "description": "A browser extension for TLS notary functionality",
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "<all_urls>"
