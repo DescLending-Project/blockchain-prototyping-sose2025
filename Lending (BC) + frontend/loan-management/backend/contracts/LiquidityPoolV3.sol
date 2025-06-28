@@ -44,6 +44,27 @@ contract LiquidityPoolV3 is
     StablecoinManager public stablecoinManager;
     LendingManager public lendingManager;
 
+    // Risk Tier Definitions (0-100 score range)
+    enum RiskTier {
+        TIER_1, // 90-100 (Excellent)
+        TIER_2, // 80-89 (Good)
+        TIER_3, // 70-79 (Fair)
+        TIER_4, // 60-69 (Marginal)
+        TIER_5 // 0-59 (Poor - not eligible)
+    }
+
+    // Risk tier configuration for borrowing
+    struct BorrowTierConfig {
+        uint256 minScore; // Minimum credit score (inclusive)
+        uint256 maxScore; // Maximum credit score (inclusive)
+        uint256 collateralRatio; // Required collateral ratio (e.g., 110 = 110%)
+        int256 interestRateModifier; // Percentage adjustment to base rate (e.g., -20 = 20% discount)
+        uint256 maxLoanAmount; // Maximum loan amount as % of pool
+    }
+
+    // Default tier configuration for borrowing
+    BorrowTierConfig[] public borrowTierConfigs;
+
     event CollateralDeposited(
         address indexed user,
         address indexed token,
@@ -99,6 +120,26 @@ contract LiquidityPoolV3 is
 
         stablecoinManager = StablecoinManager(_stablecoinManager);
         lendingManager = LendingManager(payable(_lendingManager));
+
+        _initializeRiskTiers();
+    }
+
+    // Initialize the risk tier system (should be called in initialize function)
+    function _initializeRiskTiers() internal {
+        // Tier 1: 90-100 score, 110% collateral, 25% discount, can borrow up to 50% of pool
+        borrowTierConfigs.push(BorrowTierConfig(90, 100, 110, -25, 50));
+
+        // Tier 2: 80-89 score, 125% collateral, 10% discount, can borrow up to 40% of pool
+        borrowTierConfigs.push(BorrowTierConfig(80, 89, 125, -10, 40));
+
+        // Tier 3: 70-79 score, 140% collateral, standard rate, can borrow up to 30% of pool
+        borrowTierConfigs.push(BorrowTierConfig(70, 79, 140, 0, 30));
+
+        // Tier 4: 60-69 score, 160% collateral, 15% premium, can borrow up to 20% of pool
+        borrowTierConfigs.push(BorrowTierConfig(60, 69, 160, 15, 20));
+
+        // Tier 5: 0-59 score, not eligible for standard borrowing
+        borrowTierConfigs.push(BorrowTierConfig(0, 59, 200, 30, 0));
     }
 
     function getAllUsers() public view returns (address[] memory) {
@@ -259,12 +300,77 @@ contract LiquidityPoolV3 is
         return userDebt[msg.sender];
     }
 
+    // Get user's risk tier
+    function getRiskTier(address user) public view returns (RiskTier) {
+        uint256 score = creditScore[user];
+
+        for (uint256 i = 0; i < borrowTierConfigs.length; i++) {
+            if (
+                score >= borrowTierConfigs[i].minScore &&
+                score <= borrowTierConfigs[i].maxScore
+            ) {
+                return RiskTier(i);
+            }
+        }
+
+        return RiskTier(borrowTierConfigs.length - 1); // Default to lowest tier
+    }
+
+    // Admin function to update tier configurations
+    function updateBorrowTier(
+        uint256 tierIndex,
+        uint256 minScore,
+        uint256 maxScore,
+        uint256 collateralRatio,
+        int256 interestRateModifier,
+        uint256 maxLoanAmount
+    ) external onlyOwner {
+        require(tierIndex < borrowTierConfigs.length, "Invalid tier");
+        borrowTierConfigs[tierIndex] = BorrowTierConfig(
+            minScore,
+            maxScore,
+            collateralRatio,
+            interestRateModifier,
+            maxLoanAmount
+        );
+    }
+
+    // Get complete tier configuration for a user
+    function getBorrowTerms(
+        address user
+    )
+        public
+        view
+        returns (
+            uint256 collateralRatio,
+            int256 interestRateModifier,
+            uint256 maxLoanAmount
+        )
+    {
+        RiskTier tier = getRiskTier(user);
+        BorrowTierConfig memory config = borrowTierConfigs[uint256(tier)];
+        return (
+            config.collateralRatio,
+            config.interestRateModifier,
+            (totalFunds * config.maxLoanAmount) / 100
+        );
+    }
+
     function borrow(uint256 amount) external whenNotPaused noReentrancy {
         if (amount == 0) {
             emit UserError(msg.sender, "Amount must be greater than 0");
             revert("Amount must be greater than 0");
         }
-        if (creditScore[msg.sender] < 60) {
+
+        // Get user's risk tier and terms
+        RiskTier tier = getRiskTier(msg.sender);
+        (
+            uint256 requiredRatio,
+            int256 rateModifier,
+            uint256 tierMaxAmount
+        ) = getBorrowTerms(msg.sender);
+
+        if (tier == RiskTier.TIER_5) {
             emit UserError(msg.sender, "Credit score too low");
             revert("Credit score too low");
         }
@@ -274,6 +380,12 @@ contract LiquidityPoolV3 is
                 "Borrow amount exceeds available lending capacity"
             );
             revert("Borrow amount exceeds available lending capacity");
+        }
+
+        // Add additional tier-based limit check
+        if (amount > tierMaxAmount) {
+            emit UserError(msg.sender, "Borrow amount exceeds your tier limit");
+            revert("Borrow amount exceeds your tier limit");
         }
         if (userDebt[msg.sender] != 0) {
             emit UserError(msg.sender, "Repay your existing debt first");
@@ -286,9 +398,18 @@ contract LiquidityPoolV3 is
         }
 
         uint256 collateralValue = getTotalCollateralValue(msg.sender);
-        if (collateralValue * 100 < amount * DEFAULT_LIQUIDATION_THRESHOLD) {
+        if (collateralValue * 100 < amount * requiredRatio) {
             emit UserError(msg.sender, "Insufficient collateral for this loan");
             revert("Insufficient collateral for this loan");
+        }
+
+        // Calculate adjusted interest rate (stored but not used in this function)
+        uint256 baseRate = lendingManager.getInterestRate(amount);
+        uint256 adjustedRate = baseRate;
+        if (rateModifier < 0) {
+            adjustedRate = (baseRate * (100 - uint256(-rateModifier))) / 100;
+        } else if (rateModifier > 0) {
+            adjustedRate = (baseRate * (100 + uint256(rateModifier))) / 100;
         }
 
         userDebt[msg.sender] += amount;
@@ -393,8 +514,10 @@ contract LiquidityPoolV3 is
             return (false, 0);
         }
 
+        // Get tier-specific required ratio
+        (uint256 requiredRatio, , ) = getBorrowTerms(user);
         ratio = (totalCollateralValue * 100) / debt;
-        isHealthy = ratio >= getMinCollateralRatio();
+        isHealthy = ratio >= requiredRatio;
         return (isHealthy, ratio);
     }
 

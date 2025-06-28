@@ -10,9 +10,9 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
     beforeEach(async function () {
         [deployer, user1, user2, lender1, lender2] = await ethers.getSigners();
 
-        // Deploy GlintToken
+        // Deploy GlintToken with a huge initial supply for all tests
         const GlintToken = await ethers.getContractFactory("GlintToken");
-        glint = await GlintToken.deploy(ethers.parseEther("1000000"));
+        glint = await GlintToken.deploy(ethers.parseEther("10000000000")); // 10 billion tokens
         await glint.waitForDeployment();
 
         // Deploy Mock Price Feed
@@ -135,11 +135,28 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
         it("should prevent undercollateralized withdrawals", async function () {
             // Setup: deposit collateral and borrow
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
-            await pool.connect(user1).borrow(ethers.parseEther("5"));
 
-            // Try to withdraw too much - with 5 ETH debt and 130% threshold, we need at least 6.5 ETH collateral value
-            // If we withdraw 495 ETH, leaving only 5 ETH collateral, this would be undercollateralized
-            await expect(pool.connect(user1).withdrawCollateral(glint.target, ethers.parseEther("495")))
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("1") ? ethers.parseEther("1") : maxBorrow / 2n;
+
+            await pool.connect(user1).borrow(borrowAmount);
+
+            // Try to withdraw too much - with debt and threshold, we need sufficient collateral value
+            // Calculate how much we can safely withdraw
+            const debt = await pool.userDebt(user1.address);
+            const minCollateralValue = (debt * BigInt(requiredRatio)) / 100n;
+            const currentCollateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxWithdrawValue = currentCollateralValue - minCollateralValue;
+
+            // Convert to token amount (assuming $1 price)
+            const maxWithdrawTokens = maxWithdrawValue;
+
+            // Try to withdraw more than allowed
+            await expect(pool.connect(user1).withdrawCollateral(glint.target, maxWithdrawTokens + ethers.parseEther("1")))
                 .to.be.revertedWith("Withdrawal would make position undercollateralized");
         });
     });
@@ -160,39 +177,59 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
         it("should allow users to borrow against collateral", async function () {
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
 
-            await expect(pool.connect(user1).borrow(ethers.parseEther("5"))) // Reduced from 100 to 5
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("1") ? ethers.parseEther("1") : maxBorrow / 2n;
+
+            await expect(pool.connect(user1).borrow(borrowAmount))
                 .to.emit(pool, "Borrowed")
-                .withArgs(user1.address, ethers.parseEther("5"));
+                .withArgs(user1.address, borrowAmount);
 
             // Check debt using userDebt mapping
-            expect(await pool.userDebt(user1.address)).to.equal(ethers.parseEther("5"));
+            expect(await pool.userDebt(user1.address)).to.equal(borrowAmount);
         });
 
         it("should prevent borrowing with insufficient collateral", async function () {
+            // Set credit score
+            await pool.setCreditScore(user1.address, 80);
+
             // Deposit 50 ETH worth of collateral at $1 price
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("50"));
 
-            // Try to borrow 5 ETH
-            // With 50 ETH collateral at $1, total value = 50 ETH
-            // Required collateral for 5 ETH debt at 130% = 6.5 ETH
-            // 50 ETH > 6.5 ETH, so this should succeed
+            // Get user's borrow terms
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
 
-            // Instead, let's try to borrow 40 ETH
-            // Required collateral for 40 ETH debt at 130% = 52 ETH
-            // 50 ETH < 52 ETH, so this should fail
-            await expect(pool.connect(user1).borrow(ethers.parseEther("40")))
+            // Calculate maximum borrow based on collateral
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrowByCollateral = (collateralValue * 100n) / BigInt(requiredRatio);
+
+            // Try to borrow more than allowed by collateral
+            const borrowAmount = maxBorrowByCollateral + ethers.parseEther("1");
+
+            await expect(pool.connect(user1).borrow(borrowAmount))
                 .to.be.revertedWith("Insufficient collateral for this loan");
         });
 
         it("should allow users to repay loans", async function () {
             // Setup borrow
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
-            await pool.connect(user1).borrow(ethers.parseEther("5")); // Reduced from 100 to 5
+
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("1") ? ethers.parseEther("1") : maxBorrow / 2n;
+
+            await pool.connect(user1).borrow(borrowAmount);
 
             // Repay
-            await expect(pool.connect(user1).repay({ value: ethers.parseEther("5") })) // Reduced from 100 to 5
+            await expect(pool.connect(user1).repay({ value: borrowAmount }))
                 .to.emit(pool, "Repaid")
-                .withArgs(user1.address, ethers.parseEther("5"));
+                .withArgs(user1.address, borrowAmount);
 
             expect(await pool.userDebt(user1.address)).to.equal(0);
         });
@@ -200,7 +237,15 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
         it("should calculate interest correctly", async function () {
             // Setup borrow
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
-            await pool.connect(user1).borrow(ethers.parseEther("5")); // Reduced from 100 to 5
+
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("1") ? ethers.parseEther("1") : maxBorrow / 2n;
+
+            await pool.connect(user1).borrow(borrowAmount);
 
             // Fast forward time
             await ethers.provider.send("evm_increaseTime", [86400 * 30]); // 30 days
@@ -211,15 +256,15 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
 
             // Calculate expected interest using daily compounding
             // For 30 days at 1.0001304e18 daily rate
-            let expectedInterest = ethers.parseEther("5"); // Reduced from 100 to 5
+            let expectedInterest = borrowAmount;
 
             for (let i = 0; i < 30; i++) {
                 expectedInterest = (expectedInterest * dailyRate) / BigInt(1e18);
             }
-            expectedInterest = expectedInterest - ethers.parseEther("5"); // Subtract principal to get just interest
+            expectedInterest = expectedInterest - borrowAmount; // Subtract principal to get just interest
 
             // Get actual interest using calculatePotentialInterest
-            const actualInterest = await lendingManager.calculatePotentialInterest(ethers.parseEther("5"), 30);
+            const actualInterest = await lendingManager.calculatePotentialInterest(borrowAmount, 30);
 
             // Log contract state
             const debt = await pool.userDebt(user1.address);
@@ -243,13 +288,20 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
         it("should mark undercollateralized positions for liquidation", async function () {
             // Setup: user1 borrows with Glint collateral
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
-            await pool.connect(user1).borrow(ethers.parseEther("5"));
 
-            // Drop price to $0.01 to make position unhealthy
-            // With 500 ETH collateral at $0.01, total value = 5 ETH
-            // With 5 ETH debt and 130% threshold, we need 6.5 ETH collateral value
-            // 5 ETH < 6.5 ETH, so position should be liquidatable
-            await mockFeedGlint.setPrice(1e6); // $0.01
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("3") ? ethers.parseEther("3") : maxBorrow / 2n;
+
+            await pool.connect(user1).borrow(borrowAmount);
+
+            // Drop price to $0.001 to make position unhealthy
+            // With 500 ETH collateral at $0.001, total value = 0.5 ETH
+            // With debt and threshold, we need sufficient collateral value
+            await mockFeedGlint.setPrice(1e5); // $0.001
 
             // Verify position is unhealthy first
             const [isHealthy] = await pool.checkCollateralization(user1.address);
@@ -265,10 +317,18 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
         it("should execute liquidation after grace period", async function () {
             // Setup: user1 borrows with Glint collateral
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
-            await pool.connect(user1).borrow(ethers.parseEther("5"));
 
-            // Drop price to $0.01 to make position unhealthy
-            await mockFeedGlint.setPrice(1e6); // $0.01
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("3") ? ethers.parseEther("3") : maxBorrow / 2n;
+
+            await pool.connect(user1).borrow(borrowAmount);
+
+            // Drop price to $0.001 to make position unhealthy
+            await mockFeedGlint.setPrice(1e5); // $0.001
 
             // Verify position is unhealthy first
             const [isHealthy] = await pool.checkCollateralization(user1.address);
@@ -290,21 +350,57 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
         it("should allow recovery from liquidation", async function () {
             // Setup: user1 borrows with Glint collateral
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
-            await pool.connect(user1).borrow(ethers.parseEther("5")); // Only borrow once
 
-            // Drop price to $0.01 to make position unhealthy
-            await mockFeedGlint.setPrice(1e6); // $0.01
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("3") ? ethers.parseEther("3") : maxBorrow / 2n;
+
+            await pool.connect(user1).borrow(borrowAmount);
+
+            // Drop price to $0.000001 to make position extremely unhealthy
+            await mockFeedGlint.setPrice(1e2); // $0.000001
+
+            // Check health before liquidation
+            const [isUnhealthyBefore] = await pool.checkCollateralization(user1.address);
+            expect(isUnhealthyBefore).to.be.false;
 
             // Start liquidation
             await pool.startLiquidation(user1.address);
 
-            // User approves and adds more collateral
-            // Transfer enough tokens to user1 for recovery
-            await glint.transfer(user1.address, ethers.parseEther("650"));
-            await glint.connect(user1).approve(pool.target, ethers.parseEther("650"));
+            // Calculate required recovery amount dynamically
+            const debt = await pool.userDebt(user1.address);
+            const currentPrice = await pool.getTokenValue(glint.target);
+            const currentCollateral = await pool.getCollateral(user1.address, glint.target);
+
+            // Calculate required collateral value: debt * requiredRatio / 100
+            const requiredCollateralValue = (debt * BigInt(requiredRatio)) / 100n;
+
+            // Calculate current collateral value
+            const currentCollateralValue = (currentCollateral * currentPrice) / BigInt(1e18);
+
+            // Calculate additional collateral value needed
+            const additionalValueNeeded = requiredCollateralValue > currentCollateralValue ?
+                requiredCollateralValue - currentCollateralValue : 0n;
+
+            // Convert to token amount (add 10% buffer to ensure health)
+            const additionalTokensNeeded = additionalValueNeeded > 0n ?
+                (additionalValueNeeded * BigInt(1e18) * 110n) / (currentPrice * 100n) :
+                ethers.parseEther("1"); // Minimum amount if no additional needed
+
+            // Check available balance and adjust if needed
+            const deployerBalance = await glint.balanceOf(deployer.address);
+            const actualTransferAmount = additionalTokensNeeded > deployerBalance ?
+                deployerBalance : additionalTokensNeeded;
+
+            // Transfer and approve additional tokens
+            await glint.transfer(user1.address, actualTransferAmount);
+            await glint.connect(user1).approve(pool.target, actualTransferAmount);
 
             // Add enough collateral to make position healthy again
-            await pool.connect(user1).recoverFromLiquidation(glint.target, ethers.parseEther("650"));
+            await pool.connect(user1).recoverFromLiquidation(glint.target, actualTransferAmount);
 
             // Verify position is now healthy
             const [isHealthyNow] = await pool.checkCollateralization(user1.address);
@@ -403,13 +499,20 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
         it("should detect liquidatable positions", async function () {
             // Setup liquidation scenario
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
-            await pool.connect(user1).borrow(ethers.parseEther("5"));
 
-            // Drop price to $0.01 to make position unhealthy
-            // With 500 ETH collateral at $0.01, total value = 5 ETH
-            // With 5 ETH debt and 130% threshold, we need 6.5 ETH collateral value
-            // 5 ETH < 6.5 ETH, so position should be liquidatable
-            await mockFeedGlint.setPrice(1e6); // $0.01
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("3") ? ethers.parseEther("3") : maxBorrow / 2n;
+
+            await pool.connect(user1).borrow(borrowAmount);
+
+            // Drop price to $0.001 to make position unhealthy
+            // With 500 ETH collateral at $0.001, total value = 0.5 ETH
+            // With debt and threshold, we need sufficient collateral value
+            await mockFeedGlint.setPrice(1e5); // $0.001
 
             // Verify position is unhealthy
             const [isHealthy] = await pool.checkCollateralization(user1.address);
@@ -431,10 +534,18 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
         it("should perform upkeep for liquidations and interest", async function () {
             // Setup liquidation scenario
             await pool.connect(user1).depositCollateral(glint.target, ethers.parseEther("500"));
-            await pool.connect(user1).borrow(ethers.parseEther("5"));
 
-            // Drop price to $0.01 to make position unhealthy
-            await mockFeedGlint.setPrice(1e6); // $0.01
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("3") ? ethers.parseEther("3") : maxBorrow / 2n;
+
+            await pool.connect(user1).borrow(borrowAmount);
+
+            // Drop price to $0.001 to make position unhealthy
+            await mockFeedGlint.setPrice(1e5); // $0.001
 
             // Verify position is unhealthy
             const [isHealthy] = await pool.checkCollateralization(user1.address);
@@ -482,16 +593,22 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
                 value: ethers.parseEther("1000")
             });
 
+            // Set credit score and calculate appropriate borrow amount
+            await pool.setCreditScore(user1.address, 80);
+            const [requiredRatio] = await pool.getBorrowTerms(user1.address);
+            const collateralValue = await pool.getTotalCollateralValue(user1.address);
+            const maxBorrow = (collateralValue * 100n) / BigInt(requiredRatio);
+            const borrowAmount = maxBorrow > ethers.parseEther("300") ? ethers.parseEther("300") : maxBorrow / 2n;
+
             // Borrow enough to make position vulnerable to price drops
-            // Total lent is 1002 ETH (1 from each lender + 1000 from deployer), so we can borrow up to 501 ETH
-            await pool.connect(user1).borrow(ethers.parseEther("300")); // Borrow 300 ETH (well under 130% threshold)
+            await pool.connect(user1).borrow(borrowAmount);
 
             // Change Coral price to $0.1 (from $1)
             await mockFeedCoral.setPrice(0.1e8);
             const valueAfterCoralDrop = await pool.getTotalCollateralValue(user1.address);
 
-            // Should be unhealthy (300*1 + 200*0.1 = 320 vs 300 debt)
-            // 320 / 300 = 106.67% < 130% threshold, so position should be unhealthy
+            // Should be unhealthy (300*1 + 200*0.1 = 320 vs debt)
+            // 320 / debt = ratio < requiredRatio threshold, so position should be unhealthy
             const [isHealthy] = await pool.checkCollateralization(user1.address);
             expect(isHealthy).to.be.false;
 
@@ -501,11 +618,11 @@ describe("LiquidityPoolV3 - Full Functionality Test", function () {
 
             const valueAfterGlintDrop = await pool.getTotalCollateralValue(user1.address);
 
-            // Calculate required collateral (130% of 300 ETH)
+            // Calculate required collateral (requiredRatio% of debt)
             const debt = await pool.userDebt(user1.address);
-            const requiredCollateral = (debt * 130n) / 100n;
+            const requiredCollateral = (debt * BigInt(requiredRatio)) / 100n;
 
-            // Now position should be unhealthy (20.00003 < 390)
+            // Now position should be unhealthy (20.00003 < requiredCollateral)
             const [isHealthyNow] = await pool.checkCollateralization(user1.address);
             expect(isHealthyNow).to.be.false;
         });
