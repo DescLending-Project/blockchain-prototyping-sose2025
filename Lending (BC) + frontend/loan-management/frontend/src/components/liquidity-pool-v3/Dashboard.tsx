@@ -2,13 +2,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
 import { AdminPanel } from "./admin/AdminPanel"
 import { LiquidatorPanel } from "./liquidator/LiquidatorPanel"
-import { BorrowerPanel } from "./borrower/BorrowerPanel"
+import BorrowerPanel from "./borrower/BorrowerPanel"
 import { LenderPanel } from "./lender/LenderPanel"
+import { TransactionHistory } from "./shared/TransactionHistory"
+import { UserPanel } from "./user/UserPanel"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
-import { CollateralPanel } from "./user/CollateralPanel"
-import { Contract } from "ethers"
+import { Contract, Provider } from "ethers"
 
 interface DashboardProps {
     contract: Contract;
@@ -16,9 +17,10 @@ interface DashboardProps {
     account: string | null;
     isAdmin: boolean;
     isLiquidator: boolean;
+    provider?: Provider;
 }
 
-export function Dashboard({ contract, lendingManagerContract, account, isAdmin, isLiquidator }: DashboardProps) {
+export function Dashboard({ contract, lendingManagerContract, account, isAdmin, isLiquidator, provider }: DashboardProps) {
     const [showAdminControls, setShowAdminControls] = useState(false)
 
     return (
@@ -43,10 +45,11 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
             )}
 
             <Tabs defaultValue="user" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="user">User Dashboard</TabsTrigger>
                     <TabsTrigger value="lend">Lend</TabsTrigger>
                     <TabsTrigger value="borrow">Borrow</TabsTrigger>
+                    <TabsTrigger value="transaction-history">Transaction History</TabsTrigger>
                     {isLiquidator && (
                         <TabsTrigger value="liquidator">Liquidator Panel</TabsTrigger>
                     )}
@@ -54,7 +57,7 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
 
                 <TabsContent value="user">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <CollateralPanel contract={contract} account={account || ''} />
+                        <UserPanel contract={contract} account={account || ''} />
                     </Card>
                 </TabsContent>
 
@@ -67,6 +70,12 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                 <TabsContent value="borrow">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
                         <BorrowerPanel contract={contract} account={account || ''} />
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="transaction-history">
+                    <Card className="p-6 bg-muted/30 backdrop-blur-sm">
+                        <TransactionHistory contract={contract} account={account || ''} provider={provider} />
                     </Card>
                 </TabsContent>
 

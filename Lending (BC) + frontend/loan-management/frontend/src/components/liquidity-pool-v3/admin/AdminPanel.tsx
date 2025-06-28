@@ -695,10 +695,10 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
                     <TabsTrigger value="collateral">Collateral</TabsTrigger>
                     <TabsTrigger value="liquidator">Liquidator</TabsTrigger>
                     <TabsTrigger value="admin">Admin</TabsTrigger>
+                    <TabsTrigger value="credit">Credit</TabsTrigger>
                     <TabsTrigger value="interest">Interest</TabsTrigger>
                     <TabsTrigger value="limits">Limits</TabsTrigger>
                     <TabsTrigger value="funds">Funds</TabsTrigger>
-                    <TabsTrigger value="users">Users</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="threshold">
@@ -1039,6 +1039,49 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
                             >
                                 {isLoading ? "Processing..." : "Set Admin"}
                             </Button>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="credit">
+                    <Card className="bg-background/50 border-none shadow-none">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Users className="h-5 w-5" />
+                                Credit Management
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-semibold">Set Credit Score</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm font-medium">User Address</label>
+                                        <Input
+                                            placeholder="Enter user address"
+                                            value={targetUser}
+                                            onChange={(e) => setTargetUser(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium">Credit Score (0-100)</label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            placeholder="Enter credit score"
+                                            value={creditScore}
+                                            onChange={(e) => setCreditScore(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <Button
+                                    onClick={handleSetCreditScore}
+                                    disabled={isLoading || !targetUser || !creditScore}
+                                >
+                                    Set Credit Score
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -1405,62 +1448,6 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
                             >
                                 {isLoading ? "Processing..." : "Extract Funds"}
                             </Button>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="users">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Users className="h-5 w-5" />
-                                User Management
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <h3 className="text-lg font-semibold">Set Credit Score</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-sm font-medium">User Address</label>
-                                        <Input
-                                            placeholder="Enter user address"
-                                            value={targetUser}
-                                            onChange={(e) => setTargetUser(e.target.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium">Credit Score (0-100)</label>
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            placeholder="Enter credit score"
-                                            value={creditScore}
-                                            onChange={(e) => setCreditScore(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <Button
-                                    onClick={handleSetCreditScore}
-                                    disabled={isLoading || !targetUser || !creditScore}
-                                >
-                                    Set Credit Score
-                                </Button>
-                            </div>
-
-                            <div className="space-y-2">
-                                <h3 className="text-lg font-semibold">Liquidation Management</h3>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Liquidation Time Remaining</label>
-                                    <Input
-                                        type="text"
-                                        placeholder="Enter liquidation time remaining"
-                                        value={liquidationTimeRemaining || ''}
-                                        onChange={(e) => setLiquidationTimeRemaining(e.target.value)}
-                                    />
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>

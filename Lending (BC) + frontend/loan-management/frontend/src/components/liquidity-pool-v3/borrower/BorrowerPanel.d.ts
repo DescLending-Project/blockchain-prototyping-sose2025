@@ -5,4 +5,5 @@ interface BorrowerPanelProps {
     account: string;
 }
 
-export declare const BorrowerPanel: React.FC<BorrowerPanelProps>; 
+declare const BorrowerPanel: React.FC<BorrowerPanelProps>;
+export default BorrowerPanel; 

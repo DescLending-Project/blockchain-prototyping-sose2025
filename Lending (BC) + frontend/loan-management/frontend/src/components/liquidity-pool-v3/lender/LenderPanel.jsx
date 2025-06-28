@@ -132,6 +132,37 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
         }
     }
 
+    const loadHistoricalRates = async () => {
+        try {
+            // Check if the contract has the getHistoricalRates function
+            if (typeof contract.getHistoricalRates !== 'function') {
+                console.log('Historical rates function not available in contract')
+                return []
+            }
+
+            const currentDay = Math.floor(Date.now() / (24 * 60 * 60 * 1000))
+            // Get the user's first deposit timestamp
+            const info = await contract.getLenderInfo(account)
+            const firstDepositDay = Math.floor(Number(info[4]) / (24 * 60 * 60))
+
+            // If user hasn't deposited yet, show last 7 days
+            const startDay = info[0] > 0 ? firstDepositDay : currentDay - 7
+
+            const rates = await contract.getHistoricalRates(startDay, currentDay)
+            return rates.map((rate, index) => {
+                const date = new Date()
+                date.setDate(date.getDate() - (rates.length - 1 - index))
+                return {
+                    rate: Number(rate) === 0 ? null : (Number(rate) / 1e18 - 1) * 100, // Convert to percentage
+                    date: date
+                }
+            })
+        } catch (err) {
+            console.error('Failed to load historical rates:', err)
+            return []
+        }
+    }
+
     const loadWithdrawalStatus = async () => {
         try {
             const status = await contract.getWithdrawalStatus(account)
