@@ -93,6 +93,18 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         }
     }
 
+    const refreshCreditScore = async () => {
+        if (!account) return
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const readOnlyContract = new ethers.Contract(contract.target, contract.interface, provider)
+            const userCreditScore = await readOnlyContract.getCreditScore(account);
+            setCreditScore(Number(userCreditScore));
+        } catch (err) {
+            console.error("Failed to refresh credit score:", err)
+        }
+    }
+
     useEffect(() => {
         if (contract && account) {
             fetchData()
@@ -431,7 +443,17 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                         </div>
                         <div className="p-4 rounded-lg bg-background/50 border">
                             <p className="text-sm text-muted-foreground">Credit Score</p>
-                            <p className="text-2xl font-bold">{creditScore !== null ? creditScore : 'N/A'}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-2xl font-bold">{creditScore !== null ? creditScore : 'N/A'}</p>
+                                <Button
+                                    onClick={refreshCreditScore}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                >
+                                    <ArrowUpDown className="h-3 w-3" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
                     <div className="p-4 rounded-lg bg-background/50 border">

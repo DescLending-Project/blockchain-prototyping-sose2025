@@ -1,12 +1,45 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { upgrades } = require("hardhat");
 
 describe("LiquidityPoolV3 - Chainlink Automation Simulation with Glint Token", function () {
-  let liquidityPool, glintToken, mockFeedGlint;
-  let owner, user1, user2;
+  let liquidityPool, lendingManager, glintToken, mockFeedGlint;
+  let deployer, user1, user2;
 
   beforeEach(async function () {
-    [owner, user1, user2] = await ethers.getSigners();
+    [deployer, user1, user2] = await ethers.getSigners();
+
+    // Deploy StablecoinManager first
+    const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
+    const stablecoinManager = await StablecoinManager.deploy(deployer.address);
+    await stablecoinManager.waitForDeployment();
+    const stablecoinManagerAddress = await stablecoinManager.getAddress();
+
+    // Deploy LiquidityPoolV3 first (without LendingManager for now)
+    const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
+    liquidityPool = await upgrades.deployProxy(LiquidityPoolV3, [
+      deployer.address,
+      stablecoinManagerAddress,
+      ethers.ZeroAddress // Temporary placeholder
+    ], {
+      initializer: "initialize",
+    });
+    await liquidityPool.waitForDeployment();
+
+    // Deploy LendingManager with LiquidityPoolV3 address
+    const LendingManager = await ethers.getContractFactory("LendingManager");
+    lendingManager = await LendingManager.deploy(deployer.address, await liquidityPool.getAddress());
+    await lendingManager.waitForDeployment();
+    const lendingManagerAddress = await lendingManager.getAddress();
+
+    // Update LiquidityPoolV3 with the correct LendingManager address
+    await liquidityPool.setLendingManager(lendingManagerAddress);
+
+    // Fund the liquidity pool directly
+    await deployer.sendTransaction({
+      to: await liquidityPool.getAddress(),
+      value: ethers.parseEther("10")
+    });
 
     // Deploy GlintToken
     const GlintToken = await ethers.getContractFactory("GlintToken");
@@ -19,26 +52,18 @@ describe("LiquidityPoolV3 - Chainlink Automation Simulation with Glint Token", f
     mockFeedGlint = await MockPriceFeed.deploy(1e8, 8); // $1 initial price
     await mockFeedGlint.waitForDeployment();
 
-    // Deploy LiquidityPoolV3
-    const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
-    liquidityPool = await LiquidityPoolV3.deploy();
-    await liquidityPool.waitForDeployment();
-
-    // Initialize pool
-    await liquidityPool.initialize(owner.address);
-
     // Set up collateral token
     await liquidityPool.setAllowedCollateral(glintToken.target, true);
     await liquidityPool.setPriceFeed(glintToken.target, mockFeedGlint.target);
 
     // Fund pool with enough ETH for lending
-    await owner.sendTransaction({
+    await deployer.sendTransaction({
       to: await liquidityPool.getAddress(),
       value: ethers.parseEther("10") // Send 10 ETH to ensure enough funds
     });
 
     // Deposit as lender to set up totalLent
-    await liquidityPool.connect(owner).depositFunds({ value: ethers.parseEther("10") });
+    await lendingManager.connect(deployer).depositFunds({ value: ethers.parseEther("10") });
 
     // Transfer and approve Glint tokens to user1
     await glintToken.transfer(user1.address, ethers.parseEther("10"));

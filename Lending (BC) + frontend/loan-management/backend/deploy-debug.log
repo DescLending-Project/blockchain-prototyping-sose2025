@@ -1,0 +1,65 @@
+Starting deployment of all contracts...
+Copying contract artifacts from backend to frontend...
+Copied LendingManager.json
+Copied LiquidityPoolV3.json
+Copied StablecoinManager.json
+Summary: Successfully copied 3 files
+All contract artifacts copied successfully!
+Artifacts copied successfully
+Detected chainId: 57054 number
+Deploying to network: sonic
+USDC: 0xA4879Fed32Ecbef99399e5cbC247E533421C4eC6
+USDT: 0x6047828dc181963ba44974801ff68e538da5eaf9
+Deploying contracts with account: 0xeCc6f14F4b64EeDD56111d80f46Ce46933dC2d64
+
+Deploying GlintToken...
+GlintToken deployed to: 0x8D1e1b814a2A5AD8d34AC4C1f966D67556448047
+
+Deploying MockPriceFeed for GlintToken...
+MockPriceFeed for GlintToken deployed to: 0x7052807fc270dC8C58Fe82c2C4E9A76B796ceD53
+
+Deploying MockPriceFeed for CORAL...
+MockPriceFeed for CORAL deployed to: 0xB6EAF4a2B2132993F3a1eA836C4F621B05C6A53E
+
+Deploying StablecoinManager...
+StablecoinManager deployed to: 0x14D0356bfa21F7627465195954D10019F1042abd
+
+Deploying LiquidityPoolV3...
+LiquidityPoolV3 deployed to: 0xE1E68939b67FA49c38CDc6168F8130af764eD20f
+
+Deploying LendingManager...
+LendingManager deployed to: 0x27FeE0a980c8bf0d8107bFaC93c122f6E00e962C
+
+Updating LiquidityPoolV3 with LendingManager address...
+LiquidityPoolV3 updated with LendingManager address
+
+Setting up GlintToken as collateral...
+GlintToken set as allowed collateral
+
+Setting up CORAL as collateral...
+CORAL set as allowed collateral
+CORAL price feed set
+
+Setting up USDC as collateral...
+USDC set as allowed collateral
+USDC price feed set
+
+Setting up USDT as collateral...
+USDT set as allowed collateral
+USDT price feed set
+
+Setting stablecoin parameters...
+
+Deployment Summary:
+-------------------
+GlintToken: 0x8D1e1b814a2A5AD8d34AC4C1f966D67556448047
+MockPriceFeed (Glint): 0x7052807fc270dC8C58Fe82c2C4E9A76B796ceD53
+CORAL Token: 0xecc6f14f4b64eedd56111d80f46ce46933dc2d64
+MockPriceFeed (CORAL): 0xB6EAF4a2B2132993F3a1eA836C4F621B05C6A53E
+USDC: 0xA4879Fed32Ecbef99399e5cbC247E533421C4eC6
+USDT: 0x6047828dc181963ba44974801ff68e538da5eaf9
+StablecoinManager: 0x14D0356bfa21F7627465195954D10019F1042abd
+LiquidityPoolV3: 0xE1E68939b67FA49c38CDc6168F8130af764eD20f
+LendingManager: 0x27FeE0a980c8bf0d8107bFaC93c122f6E00e962C
+
+All contracts and feeds deployed and configured successfully!
