@@ -1,4 +1,4 @@
-FROM rust:1.86 as builder
+FROM rust:1.86 AS builder
 
 # Install musl tools
 RUN apt-get update && apt-get install -y musl-tools && \

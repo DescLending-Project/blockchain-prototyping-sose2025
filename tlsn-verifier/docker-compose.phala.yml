@@ -7,3 +7,9 @@ services:
     volumes:
       - /var/run/tappd.sock:/var/run/tappd.sock
     platform: linux/amd64
+    environment:
+      - TLSN_VERIFIER_API_KEY
+      - TLSN_VERIFIER_HOST
+      - TLSN_VERIFIER_PORT
+      - TLSN_VERIFIER_ACCEPTED_SERVER_NAMES
+      - TLSN_VERIFIER_ACCEPTED_VERSION

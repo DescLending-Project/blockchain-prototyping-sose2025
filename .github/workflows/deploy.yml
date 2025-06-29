@@ -47,14 +47,13 @@ jobs:
           phala-api-key: ${{ secrets.PHALA_CLOUD_API_KEY }}
           cvm-name: ${{ secrets.APP_NAME }}
           compose-file: './tlsn-verifier/docker-compose.phala.yml'
-          vcpu: '1'
-          memory: '2048'
-          disk-size: '10'
-          envs: >
-            {
-              "API_KEY": "${{ secrets.API_KEY }}",
-              "HOST": "0.0.0.0",
-              "PORT": "8080",
-              "ACCEPTED_SERVER_NAMES": "openbanking-api-826260723607.europe-west3.run.app",
-              "ACCEPTED_VERSION": "0.1.0-alpha.10"
-            }
+          vcpu: '4'
+          memory: '8192'
+          disk-size: '40'
+          envs: |
+            TLSN_VERIFIER_API_KEY: "${{ secrets.TLSN_VERIFIER_API_KEY }}"
+            TLSN_VERIFIER_HOST: "0.0.0.0"
+            TLSN_VERIFIER_PORT: "8080"
+            TLSN_VERIFIER_ACCEPTED_SERVER_NAMES: "openbanking-api-826260723607.europe-west3.run.app"
+            TLSN_VERIFIER_ACCEPTED_VERSION: "0.1.0-alpha.10"
+          app-id: 035565e54a83e8d143a40043a241d144ba4e1c09
