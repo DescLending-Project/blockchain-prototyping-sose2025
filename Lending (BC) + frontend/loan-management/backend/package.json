@@ -5,7 +5,8 @@
   "scripts": {
     "test": "npx hardhat test",
     "clean": "npx hardhat clean",
-    "copy-artifacts": "node scripts/copy-artifacts.js"
+    "copy-artifacts": "node scripts/copy-artifacts.js",
+    "coverage": "hardhat coverage && node scripts/clean-coverage.js"
   },
   "keywords": [],
   "author": "",

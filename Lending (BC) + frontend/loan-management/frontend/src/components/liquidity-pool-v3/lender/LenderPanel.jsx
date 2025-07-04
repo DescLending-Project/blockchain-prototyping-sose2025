@@ -74,6 +74,10 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
     const [withdrawalType, setWithdrawalType] = useState('principal') // 'principal' or 'interest'
     const [tokenSymbol, setTokenSymbol] = useState('ETH')
     const [interestHistory, setInterestHistory] = useState([])
+    const [realTimeReturnRate, setRealTimeReturnRate] = useState(null)
+    const [repaymentRatio, setRepaymentRatio] = useState(null)
+    const [repaymentRiskMultiplier, setRepaymentRiskMultiplier] = useState(null)
+    const [globalRiskMultiplier, setGlobalRiskMultiplier] = useState(null)
 
     useEffect(() => {
         if (contract && account) {
@@ -83,7 +87,11 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
             checkNetwork()
             loadInterestHistory()
         }
-    }, [contract, account])
+        if (liquidityPoolContract && account) {
+            loadRealTimeReturnRate()
+            loadRiskMetrics()
+        }
+    }, [contract, liquidityPoolContract, account])
 
     const checkNetwork = async () => {
         try {
@@ -283,6 +291,30 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
         }
     }
 
+    const loadRealTimeReturnRate = async () => {
+        try {
+            const rate = await liquidityPoolContract.getRealTimeReturnRate(account)
+            setRealTimeReturnRate(Number(rate) / 1e16) // 1e18 -> percent
+        } catch (err) {
+            setRealTimeReturnRate(null)
+        }
+    }
+
+    const loadRiskMetrics = async () => {
+        try {
+            const ratio = await liquidityPoolContract.getRepaymentRatio()
+            setRepaymentRatio(Number(ratio) / 1e16) // 1e18 = 100%
+            const repayMult = await liquidityPoolContract.getRepaymentRiskMultiplier()
+            setRepaymentRiskMultiplier(Number(repayMult) / 1e16) // 1e18 = 1.00
+            const globalMult = await liquidityPoolContract.getGlobalRiskMultiplier()
+            setGlobalRiskMultiplier(Number(globalMult) / 1e16) // 1e18 = 1.00
+        } catch (err) {
+            setRepaymentRatio(null)
+            setRepaymentRiskMultiplier(null)
+            setGlobalRiskMultiplier(null)
+        }
+    }
+
     return (
         <div className="space-y-4">
             <LendingPoolStatus contract={liquidityPoolContract} />
@@ -328,6 +360,68 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                                     </div>
                                 </AlertDescription>
                             </Alert>
+
+                            {/* Real-Time Return Rate */}
+                            <div className="p-3 bg-green-50 border border-green-200 rounded flex items-center gap-2">
+                                <TrendingUp className="h-5 w-5 text-green-600" />
+                                <span className="font-medium">Real-Time Return Rate (APR):</span>
+                                <span className="text-green-700 font-semibold">{realTimeReturnRate !== null ? `${realTimeReturnRate.toFixed(2)}%` : 'Loading...'}</span>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger>
+                                            <Info className="h-4 w-4 text-green-500 ml-1" />
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs">
+                                            <p>This is your current estimated APR, adjusted for the pool's risk profile and repayment performance. It updates in real time based on the risk composition of outstanding loans and the protocol's repayment health.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
+                            {/* Risk Metrics */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                <div className="p-2 bg-blue-50 border border-blue-200 rounded flex items-center gap-2">
+                                    <span className="font-medium">Repayment Ratio:</span>
+                                    <span className="text-blue-700 font-semibold">{repaymentRatio !== null ? `${repaymentRatio.toFixed(2)}%` : 'Loading...'}</span>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger>
+                                                <Info className="h-4 w-4 text-blue-500 ml-1" />
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-xs">
+                                                <p>Shows the percentage of all-time borrowed funds that have been repaid. Lower values indicate more defaults or late repayments, increasing risk for lenders.</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                                <div className="p-2 bg-yellow-50 border border-yellow-200 rounded flex items-center gap-2">
+                                    <span className="font-medium">Repayment Risk Multiplier:</span>
+                                    <span className="text-yellow-700 font-semibold">{repaymentRiskMultiplier !== null ? `${repaymentRiskMultiplier.toFixed(2)}x` : 'Loading...'}</span>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger>
+                                                <Info className="h-4 w-4 text-yellow-500 ml-1" />
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-xs">
+                                                <p>This multiplier increases as the repayment ratio drops, reflecting higher risk due to poor repayment performance. It directly increases lender APR and borrower rates.</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                                <div className="p-2 bg-purple-50 border border-purple-200 rounded flex items-center gap-2">
+                                    <span className="font-medium">Global Risk Multiplier:</span>
+                                    <span className="text-purple-700 font-semibold">{globalRiskMultiplier !== null ? `${globalRiskMultiplier.toFixed(2)}x` : 'Loading...'}</span>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger>
+                                                <Info className="h-4 w-4 text-purple-500 ml-1" />
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-xs">
+                                                <p>This is the combined risk multiplier, factoring in both the risk tier distribution and repayment performance. It determines the final APR for lenders and rates for borrowers.</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>

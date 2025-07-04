@@ -65,6 +65,24 @@ contract LiquidityPoolV3 is
     // Default tier configuration for borrowing
     BorrowTierConfig[] public borrowTierConfigs;
 
+    // Track borrowed amount by risk tier
+    mapping(RiskTier => uint256) public borrowedAmountByRiskTier;
+    // Track protocol-wide repayment performance
+    uint256 public totalBorrowedAllTime;
+    uint256 public totalRepaidAllTime;
+
+    // Oracle staleness config per token
+    mapping(address => uint256) public maxPriceAge; // in seconds
+    event StaleOracleTriggered(
+        address indexed token,
+        uint256 updatedAt,
+        uint256 currentTime
+    );
+
+    // Set default staleness windows (stablecoins: 1h, volatile: 15min)
+    uint256 public constant DEFAULT_STALENESS_STABLE = 3600; // 1 hour
+    uint256 public constant DEFAULT_STALENESS_VOLATILE = 900; // 15 min
+
     event CollateralDeposited(
         address indexed user,
         address indexed token,
@@ -154,6 +172,10 @@ contract LiquidityPoolV3 is
         override
         returns (bool upkeepNeeded, bytes memory performData)
     {
+        require(
+            block.timestamp > lastUpkeep + UPKEEP_COOLDOWN,
+            "Upkeep throttled"
+        );
         address[] memory candidates = getAllUsers();
         address[] memory toLiquidate = new address[](candidates.length);
         uint count = 0;
@@ -182,6 +204,11 @@ contract LiquidityPoolV3 is
     }
 
     function performUpkeep(bytes calldata performData) external override {
+        require(
+            block.timestamp > lastUpkeep + UPKEEP_COOLDOWN,
+            "Upkeep throttled"
+        );
+        lastUpkeep = block.timestamp;
         address[] memory liquidatableUsers = abi.decode(
             performData,
             (address[])
@@ -414,6 +441,10 @@ contract LiquidityPoolV3 is
 
         userDebt[msg.sender] += amount;
         borrowTimestamp[msg.sender] = block.timestamp;
+        // Track borrowed amount by risk tier
+        borrowedAmountByRiskTier[tier] += amount;
+        // Track protocol-wide borrowing
+        totalBorrowedAllTime += amount;
 
         payable(msg.sender).transfer(amount);
         emit Borrowed(msg.sender, amount);
@@ -434,7 +465,12 @@ contract LiquidityPoolV3 is
             revert("Repayment exceeds total debt");
         }
 
+        RiskTier tier = getRiskTier(msg.sender);
+        // Remove from borrowedAmountByRiskTier
+        borrowedAmountByRiskTier[tier] -= msg.value;
         userDebt[msg.sender] -= msg.value;
+        // Track protocol-wide repayment
+        totalRepaidAllTime += msg.value;
 
         if (userDebt[msg.sender] == 0) {
             borrowTimestamp[msg.sender] = 0;
@@ -538,12 +574,19 @@ contract LiquidityPoolV3 is
             block.timestamp >= liquidationStartTime[user] + GRACE_PERIOD,
             "Grace period not ended"
         );
+        // Check all oracles for user's collateral
+        address[] memory tokens = getAllowedCollateralTokens();
+        for (uint i = 0; i < tokens.length; i++) {
+            require(
+                isOracleHealthy(tokens[i]),
+                "Oracle circuit breaker triggered"
+            );
+        }
 
         uint256 debt = userDebt[user];
         uint256 penalty = (debt * LIQUIDATION_PENALTY) / 100;
         uint256 totalToRepay = debt + penalty;
 
-        address[] memory tokens = getAllowedCollateralTokens();
         for (uint i = 0; i < tokens.length; i++) {
             address token = tokens[i];
             uint256 balance = collateralBalance[token][user];
@@ -557,6 +600,10 @@ contract LiquidityPoolV3 is
         borrowTimestamp[user] = 0;
         isLiquidatable[user] = false;
         liquidationStartTime[user] = 0;
+        // Remove all debt from borrowedAmountByRiskTier
+        borrowedAmountByRiskTier[getRiskTier(user)] -= debt;
+        // Track protocol-wide repayment (treat as repaid for risk purposes)
+        totalRepaidAllTime += debt;
 
         emit LiquidationExecuted(user, msg.sender, totalToRepay);
     }
@@ -591,14 +638,9 @@ contract LiquidityPoolV3 is
     }
 
     function getTokenValue(address token) public view returns (uint256) {
-        address feedAddress = priceFeed[token];
-        require(feedAddress != address(0), "Price feed not set");
-
-        AggregatorV3Interface priceFeedContract = AggregatorV3Interface(
-            feedAddress
-        );
-        (, int256 price, , , ) = priceFeedContract.latestRoundData();
-        return uint256(price) * (10 ** (18 - priceFeedContract.decimals()));
+        (uint256 price, ) = _getFreshPrice(token);
+        AggregatorV3Interface pf = AggregatorV3Interface(priceFeed[token]);
+        return price * (10 ** (18 - pf.decimals()));
     }
 
     function getMinCollateralRatio() public pure returns (uint256) {
@@ -684,5 +726,130 @@ contract LiquidityPoolV3 is
             "Invalid lending manager address"
         );
         lendingManager = LendingManager(payable(_lendingManager));
+    }
+
+    // --- Weighted Risk Score (View) ---
+    function getWeightedRiskScore() public view returns (uint256) {
+        uint256 weightedSum;
+        uint256 validBorrowed;
+        weightedSum += borrowedAmountByRiskTier[RiskTier.TIER_1] * 1;
+        weightedSum += borrowedAmountByRiskTier[RiskTier.TIER_2] * 2;
+        weightedSum += borrowedAmountByRiskTier[RiskTier.TIER_3] * 3;
+        weightedSum += borrowedAmountByRiskTier[RiskTier.TIER_4] * 4;
+        validBorrowed =
+            borrowedAmountByRiskTier[RiskTier.TIER_1] +
+            borrowedAmountByRiskTier[RiskTier.TIER_2] +
+            borrowedAmountByRiskTier[RiskTier.TIER_3] +
+            borrowedAmountByRiskTier[RiskTier.TIER_4];
+        if (validBorrowed == 0) return 0;
+        return weightedSum / validBorrowed; // returns 1 to 4
+    }
+
+    // --- Risk Multiplier (View) ---
+    function getRiskMultiplier() public view returns (uint256) {
+        uint256 score = getWeightedRiskScore();
+        if (score == 0) return 1e18; // fallback
+        if (score <= 1) return 9e17; // safer pool → 0.9
+        if (score <= 2) return 1e18; // neutral → 1.0
+        if (score <= 3) return 11e17; // more risk → 1.1
+        return 12e17; // highest risk → 1.2
+    }
+
+    // --- Repayment Ratio (View) ---
+    function getRepaymentRatio() public view returns (uint256) {
+        if (totalBorrowedAllTime == 0) return 1e18; // default 100%
+        return (totalRepaidAllTime * 1e18) / totalBorrowedAllTime;
+    }
+
+    // --- Repayment Risk Multiplier (View) ---
+    function getRepaymentRiskMultiplier() public view returns (uint256) {
+        uint256 ratio = getRepaymentRatio(); // 0 to 1e18
+        if (ratio >= 95e16) return 1e18; // >=95% repaid → 1.0x
+        if (ratio >= 90e16) return 105e16; // 90-94% → 1.05x
+        if (ratio >= 80e16) return 110e16; // 80-89% → 1.10x
+        return 120e16; // <80% → 1.20x
+    }
+
+    // --- Global Risk Multiplier (View) ---
+    function getGlobalRiskMultiplier() public view returns (uint256) {
+        uint256 tierMult = getRiskMultiplier();
+        uint256 repayMult = getRepaymentRiskMultiplier();
+        return (tierMult * repayMult) / 1e18;
+    }
+
+    // --- Real-Time Return Rate for Lender (View) ---
+    function getRealTimeReturnRate(
+        address lender
+    ) external view returns (uint256) {
+        uint256 baseAPR = baseLenderAPR(lender); // e.g. 0.06e18 = 6%
+        uint256 globalMult = getGlobalRiskMultiplier();
+        return (baseAPR * globalMult) / 1e18;
+    }
+
+    // --- Base APR for Lender (stub, replace with real logic) ---
+    function baseLenderAPR(address lender) public view returns (uint256) {
+        // TODO: Replace with actual calculation from LendingManager
+        // For now, return 6% APR (0.06e18)
+        return 6e16;
+    }
+
+    // --- Borrower Rate (View, for future use) ---
+    function getBorrowerRate(RiskTier tier) public view returns (uint256) {
+        // Example: use base rate per tier (not implemented here), apply global multiplier
+        // uint256 baseRate = baseBorrowRateByTier[tier];
+        // return (baseRate * getGlobalRiskMultiplier()) / 1e18;
+        return 0; // Placeholder
+    }
+
+    // --- Throttling for automation ---
+    uint256 public lastUpkeep;
+    uint256 public constant UPKEEP_COOLDOWN = 60; // 1 min
+
+    function setMaxPriceAge(address token, uint256 age) external onlyOwner {
+        require(age <= 1 days, "Too large");
+        maxPriceAge[token] = age;
+    }
+
+    // Helper: get staleness window for token
+    function _getMaxPriceAge(address token) internal view returns (uint256) {
+        uint256 age = maxPriceAge[token];
+        if (age > 0) return age;
+        // Use StablecoinManager to check if stablecoin
+        if (stablecoinManager.isStablecoin(token))
+            return DEFAULT_STALENESS_STABLE;
+        return DEFAULT_STALENESS_VOLATILE;
+    }
+
+    // Oracle health check for a token
+    function isOracleHealthy(address token) public view returns (bool) {
+        address feedAddress = priceFeed[token];
+        if (feedAddress == address(0)) return false;
+        AggregatorV3Interface pf = AggregatorV3Interface(feedAddress);
+        (uint80 roundId, , , uint256 updatedAt, uint80 answeredInRound) = pf
+            .latestRoundData();
+        if (block.timestamp - updatedAt > _getMaxPriceAge(token)) return false;
+        if (answeredInRound < roundId) return false;
+        return true;
+    }
+
+    // --- Price feed with staleness check ---
+    function _getFreshPrice(
+        address token
+    ) internal view returns (uint256 price, uint256 updatedAt) {
+        address feedAddress = priceFeed[token];
+        require(feedAddress != address(0), "Price feed not set");
+        AggregatorV3Interface pf = AggregatorV3Interface(feedAddress);
+        (
+            uint80 roundId,
+            int256 answer,
+            ,
+            uint256 updatedAt_,
+            uint80 answeredInRound
+        ) = pf.latestRoundData();
+        if (block.timestamp - updatedAt_ > _getMaxPriceAge(token)) {
+            revert("Stale price");
+        }
+        require(answeredInRound >= roundId, "Stale round data");
+        return (uint256(answer), updatedAt_);
     }
 }
