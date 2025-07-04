@@ -84,7 +84,8 @@ async function captureRequestFromUI(): Promise<string> {
   console.log('Extracting remote DNS from URL');
   const remoteDNS = new URL(url).hostname;
   const remotePort = config.tlsRemotePort;
-  const localPort = config.tlsLocalPort;
+  // Use the configured tlsLocalPort value from settings, or fall back to the default
+  const localPort = settings.tlsLocalPort || config.tlsLocalPort;
   console.log('Connection details:', { remoteDNS, remotePort, localPort });
 
   // Collect headers from the UI

@@ -21,6 +21,8 @@ export interface TLSProof {
 
 export interface Settings {
   notaryServer: string;
+  apiBase?: string;
+  tlsLocalPort?: string;
 }
 
 export interface MessageResponse {

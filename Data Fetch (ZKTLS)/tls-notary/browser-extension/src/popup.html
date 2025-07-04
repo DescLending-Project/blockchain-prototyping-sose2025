@@ -9,11 +9,95 @@
 <body>
   <h1>TLS Notary Extension</h1>
 
-  <div class="tabs">
-    <div class="tab active" data-tab="capture">Capture</div>
-    <div class="tab" data-tab="proofs">Proofs</div>
-    <div class="tab" data-tab="settings">Settings</div>
+  <!-- API Unavailable Message -->
+  <div id="apiUnavailable">
+    <h2>API Server Unavailable</h2>
+    <p>The TLS Notary API server is currently unavailable. Please check your connection or update the API server address below.</p>
+
+    <div class="form-group">
+      <label for="apiBaseUnavailable">API Server Address:</label>
+      <input type="text" id="apiBaseUnavailable" placeholder="http://localhost:8090/tunnels">
+    </div>
+
+    <div>
+      <h3>How to Pull and Run Docker</h3>
+      <p>
+        Follow the instructions below to pull and run the required Docker container:
+      </p>
+      <ol>
+        <li>Open a terminal or command line on your machine.</li>
+        <li>
+          Run the following command to pull the Docker image:
+          <div class="command-container">
+        <pre class="scrollable">
+          <code>docker pull evgenyim/tls-notary-proxy:latest</code>
+        </pre>
+            <button class="copy-btn" data-clipboard-text="docker pull evgenyim/tls-notary-proxy:latest">
+              <svg xmlns="http://www.w3.org/2000/svg" class="copy-icon" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13 4H6a1 1 0 0 0-1 1v8H3.5A1.5 1.5 0 0 1 2 11.5v-8A1.5 1.5 0 0 1 3.5 2h8A1.5 1.5 0 0 1 13 3.5V4z"/>
+                <path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6.5a1.5 1.5 0 0 1-1.5-1.5v-9z"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+        <li>
+          Run the following command to start the container:
+          <div class="command-container">
+        <pre class="scrollable">
+          <code>docker run -d -p 8090:8090 -p 8091:8091 evgenyim/tls-notary-proxy:latest</code>
+        </pre>
+            <button class="copy-btn" data-clipboard-text="docker run -d -p 8090:8090 -p 8091:8091 evgenyim/tls-notary-proxy:latest">
+              <svg xmlns="http://www.w3.org/2000/svg" class="copy-icon" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13 4H6a1 1 0 0 0-1 1v8H3.5A1.5 1.5 0 0 1 2 11.5v-8A1.5 1.5 0 0 1 3.5 2h8A1.5 1.5 0 0 1 13 3.5V4z"/>
+                <path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6.5a1.5 1.5 0 0 1-1.5-1.5v-9z"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+        <li>
+          After starting, access the application using the following URL in your browser:
+          <div class="command-container">
+        <pre class="scrollable">
+          <code>http://localhost:8090</code>
+        </pre>
+            <button class="copy-btn" data-clipboard-text="http://localhost:8090">
+              <svg xmlns="http://www.w3.org/2000/svg" class="copy-icon" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13 4H6a1 1 0 0 0-1 1v8H3.5A1.5 1.5 0 0 1 2 11.5v-8A1.5 1.5 0 0 1 3.5 2h8A1.5 1.5 0 0 1 13 3.5V4z"/>
+                <path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6.5a1.5 1.5 0 0 1-1.5-1.5v-9z"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+        <li>
+          To stop the container, use the command:
+          <div class="command-container">
+        <pre class="scrollable">
+          <code>docker stop &lt;container-id&gt;</code>
+        </pre>
+            <button class="copy-btn" data-clipboard-text="docker stop <container-id>">
+              <svg xmlns="http://www.w3.org/2000/svg" class="copy-icon" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13 4H6a1 1 0 0 0-1 1v8H3.5A1.5 1.5 0 0 1 2 11.5v-8A1.5 1.5 0 0 1 3.5 2h8A1.5 1.5 0 0 1 13 3.5V4z"/>
+                <path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6.5a1.5 1.5 0 0 1-1.5-1.5v-9z"/>
+              </svg>
+            </button>
+          </div>
+        </li>
+      </ol>
+      <p>Ensure that the API server is running before retrying the connection.</p>
+    </div>
+
+    <div class="button-group">
+      <button id="saveApiBaseBtn">Save & Retry</button>
+      <button id="retryConnectionBtn">Retry Connection</button>
+    </div>
   </div>
+
+  <div id="mainContent">
+    <div class="tabs">
+      <div class="tab active" data-tab="capture">Capture</div>
+      <div class="tab" data-tab="proofs">Proofs</div>
+      <div class="tab" data-tab="settings">Settings</div>
+    </div>
 
   <!-- Capture Tab -->
   <div class="tab-content active" id="capture">
@@ -82,6 +166,15 @@
       <input type="text" id="notaryServer" placeholder="https://notary.example.com">
     </div>
 
+    <div class="form-group">
+      <label for="apiBase">API Base URL:</label>
+      <input type="text" id="apiBase" placeholder="http://localhost:8090/tunnels">
+    </div>
+
+    <div class="form-group">
+      <label for="tlsLocalPort">TLS Local Port:</label>
+      <input type="text" id="tlsLocalPort" placeholder="8091">
+    </div>
 
     <button id="saveSettingsBtn">Save Settings</button>
   </div>
@@ -96,6 +189,8 @@
       </div>
     </div>
   </div>
+
+  </div> <!-- Close mainContent div -->
 
   <script src="js/popup/popup.js"></script>
 </body>
