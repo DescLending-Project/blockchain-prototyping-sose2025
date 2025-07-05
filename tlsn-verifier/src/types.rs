@@ -1,11 +1,15 @@
 use bincode;
+use dstack_sdk::dstack_client::GetQuoteResponse;
 use hex;
+use k256::ecdsa::VerifyingKey;
 use serde::{Deserialize, Serialize};
 use tlsn_core::{
     presentation::{Presentation},
 };
+use k256::ecdsa::Signature;
 
-#[derive(Debug, Deserialize, Serialize)]
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PresentationJSON {
     pub version: String,
@@ -13,27 +17,27 @@ pub struct PresentationJSON {
     pub meta: Meta,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Meta {
     pub notary_url: String,
     pub websocket_proxy_url: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct VerificationResult {
     pub is_valid: bool,
     pub server_name: String,
+    pub score : String,
     pub verifying_key: String,
-    pub sent: Vec<u8>,
+    pub sent_hex_encoded: String,
     pub sent_readable: String,
-    pub recv: Vec<u8>,
+    pub recv_hex_encoded: String,
     pub recv_readable: String,
     pub time: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct VerificationError {
     pub message: String,
 }
@@ -44,6 +48,32 @@ impl<E: std::fmt::Display> From<E> for VerificationError {
             message: e.to_string(),
         }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AttestationError {
+    pub message: String,
+}
+
+impl<E: std::fmt::Display> From<E> for AttestationError {
+    fn from(e: E) -> Self {
+        AttestationError {
+            message: e.to_string(),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct VerificationResponse{
+    pub verification: Result<VerificationResult, VerificationError>,
+    pub attestation: Result<SignedAttestation, AttestationError>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct SignedAttestation {
+    pub quote: String,
+    pub signature_hex_encoded: String,
+    pub verifying_key_hex_encoded: String,
 }
 
 impl PresentationJSON {
