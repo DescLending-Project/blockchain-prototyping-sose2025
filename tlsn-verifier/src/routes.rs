@@ -42,7 +42,7 @@ pub async fn attestation_route() -> impl Responder {
     println!("[attestation] Starting attestation route handler");
     let attestation = get_attestation_report_with_signature().await;
     match attestation {
-        Ok(report) => HttpResponse::Ok().json(report.quote),
+        Ok(report) => HttpResponse::Ok().json(report),
         Err(e) => HttpResponse::InternalServerError().json(e),
     }
 }
