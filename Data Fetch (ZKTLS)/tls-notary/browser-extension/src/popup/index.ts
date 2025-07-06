@@ -5,9 +5,11 @@ import { setupRequestCapture } from './capture';
 import { loadProofs  } from './proofs';
 import { setupSettingsManagement, loadSettings } from './settings';
 import { setupModal } from './modal';
-import { TLSNotaryService, updateTunnelServiceApiBase } from 'tls-notary-shared';
+import { updateTunnelServiceApiBase } from 'tls-notary-shared';
+import { browserTLSNotaryService } from '../services/BrowserTLSNotaryService';
+import { tlsNotaryServiceBridge } from '../services/TLSNotaryServiceBridge';
 import { isApiAccessible, copyToClipboard } from '../utils/apiUtils';
-import { getSettings, setSettings } from '../utils/storageUtils';
+import {getSettings, initializeStorage, setSettings} from '../utils/storageUtils';
 
 document.addEventListener('DOMContentLoaded', async function() {
   // Check if API is accessible
@@ -110,6 +112,8 @@ document.addEventListener('DOMContentLoaded', async function() {
  * Initialize the UI components
  */
 function initializeUI() {
+  initializeStorage();
+
   setupTabs();
 
   setupHeaderManagement();
@@ -131,12 +135,20 @@ function initializeUI() {
     console.error('Error loading settings:', error);
   });
 
-  // Subscribe to TLSNotaryService for real-time updates
-  const unsubscribe = TLSNotaryService.subscribe(() => {
+  // Subscribe to BrowserTLSNotaryService for real-time updates
+  let unsubscribe: (() => void) | null = null;
+  browserTLSNotaryService.subscribe(() => {
     loadProofs().catch(error => {
       console.error('Error reloading proofs after update:', error);
     });
+  }).then(unsubscribeFunc => {
+    unsubscribe = unsubscribeFunc;
+  }).catch(error => {
+    console.error('Error subscribing to BrowserTLSNotaryService:', error);
   });
+
+  // Initialize the bridge to sync proofs between shared module and browser extension
+  console.log('TLSNotaryServiceBridge initialized:', tlsNotaryServiceBridge);
 
   // Unsubscribe when the popup is closed
   window.addEventListener('unload', () => {

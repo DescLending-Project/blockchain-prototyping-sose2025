@@ -1,12 +1,12 @@
 import { showProofDetails } from './modal';
-import { TLSNotaryService } from 'tls-notary-shared';
+import { browserTLSNotaryService } from '../services/BrowserTLSNotaryService';
 
 /**
- * Load proofs from TLSNotaryService and display them
+ * Load proofs from BrowserTLSNotaryService and display them
  */
 export async function loadProofs(): Promise<void> {
   try {
-    const proofs = await TLSNotaryService.getAllProofs();
+    const proofs = await browserTLSNotaryService.getAllProofs();
     const proofList = document.getElementById('proofList');
 
     if (!proofList) {
@@ -36,13 +36,40 @@ export async function loadProofs(): Promise<void> {
 
       proofItem.innerHTML = `
         <div>${proof.formData.url} - ${formattedDate}</div>
-        <div class="status-container">Status: <span class="status status-${proof.status.toLowerCase()}">${proof.status}</span></div>
+        <div class="status-container">
+          Status: <span class="status status-${proof.status.toLowerCase()}">${proof.status}</span>
+          <button class="delete-proof-btn" data-id="${proof.id}" title="Delete proof">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
       `;
 
       proofItem.addEventListener('click', () => {
         // Show proof details in modal
         showProofDetails(proof);
       });
+
+      // Add event listener for delete button
+      const deleteButton = proofItem.querySelector('.delete-proof-btn');
+      if (deleteButton) {
+        deleteButton.addEventListener('click', async (event) => {
+          // Prevent the click event from propagating to the parent (which would show proof details)
+          event.stopPropagation();
+
+          // Confirm deletion
+          if (confirm('Are you sure you want to delete this proof?')) {
+            const proofId = deleteButton.getAttribute('data-id');
+            if (proofId) {
+              await browserTLSNotaryService.deleteProof(proofId);
+              // Reload proofs to update the UI
+              await loadProofs();
+            }
+          }
+        });
+      }
 
       proofList.appendChild(proofItem);
     });

@@ -20,6 +20,23 @@ export class MockTLSNotaryService implements ITLSNotaryService {
   private records: ProofRecord[] = [];
   private subscribers: ((records: ProofRecord[]) => void)[] = [];
 
+  /**
+   * Initialize proofs from an external source
+   * @param proofs Array of ProofRecord objects to initialize with
+   */
+  public initializeProofs(proofs: ProofRecord[]): void {
+    console.log(`Initializing MockTLSNotaryService with ${proofs.length} proofs`);
+    // Only add proofs that don't already exist in the records
+    const newProofs = proofs.filter(proof => !this.records.some(record => record.id === proof.id));
+    if (newProofs.length > 0) {
+      console.log(`Adding ${newProofs.length} new proofs to MockTLSNotaryService`);
+      this.records = [...newProofs, ...this.records];
+      this.notifySubscribers();
+    } else {
+      console.log('No new proofs to add to MockTLSNotaryService');
+    }
+  }
+
   private notifySubscribers() {
     console.log(`Notifying ${this.subscribers.length} subscribers of record changes`);
     const snapshot = [...this.records];
@@ -69,6 +86,7 @@ export class MockTLSNotaryService implements ITLSNotaryService {
     console.log("Verifying proof with notaryUrl:", record.formData.notaryUrl);
     try {
       const result = await verifyProof(record.formData.notaryUrl, record.tlsCallResponse.presentationJSON);
+      console.log("Proof verified successfully");
       tmp.verifyProofResult = result;
       tmp.status = RequestStatus.Verified;
       this.notifySubscribers();
@@ -82,8 +100,6 @@ export class MockTLSNotaryService implements ITLSNotaryService {
       throw error;
     }
   }
-
-
 
   async sendRequest(input: TLSFormData): Promise<string> {
     console.log('MockTLSNotaryService.sendRequest called with input:', {
@@ -208,5 +224,22 @@ export class MockTLSNotaryService implements ITLSNotaryService {
     const records = [...this.records];
     console.log(`Returning ${records.length} proof records`);
     return records;
+  }
+
+  /**
+   * Delete a proof record by ID
+   * @param id The ID of the proof to delete
+   * @returns Promise that resolves when the proof is deleted
+   */
+  async deleteProof(id: string): Promise<void> {
+    console.log(`MockTLSNotaryService.deleteProof called with ID: ${id}`);
+    const existingIndex = this.records.findIndex((r) => r.id === id);
+    if (existingIndex >= 0) {
+      console.log('Deleting proof record from MockTLSNotaryService');
+      this.records.splice(existingIndex, 1);
+      this.notifySubscribers();
+    } else {
+      console.log(`Proof with ID ${id} not found in MockTLSNotaryService`);
+    }
   }
 }
