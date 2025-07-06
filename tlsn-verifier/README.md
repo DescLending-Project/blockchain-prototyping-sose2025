@@ -191,7 +191,7 @@ let report_data = format!("0x{}", hex::encode(verifying_key_hash));
 ```
 We now also have the `report_data`, after obtaining the attestation `quote`, use any DCAP-compatible verifier to validate it. For example, [https://proof.t16z.com/](https://proof.t16z.com/) relies on [dcap-qvl](https://github.com/Phala-Network/dcap-qvl). Other verifiers exist, including on-chain solutions like Automata’s Solidity implementation.
 
-To verify the quote you generated, copy the quote’s hexadecimal data from your console and paste it into [https://proof.t16z.com/](https://proof.t16z.com/). After verification, you can scroll through the report contents to confirm that `report_data` matches the value you precalcuated above.
+To verify the quote you generated, copy the quote’s hexadecimal data from your response body and paste it into [https://proof.t16z.com/](https://proof.t16z.com/). After verification, you can scroll through the report contents to confirm that `report_data` matches the value you precalcuated above.
 
 To able to also verify the signature, given `quote`, `signature_hex_encoded` (from response body) and reobtained `VerifyingKey` do the following: 
 
