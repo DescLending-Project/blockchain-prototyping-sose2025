@@ -92,6 +92,7 @@ contract LendingManager is Ownable {
         if (lender.balance == 0) {
             lender.interestIndex = _currentInterestIndex();
             lender.depositTimestamp = block.timestamp;
+            lender.lastInterestDistribution = block.timestamp; // Initialize for new lenders
         }
 
         lender.balance += msg.value;
@@ -245,9 +246,21 @@ contract LendingManager is Ownable {
             : 0;
 
         isAvailableWithoutPenalty = block.timestamp >= availableAt;
-        nextInterestDistribution =
-            info.lastInterestDistribution +
-            SECONDS_PER_DAY;
+
+        // If lastInterestDistribution is 0, use current block timestamp
+        uint256 nextTime;
+        if (info.lastInterestDistribution == 0) {
+            nextTime = block.timestamp + SECONDS_PER_DAY;
+        } else {
+            nextTime = info.lastInterestDistribution + SECONDS_PER_DAY;
+        }
+
+        // Clamp: if nextTime is more than 2 days in the future, reset to 1 day from now
+        if (nextTime > block.timestamp + 2 * SECONDS_PER_DAY) {
+            nextInterestDistribution = block.timestamp + SECONDS_PER_DAY;
+        } else {
+            nextInterestDistribution = nextTime;
+        }
 
         if (info.balance > 0) {
             uint256 currentIndex = _currentInterestIndex();
@@ -382,7 +395,21 @@ contract LendingManager is Ownable {
     ) internal view returns (uint256) {
         LenderInfo memory info = lenders[lender];
         if (info.balance == 0) return 0;
-        return info.lastInterestDistribution + SECONDS_PER_DAY;
+
+        uint256 nextTime;
+        // If lastInterestDistribution is 0, use current block timestamp
+        if (info.lastInterestDistribution == 0) {
+            nextTime = block.timestamp + SECONDS_PER_DAY;
+        } else {
+            nextTime = info.lastInterestDistribution + SECONDS_PER_DAY;
+        }
+
+        // Clamp: if nextTime is more than 2 days in the future, reset to 1 day from now
+        if (nextTime > block.timestamp + 2 * SECONDS_PER_DAY) {
+            return block.timestamp + SECONDS_PER_DAY;
+        }
+
+        return nextTime;
     }
 
     // Admin functions

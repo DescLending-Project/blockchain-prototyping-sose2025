@@ -29,11 +29,21 @@ export function LendingPoolStatus({ contract }) {
         try {
             const provider = new ethers.BrowserProvider(window.ethereum)
             const network = await provider.getNetwork()
-            // Set SONIC for all networks since we're using SONIC
-            setTokenSymbol('SONIC')
+            const chainId = Number(network.chainId)
+
+            // Set appropriate token symbol based on network
+            if (chainId === 31337) {
+                setTokenSymbol('ETH') // Localhost/Hardhat
+            } else if (chainId === 57054) {
+                setTokenSymbol('SONIC') // Sonic testnet
+            } else if (chainId === 11155111) {
+                setTokenSymbol('ETH') // Sepolia testnet
+            } else {
+                setTokenSymbol('ETH') // Default fallback
+            }
         } catch (err) {
             console.error('Failed to check network:', err)
-            setTokenSymbol('SONIC')
+            setTokenSymbol('ETH') // Default fallback
         }
     }
 

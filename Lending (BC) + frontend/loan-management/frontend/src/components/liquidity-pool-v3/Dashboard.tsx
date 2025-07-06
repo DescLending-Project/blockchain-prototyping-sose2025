@@ -75,7 +75,12 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
 
                 <TabsContent value="transaction-history">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <TransactionHistory contract={contract} account={account || ''} provider={provider} />
+                        <TransactionHistory
+                            contract={contract}
+                            lendingManagerContract={lendingManagerContract}
+                            account={account || ''}
+                            provider={provider}
+                        />
                     </Card>
                 </TabsContent>
 

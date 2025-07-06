@@ -9,26 +9,13 @@ import { AlertCircle, Wallet, Coins, Shield, AlertTriangle, ArrowUpDown, ArrowDo
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Contract } from "ethers"
+import { COLLATERAL_TOKENS } from "../../../App"
 
 interface UserPanelProps {
     contract: Contract;
     account: string | null;
     mode?: 'user' | 'lend';
 }
-
-// Token configurations
-const COLLATERAL_TOKENS = [
-    {
-        address: "0xAF93888cbD250300470A1618206e036E11470149",
-        symbol: "CORAL",
-        name: "Coral Token"
-    },
-    {
-        address: "0xD4A89Be3D6e0be7f507819a57d7AA012C9Df3c63",
-        symbol: "GLINT",
-        name: "Glint Token"
-    }
-];
 
 export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) {
     const [isLiquidatable, setIsLiquidatable] = useState(false)
@@ -47,6 +34,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
     const [lendingAPY, setLendingAPY] = useState("0")
     const [totalLent, setTotalLent] = useState("0")
     const [creditScore, setCreditScore] = useState<number | null>(null)
+    const [tokenSymbol, setTokenSymbol] = useState("")
 
     const fetchData = async () => {
         if (!account) return // Do not fetch if no account connected
@@ -86,6 +74,21 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                 });
             } else {
                 setHealthStatus({ isHealthy: true, ratio: 0 });
+            }
+
+            // Get token symbol from network context
+            const network = await provider.getNetwork();
+            const chainId = Number(network.chainId);
+
+            // Set appropriate token symbol based on network
+            if (chainId === 31337) {
+                setTokenSymbol('ETH'); // Localhost/Hardhat
+            } else if (chainId === 57054) {
+                setTokenSymbol('SONIC'); // Sonic testnet
+            } else if (chainId === 11155111) {
+                setTokenSymbol('ETH'); // Sepolia testnet
+            } else {
+                setTokenSymbol('ETH'); // Default fallback
             }
 
         } catch (err) {
@@ -357,7 +360,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                     <CardContent className="space-y-4">
                         <p className="text-sm text-muted-foreground">Total native tokens in the pool (from lending and repayments)</p>
                         {/* TODO: Fetch and display actual total pool balance */}
-                        <p className="text-2xl font-bold">{totalLent} Sonic</p>
+                        <p className="text-2xl font-bold">{totalLent} {tokenSymbol || 'ETH'}</p>
                         {/* APY is not directly trackable for individual contributions via receive() */}
                         {/* <div className="p-4 rounded-lg bg-background/50 border>
                                 <p className="text-sm text-muted-foreground">Current APY</p>

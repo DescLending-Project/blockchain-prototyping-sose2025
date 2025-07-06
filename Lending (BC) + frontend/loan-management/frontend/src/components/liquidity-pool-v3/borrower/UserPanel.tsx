@@ -22,6 +22,7 @@ export function UserPanel({ contract, account, tokenAddress }: UserPanelProps) {
     const [error, setError] = useState<string>('');
     const [collateralValue, setCollateralValue] = useState<string>('0');
     const [collateralBalance, setCollateralBalance] = useState<string>('0');
+    const [tokenSymbol, setTokenSymbol] = useState<string>('');
 
     const fetchCollateralData = async () => {
         if (!contract || !account || !tokenAddress) {
@@ -51,6 +52,10 @@ export function UserPanel({ contract, account, tokenAddress }: UserPanelProps) {
                 ratio: Number(ratio)
             });
             setError('');
+
+            // Get token symbol
+            const symbol = await contract.symbol();
+            setTokenSymbol(symbol);
         } catch (err) {
             console.error('Failed to fetch collateral data:', err);
             setError('Failed to fetch collateral data. Please try again.');
@@ -90,7 +95,7 @@ export function UserPanel({ contract, account, tokenAddress }: UserPanelProps) {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Current Value</p>
-                            <p className="text-lg font-semibold">{collateralValue} SONIC</p>
+                            <p className="text-lg font-semibold">{collateralValue} {tokenSymbol || 'ETH'}</p>
                         </div>
                     </div>
 

@@ -16,11 +16,15 @@ import { CollateralPanel } from './components/liquidity-pool-v3/user/CollateralP
 import { DEFAULT_NETWORK } from './config/networks'
 
 // Contract addresses
-const POOL_ADDRESS = '0x7828Ec11B2cb50a3cB9E5F0ddA2852b181277f08';
-const LENDING_MANAGER_ADDRESS = '0x9354e89EE1e1DcE5332495e185DdE484c41f34a0';
+const POOL_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+const LENDING_MANAGER_ADDRESS = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
 
 // Network-specific token addresses
 const NETWORK_TOKENS = {
+  localhost: {
+    USDC: '0x0000000000000000000000000000000000000001', // Mock address for localhost
+    USDT: '0x0000000000000000000000000000000000000002', // Mock address for localhost
+  },
   sepolia: {
     USDC: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8',
     USDT: '0x7169d38820dfd117c3fa1f22a697dba58d90ba06',
@@ -32,6 +36,10 @@ const NETWORK_TOKENS = {
 };
 
 const CONTRACT_ADDRESSES = {
+  localhost: {
+    pool: POOL_ADDRESS,
+    lending: LENDING_MANAGER_ADDRESS
+  },
   sepolia: {
     pool: POOL_ADDRESS,
     lending: LENDING_MANAGER_ADDRESS
@@ -45,7 +53,7 @@ const CONTRACT_ADDRESSES = {
 // Collateral tokens array - will be updated based on network
 const COLLATERAL_TOKENS = [
   {
-    address: '0x310D01b3e2BDDA634AFb97DC84f681F6717dB7E4', // GLINT
+    address: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707', // GLINT
     symbol: 'GLINT',
     name: 'Glint Token',
     isStablecoin: false
@@ -57,14 +65,14 @@ const COLLATERAL_TOKENS = [
     isStablecoin: false
   },
   {
-    address: '0xA4879Fed32Ecbef99399e5cbC247E533421C4eC6', // USDC - will be set based on network
+    address: '0x0000000000000000000000000000000000000000', // USDC - unique mock address for localhost
     symbol: 'USDC',
     name: 'USD Coin',
     isStablecoin: true,
     decimals: 6
   },
   {
-    address: '0x6047828dc181963ba44974801ff68e538da5eaf9', // USDT - will be set based on network
+    address: '0x0000000000000000000000000000000000000000', // USDT - unique mock address for localhost
     symbol: 'USDT',
     name: 'Tether USD',
     isStablecoin: true,
@@ -73,6 +81,7 @@ const COLLATERAL_TOKENS = [
 ];
 
 const CHAIN_ID_TO_NETWORK = {
+  31337: 'localhost', // Hardhat localhost
   11155111: 'sepolia',
   57054: 'sonic'
 };
@@ -97,15 +106,15 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [userError, setUserError] = useState("")
-  const [networkName, setNetworkName] = useState('sepolia')
-  const SUPPORTED_CHAINS = [11155111, 57054]; // Sepolia and Sonic
+  const [networkName, setNetworkName] = useState('localhost')
+  const SUPPORTED_CHAINS = [31337, 11155111, 57054]; // Localhost, Sepolia, and Sonic
 
   const initializeContracts = async (provider, signer, networkName) => {
     try {
       console.log('Initializing contracts for network:', networkName);
 
-      // Get addresses for current network, fallback to sonic if not found
-      const addresses = CONTRACT_ADDRESSES[networkName] || CONTRACT_ADDRESSES.sonic;
+      // Get addresses for current network, fallback to localhost if not found
+      const addresses = CONTRACT_ADDRESSES[networkName] || CONTRACT_ADDRESSES.localhost;
       if (!addresses) {
         throw new Error(`No contract addresses configured for ${networkName}`);
       }
@@ -141,6 +150,7 @@ export default function App() {
       console.log('Contracts initialized successfully');
       setContract(liquidityPoolContract);
       setLendingManagerContract(lendingContract);
+      setProvider(provider);
       setNetworkName(networkName);
 
       return {
@@ -187,6 +197,7 @@ export default function App() {
       }
 
       setAccount(accounts[0]);
+      setProvider(provider);
 
       // 4. Check roles and pause status
       await checkRoles(contracts.liquidityPoolContract, accounts[0]);
@@ -200,14 +211,15 @@ export default function App() {
         const newChainId = parseInt(chainIdHex, 16);
 
         if (!SUPPORTED_CHAINS.includes(newChainId)) {
-          setError(`Unsupported network. Please switch to Sepolia or Sonic`);
+          const supportedNetworks = SUPPORTED_CHAINS.map(id => CHAIN_ID_TO_NETWORK[id]).join(' or ');
+          setError(`Unsupported network. Please switch to ${supportedNetworks}`);
           return;
         }
 
         try {
           const newProvider = new ethers.BrowserProvider(window.ethereum);
           const newSigner = await newProvider.getSigner();
-          const newNetworkName = CHAIN_ID_TO_NETWORK[newChainId] || 'sepolia';
+          const newNetworkName = CHAIN_ID_TO_NETWORK[newChainId] || 'localhost';
 
           await initializeContracts(newProvider, newSigner, newNetworkName);
           updateTokenAddresses(newNetworkName);
@@ -274,7 +286,7 @@ export default function App() {
 
       // Determine network name
       const chainId = Number(network.chainId);
-      const networkName = CHAIN_ID_TO_NETWORK[chainId] || 'sonic';
+      const networkName = CHAIN_ID_TO_NETWORK[chainId] || 'localhost';
 
       // Initialize contracts with network name
       const contracts = await initializeContracts(provider, signer, networkName);
@@ -286,6 +298,7 @@ export default function App() {
       setAccount(accounts[0]);
       setContract(contracts.liquidityPoolContract);
       setLendingManagerContract(contracts.lendingContract);
+      setProvider(provider);
       setNetworkName(networkName);
 
       await checkRoles(contracts.liquidityPoolContract, accounts[0]);

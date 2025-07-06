@@ -7,7 +7,10 @@
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "test": "cd backend && npm test",
     "clean": "cd backend && npm run clean",
-    "dev": "cd frontend && npm run dev"
+    "dev": "cd frontend && npm run dev",
+    "start": "./start-dev.sh",
+    "stop": "./stop-dev.sh",
+    "setup": "chmod +x start-dev.sh stop-dev.sh && ./start-dev.sh"
   },
   "keywords": [],
   "author": "",

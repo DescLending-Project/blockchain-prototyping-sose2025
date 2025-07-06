@@ -1,18 +1,18 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { 
-    History, 
-    ArrowUpDown, 
-    ArrowDownUp, 
-    Shield, 
-    DollarSign, 
-    Clock, 
-    CheckCircle, 
-    XCircle, 
+import {
+    History,
+    ArrowUpDown,
+    ArrowDownUp,
+    Shield,
+    DollarSign,
+    Clock,
+    CheckCircle,
+    XCircle,
     AlertTriangle,
     RefreshCw,
     Filter,
@@ -21,78 +21,171 @@ import {
     Search
 } from "lucide-react"
 import { ethers } from "ethers"
-import { 
-    Transaction, 
-    fetchTransactionHistory, 
-    formatTransactionAmount, 
-    formatTransactionTime 
+import {
+    Transaction,
+    fetchTransactionHistory,
+    formatTransactionAmount,
+    formatTransactionTime
 } from "../../../utils/transactionUtils"
 
 interface TransactionHistoryProps {
     contract: any
-    account: string | null
-    provider?: ethers.Provider
+    lendingManagerContract: any
+    account: string
+    provider: any
 }
 
-export function TransactionHistory({ contract, account, provider }: TransactionHistoryProps) {
-    const [transactions, setTransactions] = useState<Transaction[]>([])
+export function TransactionHistory({ contract, lendingManagerContract, account, provider }: TransactionHistoryProps) {
+    const [transactions, setTransactions] = useState<any[]>([])
+    const [loading, setLoading] = useState(false)
     const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
     const [filter, setFilter] = useState<string>('all')
     const [searchTerm, setSearchTerm] = useState<string>('')
-    const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
 
+    console.log("TransactionHistory component mounted with props:", {
+        hasContract: !!contract,
+        hasLendingManagerContract: !!lendingManagerContract,
+        account,
+        hasProvider: !!provider
+    })
+
     useEffect(() => {
-        if (account && contract && provider) {
-            loadTransactionHistory()
+        console.log("TransactionHistory useEffect triggered")
+        if (!provider || !account || !contract || !lendingManagerContract) {
+            console.log("Missing required props:", {
+                hasProvider: !!provider,
+                hasAccount: !!account,
+                hasContract: !!contract,
+                hasLendingManagerContract: !!lendingManagerContract
+            })
+            return
         }
-    }, [account, contract, provider])
+
+        async function fetchTransactions() {
+            setLoading(true)
+            let allEvents: any[] = []
+
+            console.log("Fetching transactions for account:", account)
+            console.log("Contract addresses:", {
+                pool: contract.target,
+                lendingManager: lendingManagerContract.target
+            })
+
+            // Helper to fetch events from a contract
+            async function fetchEvents(contractInstance: any, contractName: string, eventNames: string[]) {
+                for (const eventName of eventNames) {
+                    try {
+                        const filter = contractInstance.filters[eventName]()
+                        const logs = await contractInstance.queryFilter(filter, 0, "latest")
+                        console.log(`Found ${logs.length} ${eventName} events for ${contractName}`)
+
+                        for (const log of logs) {
+                            // Check if the user is involved in this event
+                            let userInvolved = false
+                            if (log.args) {
+                                // Check all indexed and non-indexed parameters for the user's address
+                                Object.values(log.args).forEach(value => {
+                                    if (typeof value === 'string' &&
+                                        value.toLowerCase() === account.toLowerCase()) {
+                                        userInvolved = true
+                                    }
+                                })
+                            }
+
+                            if (userInvolved) {
+                                console.log(`User involved in ${eventName}:`, log.args)
+                                // Get block timestamp
+                                const block = await provider.getBlock(log.blockNumber)
+                                allEvents.push({
+                                    contract: contractName,
+                                    event: eventName,
+                                    args: log.args,
+                                    txHash: log.transactionHash,
+                                    timestamp: block.timestamp,
+                                    blockNumber: log.blockNumber,
+                                })
+                            }
+                        }
+                    } catch (e) {
+                        console.log(`Error fetching ${eventName} events:`, e)
+                        // Ignore missing events
+                    }
+                }
+            }
+
+            // Pool events
+            await fetchEvents(contract, "LiquidityPoolV3", [
+                "CollateralDeposited",
+                "CollateralWithdrawn",
+                "Borrowed",
+                "Repaid",
+                "LiquidationStarted",
+                "LiquidationExecuted",
+                "CreditScoreAssigned",
+                "Extracted",
+                "EmergencyPaused"
+            ])
+
+            // LendingManager events
+            await fetchEvents(lendingManagerContract, "LendingManager", [
+                "FundsDeposited",
+                "FundsWithdrawn",
+                "InterestClaimed",
+                "InterestCredited",
+                "WithdrawalRequested",
+                "WithdrawalCancelled",
+                "EarlyWithdrawalPenalty"
+            ])
+
+            // Sort by timestamp descending
+            allEvents.sort((a, b) => b.timestamp - a.timestamp)
+
+            console.log("Total events found:", allEvents.length)
+            console.log("All events:", allEvents)
+
+            setTransactions(allEvents)
+            setLoading(false)
+        }
+
+        fetchTransactions()
+    }, [provider, account, contract, lendingManagerContract])
 
     useEffect(() => {
         filterTransactions()
     }, [transactions, filter, searchTerm])
-
-    const loadTransactionHistory = async () => {
-        if (!account || !contract || !provider) return
-        
-        setIsLoading(true)
-        setError("")
-        
-        try {
-            const txHistory = await fetchTransactionHistory(contract, account, provider)
-            setTransactions(txHistory)
-            
-            if (txHistory.length === 0) {
-                setError("No transactions found for this account.")
-            }
-        } catch (err) {
-            console.error("Error loading transactions:", err)
-            setError("Failed to load transaction history. Please try again.")
-            setTransactions([])
-        } finally {
-            setIsLoading(false)
-        }
-    }
 
     const filterTransactions = () => {
         let filtered = transactions
 
         // Filter by type
         if (filter !== 'all') {
-            filtered = filtered.filter(tx => tx.type === filter)
+            filtered = filtered.filter(tx => tx.event === filter)
         }
 
         // Filter by search term
         if (searchTerm) {
-            filtered = filtered.filter(tx => 
-                tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                tx.amount.includes(searchTerm) ||
-                (tx.token && tx.token.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (tx.hash && tx.hash.toLowerCase().includes(searchTerm.toLowerCase()))
+            filtered = filtered.filter(tx =>
+                tx.contract.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                tx.event.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (tx.args.amount && tx.args.amount.toString().includes(searchTerm)) ||
+                (tx.args.value && tx.args.value.toString().includes(searchTerm))
             )
         }
 
-        setFilteredTransactions(filtered)
+        setFilteredTransactions(filtered.map(tx => ({
+            ...tx,
+            type: tx.event,
+            amount: tx.args.amount ? ethers.formatEther(tx.args.amount) : tx.args.value ? ethers.formatEther(tx.args.value) : '',
+            token: tx.args.token,
+            status: 'confirmed',
+            description: formatAction(tx.event, tx.contract),
+            timestamp: tx.timestamp,
+            hash: tx.txHash,
+            collateralRatio: tx.args.collateralRatio,
+            interestEarned: tx.args.interestEarned,
+            id: tx.txHash
+        })))
     }
 
     const exportTransactions = () => {
@@ -181,11 +274,37 @@ export function TransactionHistory({ contract, account, provider }: TransactionH
         const confirmed = filteredTransactions.filter(tx => tx.status === 'confirmed').length
         const pending = filteredTransactions.filter(tx => tx.status === 'pending').length
         const failed = filteredTransactions.filter(tx => tx.status === 'failed').length
-        
+
         return { total, confirmed, pending, failed }
     }
 
     const stats = getTransactionStats()
+
+    function formatAction(event: string, contract: string) {
+        const map: Record<string, string> = {
+            CollateralDeposited: "Deposit Collateral",
+            CollateralWithdrawn: "Withdraw Collateral",
+            Borrowed: "Borrow",
+            Repaid: "Repay",
+            LiquidationStarted: "Liquidation Started",
+            LiquidationExecuted: "Liquidation Executed",
+            CreditScoreAssigned: "Credit Score Assigned",
+            Extracted: "Funds Extracted",
+            EmergencyPaused: "Emergency Pause",
+            FundsDeposited: "Deposit Funds",
+            FundsWithdrawn: "Withdraw Funds",
+            InterestClaimed: "Claim Interest",
+            InterestCredited: "Interest Credited",
+            WithdrawalRequested: "Withdrawal Requested",
+            WithdrawalCancelled: "Withdrawal Cancelled",
+            EarlyWithdrawalPenalty: "Early Withdrawal Penalty"
+        }
+        return `${map[event] || event} (${contract})`
+    }
+
+    function formatTimestamp(ts: number) {
+        return new Date(ts * 1000).toLocaleString()
+    }
 
     return (
         <Card className="w-full">
@@ -212,13 +331,13 @@ export function TransactionHistory({ contract, account, provider }: TransactionH
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All</SelectItem>
-                                <SelectItem value="deposit">Deposits</SelectItem>
-                                <SelectItem value="withdraw">Withdrawals</SelectItem>
-                                <SelectItem value="borrow">Borrows</SelectItem>
-                                <SelectItem value="repay">Repayments</SelectItem>
-                                <SelectItem value="lend">Lending</SelectItem>
-                                <SelectItem value="interest">Interest</SelectItem>
-                                <SelectItem value="liquidate">Liquidations</SelectItem>
+                                <SelectItem value="CollateralDeposited">Deposits</SelectItem>
+                                <SelectItem value="CollateralWithdrawn">Withdrawals</SelectItem>
+                                <SelectItem value="Borrowed">Borrows</SelectItem>
+                                <SelectItem value="Repaid">Repayments</SelectItem>
+                                <SelectItem value="FundsDeposited">Lending</SelectItem>
+                                <SelectItem value="InterestClaimed">Interest</SelectItem>
+                                <SelectItem value="LiquidationStarted">Liquidations</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button
@@ -229,17 +348,9 @@ export function TransactionHistory({ contract, account, provider }: TransactionH
                         >
                             <Download className="h-4 w-4" />
                         </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={loadTransactionHistory}
-                            disabled={isLoading}
-                        >
-                            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        </Button>
                     </div>
                 </div>
-                
+
                 {/* Transaction Stats */}
                 <div className="flex gap-4 mt-4">
                     <div className="text-sm">
@@ -263,7 +374,7 @@ export function TransactionHistory({ contract, account, provider }: TransactionH
                     </Alert>
                 )}
 
-                {isLoading ? (
+                {loading ? (
                     <div className="flex justify-center items-center py-8">
                         <RefreshCw className="h-6 w-6 animate-spin" />
                         <span className="ml-2">Loading transactions...</span>
@@ -300,7 +411,7 @@ export function TransactionHistory({ contract, account, provider }: TransactionH
                                             )}
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            {formatTransactionTime(tx.timestamp)}
+                                            {formatTimestamp(tx.timestamp)}
                                         </p>
                                     </div>
                                 </div>

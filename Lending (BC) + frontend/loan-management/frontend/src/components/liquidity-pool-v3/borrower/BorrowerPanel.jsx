@@ -18,7 +18,7 @@ export default function BorrowerPanel({ contract, account }) {
     const [withdrawAmount, setWithdrawAmount] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
-    const [tokenSymbol, setTokenSymbol] = useState('SONIC')
+    const [tokenSymbol, setTokenSymbol] = useState('ETH')
     const [currentValues, setCurrentValues] = useState(null)
     const [collateralTokens, setCollateralTokens] = useState([])
     const [selectedCollateral, setSelectedCollateral] = useState(null)
@@ -37,11 +37,21 @@ export default function BorrowerPanel({ contract, account }) {
         try {
             const provider = new ethers.BrowserProvider(window.ethereum)
             const network = await provider.getNetwork()
-            // Set SONIC for all networks since we're using SONIC
-            setTokenSymbol('SONIC')
+            const chainId = Number(network.chainId)
+
+            // Set appropriate token symbol based on network
+            if (chainId === 31337) {
+                setTokenSymbol('ETH') // Localhost/Hardhat
+            } else if (chainId === 57054) {
+                setTokenSymbol('SONIC') // Sonic testnet
+            } else if (chainId === 11155111) {
+                setTokenSymbol('ETH') // Sepolia testnet
+            } else {
+                setTokenSymbol('ETH') // Default fallback
+            }
         } catch (err) {
             console.error('Failed to check network:', err)
-            setTokenSymbol('SONIC')
+            setTokenSymbol('ETH') // Default fallback
         }
     }
 
@@ -211,7 +221,7 @@ export default function BorrowerPanel({ contract, account }) {
                                         <li>Current Collateral: {currentValues.collateralValue} {
                                             COLLATERAL_TOKENS.find(t => t.address.toLowerCase() === selectedCollateral?.toLowerCase())?.symbol || 'Token'
                                         }</li>
-                                        <li>Collateral Value in SONIC: {currentValues.collateralValueInSonic} SONIC</li>
+                                        <li>Collateral Value in {tokenSymbol}: {currentValues.collateralValueInSonic} {tokenSymbol}</li>
                                         <li>Required Collateral Ratio: 130% of borrow amount</li>
                                     </ul>
                                 </div>

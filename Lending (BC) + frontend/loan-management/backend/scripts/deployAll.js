@@ -2,6 +2,12 @@ const { ethers, upgrades } = require("hardhat");
 const { updateAppAddresses } = require('./update-app-addresses.js');
 
 const networkConfig = {
+    localhost: {
+        USDC: "0x0000000000000000000000000000000000000000", // Mock address for localhost
+        USDT: "0x0000000000000000000000000000000000000000", // Mock address for localhost
+        USDC_FEED: "0x0000000000000000000000000000000000000000", // Mock address for localhost
+        USDT_FEED: "0x0000000000000000000000000000000000000000" // Mock address for localhost
+    },
     sepolia: {
         USDC: "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
         USDT: "0x7169d38820dfd117c3fa1f22a697dba58d90ba06",
@@ -19,13 +25,24 @@ const networkConfig = {
 async function main() {
     console.log("Starting deployment of all contracts...");
 
-    // Copy artifacts to frontend first
+    // Compile contracts first
+    console.log("Compiling contracts...");
     try {
-        require('./copy-artifacts.js');
-        console.log("Artifacts copied successfully");
+        await hre.run("compile");
+        console.log("✅ Contracts compiled successfully");
     } catch (error) {
-        console.error("Failed to copy artifacts:", error.message);
+        console.error("❌ Contract compilation failed:", error.message);
         process.exit(1);
+    }
+
+    // Copy artifacts to frontend after compilation
+    try {
+        console.log("Copying artifacts to frontend...");
+        require('./copy-artifacts.js');
+        console.log("✅ Artifacts copied successfully");
+    } catch (error) {
+        console.error("❌ Failed to copy artifacts:", error.message);
+        // Don't exit here, continue with deployment
     }
 
     // Get the deployer address first
@@ -35,6 +52,9 @@ async function main() {
     console.log("Detected chainId:", chainId, typeof chainId);
     let networkName;
     switch (chainId) {
+        case 31337: // Hardhat localhost
+            networkName = "localhost";
+            break;
         case 11155111:
             networkName = "sepolia";
             break;
@@ -176,32 +196,36 @@ async function main() {
         console.error("Failed to set CORAL price feed:", e);
     }
 
-    // Set up USDC as collateral
-    console.log("\nSetting up USDC as collateral...");
-    const setUsdcCollateralTx = await liquidityPoolV3.setAllowedCollateral(usdcAddress, true);
-    await setUsdcCollateralTx.wait();
-    console.log("USDC set as allowed collateral");
+    // Set up USDC as collateral (only if not localhost)
+    if (networkName !== "localhost") {
+        console.log("\nSetting up USDC as collateral...");
+        const setUsdcCollateralTx = await liquidityPoolV3.setAllowedCollateral(usdcAddress, true);
+        await setUsdcCollateralTx.wait();
+        console.log("USDC set as allowed collateral");
 
-    // Set price feed for USDC based on network config
-    try {
-        await liquidityPoolV3.setPriceFeed(usdcAddress, usdcMockFeedAddress);
-        console.log("USDC price feed set");
-    } catch (e) {
-        console.error("Failed to set USDC price feed:", e);
-    }
+        // Set price feed for USDC based on network config
+        try {
+            await liquidityPoolV3.setPriceFeed(usdcAddress, usdcMockFeedAddress);
+            console.log("USDC price feed set");
+        } catch (e) {
+            console.error("Failed to set USDC price feed:", e);
+        }
 
-    // Set up USDT as collateral
-    console.log("\nSetting up USDT as collateral...");
-    const setUsdtCollateralTx = await liquidityPoolV3.setAllowedCollateral(usdtAddress, true);
-    await setUsdtCollateralTx.wait();
-    console.log("USDT set as allowed collateral");
+        // Set up USDT as collateral
+        console.log("\nSetting up USDT as collateral...");
+        const setUsdtCollateralTx = await liquidityPoolV3.setAllowedCollateral(usdtAddress, true);
+        await setUsdtCollateralTx.wait();
+        console.log("USDT set as allowed collateral");
 
-    // Set price feed for USDT based on network config
-    try {
-        await liquidityPoolV3.setPriceFeed(usdtAddress, usdtMockFeedAddress);
-        console.log("USDT price feed set");
-    } catch (e) {
-        console.error("Failed to set USDT price feed:", e);
+        // Set price feed for USDT based on network config
+        try {
+            await liquidityPoolV3.setPriceFeed(usdtAddress, usdtMockFeedAddress);
+            console.log("USDT price feed set");
+        } catch (e) {
+            console.error("Failed to set USDT price feed:", e);
+        }
+    } else {
+        console.log("\nSkipping USDC/USDT setup for localhost (using mock addresses)");
     }
 
     const verifyTokenSetup = async (pool, token) => {
@@ -250,8 +274,10 @@ async function main() {
     console.log("\nSetting up price feeds...");
     await setupPriceFeed(glintTokenAddress, glintFeedAddress);
     await setupPriceFeed(coralTokenAddress, coralFeedAddress);
-    await setupPriceFeed(usdcAddress, usdcMockFeedAddress);
-    await setupPriceFeed(usdtAddress, usdtMockFeedAddress);
+    if (networkName !== "localhost") {
+        await setupPriceFeed(usdcAddress, usdcMockFeedAddress);
+        await setupPriceFeed(usdtAddress, usdtMockFeedAddress);
+    }
 
     // Set up stablecoin parameters
     console.log("\nSetting stablecoin parameters...");
@@ -283,19 +309,45 @@ async function main() {
 
     // Update App.jsx with new addresses
     console.log("\nUpdating App.jsx addresses...");
-    const updateResult = await updateAppAddresses({
-        liquidityPoolV3Address,
-        lendingManagerAddress,
-        tokens: {
-            GLINT: glintTokenAddress,
-            CORAL: coralTokenAddress,
-            USDC: usdcAddress,
-            USDT: usdtAddress
-        }
-    });
-    console.log("App.jsx update result:", updateResult);
+    try {
+        const updateResult = await updateAppAddresses({
+            liquidityPoolV3Address,
+            lendingManagerAddress,
+            tokens: {
+                GLINT: glintTokenAddress,
+                CORAL: coralTokenAddress,
+                USDC: usdcAddress,
+                USDT: usdtAddress
+            }
+        });
+        console.log("App.jsx update result:", updateResult);
+    } catch (error) {
+        console.error("Failed to update App.jsx:", error.message);
+        // Don't exit, continue with mockup
+    }
 
     console.log("\nAll contracts and feeds deployed and configured successfully!");
+
+    // Run mockup platform behavior simulation
+    console.log("\n=== RUNNING MOCKUP PLATFORM BEHAVIOR SIMULATION ===");
+    try {
+        // Set environment variables for the mockup script
+        process.env.LIQUIDITY_POOL_ADDRESS = liquidityPoolV3Address;
+        process.env.LENDING_MANAGER_ADDRESS = lendingManagerAddress;
+        process.env.GLINT_TOKEN_ADDRESS = glintTokenAddress;
+
+        // Import and run the mockup script
+        const { runMockupSimulation } = require('./run-mockup-after-deploy.js');
+        await runMockupSimulation({
+            liquidityPool: liquidityPoolV3Address,
+            lendingManager: lendingManagerAddress,
+            glintToken: glintTokenAddress
+        });
+        console.log("✅ Mockup simulation completed successfully!");
+    } catch (error) {
+        console.error("⚠️  Mockup simulation failed:", error.message);
+        console.log("You can run the mockup manually with: npx hardhat run scripts/run-mockup-after-deploy.js");
+    }
 }
 
 main()
