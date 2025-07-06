@@ -10,6 +10,8 @@ pub async fn health_check() -> impl Responder {
 
 #[post("/verify-proof")]
 pub async fn verify_proof_route(body: String) -> impl Responder {
+    println!("[verify_proof_route] Starting verification route handler");
+
     let verification = verify_proof(&body);
     let attestation = get_attestation_report_with_signature().await;
 

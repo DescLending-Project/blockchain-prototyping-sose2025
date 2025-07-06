@@ -4,7 +4,7 @@ use std::time::Instant;
 use tlsn_core::CryptoProvider;
 
 use crate::config;
-use crate::types::{PresentationJSON, VerificationResult, VerificationError};
+use crate::types::{PresentationJSON, VerificationError, VerificationResult};
 
 pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError> {
     let total_start = Instant::now();
@@ -12,9 +12,10 @@ pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError>
     println!("[{}] ⏱ Starting verification...", chrono::Utc::now());
 
     let start = Instant::now();
-    let presentation_json = PresentationJSON::from_json_str(json).map_err(|e| VerificationError {
-        message: format!("Invalid JSON format: {}", e),
-    })?;
+    let presentation_json =
+        PresentationJSON::from_json_str(json).map_err(|e| VerificationError {
+            message: format!("Invalid JSON format: {}", e),
+        })?;
     println!("✅ JSON parsed in {:?}", start.elapsed());
 
     let expected_version = config::get_tlsn_core_version();
@@ -28,9 +29,11 @@ pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError>
     }
 
     let start = Instant::now();
-    let presentation = presentation_json.to_presentation().map_err(|e| VerificationError {
-        message: format!("Invalid presentation encoding: {}", e),
-    })?;
+    let presentation = presentation_json
+        .to_presentation()
+        .map_err(|e| VerificationError {
+            message: format!("Invalid presentation encoding: {}", e),
+        })?;
     println!("✅ Presentation decoded in {:?}", start.elapsed());
 
     let verifying_key = presentation.verifying_key().data.clone();
@@ -41,9 +44,11 @@ pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError>
     }
 
     let start = Instant::now();
-    let pres_out = presentation.verify(&CryptoProvider::default()).map_err(|e| VerificationError {
-        message: format!("Presentation verification failed: {}", e),
-    })?;
+    let pres_out = presentation
+        .verify(&CryptoProvider::default())
+        .map_err(|e| VerificationError {
+            message: format!("Presentation verification failed: {}", e),
+        })?;
     println!("✅ Presentation verified in {:?}", start.elapsed());
 
     let server_name = pres_out
@@ -74,7 +79,11 @@ pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError>
     let sent = String::from_utf8_lossy(&sent_bytes);
     let recv = String::from_utf8_lossy(&recv_bytes);
 
-    println!("✅ Transcript parsed, sent/recv size = {}/{}", sent_bytes.len(), recv_bytes.len());
+    println!(
+        "✅ Transcript parsed, sent/recv size = {}/{}",
+        sent_bytes.len(),
+        recv_bytes.len()
+    );
 
     let host_line = sent
         .lines()
@@ -97,10 +106,12 @@ pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError>
         message: "Missing request line in sent transcript".to_string(),
     })?;
 
-    let path_regex = Regex::new(r#"GET\s+(?:https?://[^/]+)?(/users/[^/]+/credit-score)\s+HTTP/1\.1"#)
-        .map_err(|e| VerificationError {
-            message: format!("Regex compilation failed: {}", e),
-        })?;
+    let path_regex = Regex::new(
+        r#"GET\s+(?:https?://[^/]+)?(/users/[^/]+/credit-score)\s+HTTP/1\.1"#,
+    )
+    .map_err(|e| VerificationError {
+        message: format!("Regex compilation failed: {}", e),
+    })?;
 
     let _path = path_regex
         .captures(request_line)

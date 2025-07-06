@@ -58,15 +58,12 @@ impl KeyMaterial {
 }
 static KEY_MATERIAL: OnceCell<KeyMaterial> = OnceCell::new();
 
-pub async fn init_key_material_from_tappd_socket() -> Result<(), Box<dyn Error>> {
-    println!("[key_manager] Generating signing key locally...");
-   
+pub async fn init_key_material_from_tappd_socket() -> Result<(), Box<dyn Error>> {   
     // Set KEY_MATERIAL
     KEY_MATERIAL
         .set(KeyMaterial::new())
         .map_err(|_| "Key material already initialized")?;
 
-    println!("[key_manager] Successfully initialized key material with local key.");
     Ok(())
 }
 

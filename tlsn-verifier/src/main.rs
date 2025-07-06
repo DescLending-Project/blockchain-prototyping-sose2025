@@ -12,15 +12,12 @@ use actix_web::{App, HttpServer};
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     config::load_env();
-    println!("Initializing key material...");
     key_manager::init_key_material_from_tappd_socket().await.map_err(|e| {
-        eprintln!("Failed to initialize key material: {}", e);
         std::io::Error::new(
             std::io::ErrorKind::Other,
             "Key material initialization failed",
         )
     })?;
-    println!("Key material initialized successfully.");
     let key_material = key_manager::try_get_key_material().expect("Key material not initialized");
     
     let host = config::get_host();
