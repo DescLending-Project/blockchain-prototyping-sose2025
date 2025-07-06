@@ -18,7 +18,7 @@ To test the deployment ci/cd locally also see : `../.secrets.template` and creat
 
 
 ## Overview
-This service verifies the authenticity of TLSNotary proofs, which are cryptographic proofs that demonstrate a TLS connection happened with specific data exchanged. The verifier runs in a Trusted Execution Environment to ensure that the verification process itself can be trusted
+This service verifies the authenticity of TLSNotary proofs, which are cryptographic proofs that demonstrate a TLS connection happened with specific data exchanged. The verifier runs in a Trusted Execution Environment to ensure that the verification process itself can be trusted. The tlsn proof verification process takes roughly ±14 ms in TEE.
 
 ## Features
 
