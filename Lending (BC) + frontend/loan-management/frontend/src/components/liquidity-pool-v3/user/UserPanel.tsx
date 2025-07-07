@@ -438,11 +438,11 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                     <div className="grid grid-cols-3 gap-6">
                         <div className="p-4 rounded-lg bg-background/50 border">
                             <p className="text-sm text-muted-foreground">Total Collateral Value</p>
-                            <p className="text-2xl font-bold">${totalCollateralValue}</p>
+                            <p className="text-2xl font-bold">{totalCollateralValue} {tokenSymbol || 'ETH'}</p>
                         </div>
                         <div className="p-4 rounded-lg bg-background/50 border">
                             <p className="text-sm text-muted-foreground">Current Debt</p>
-                            <p className="text-2xl font-bold">${userDebt}</p>
+                            <p className="text-2xl font-bold">{userDebt} {tokenSymbol || 'ETH'}</p>
                         </div>
                         <div className="p-4 rounded-lg bg-background/50 border">
                             <p className="text-sm text-muted-foreground">Credit Score</p>

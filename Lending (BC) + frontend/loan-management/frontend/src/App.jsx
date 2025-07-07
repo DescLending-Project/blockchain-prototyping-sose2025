@@ -17,6 +17,7 @@ import { DEFAULT_NETWORK } from './config/networks'
 
 // Contract addresses
 const POOL_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+export const INTEREST_RATE_MODEL_ADDRESS = '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6';
 const LENDING_MANAGER_ADDRESS = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
 
 // Network-specific token addresses

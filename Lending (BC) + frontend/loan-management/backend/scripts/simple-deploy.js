@@ -58,7 +58,7 @@ async function main() {
         console.log("✅ GlintToken deployed to:", glintTokenAddress);
 
         // Deploy MockPriceFeed for GlintToken
-        console.log("\n📄 Deploying MockPriceFeed for GlintToken...");
+        console.log("\n\uD83D\uDCC4 Deploying MockPriceFeed for GlintToken...");
         const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
         const glintFeed = await MockPriceFeed.deploy(
             ethers.parseUnits("1.50", 8),
@@ -66,7 +66,39 @@ async function main() {
         );
         await glintFeed.waitForDeployment();
         const glintFeedAddress = await glintFeed.getAddress();
-        console.log("✅ MockPriceFeed for GlintToken deployed to:", glintFeedAddress);
+        console.log("\u2705 MockPriceFeed for GlintToken deployed to:", glintFeedAddress);
+
+        // --- Deploy OracleMock for InterestRateModel ---
+        console.log("\n\uD83D\uDCC4 Deploying OracleMock for InterestRateModel...");
+        const OracleMock = await ethers.getContractFactory("OracleMock");
+        const oracleMock = await OracleMock.deploy();
+        await oracleMock.waitForDeployment();
+        const oracleAddress = await oracleMock.getAddress();
+        console.log("\u2705 OracleMock deployed to:", oracleAddress);
+
+        // --- Deploy InterestRateModel ---
+        console.log("\n\uD83D\uDCC4 Deploying InterestRateModel...");
+        const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+        const irmParams = [
+            ethers.parseUnits("0.02", 18), // baseRate
+            ethers.parseUnits("0.8", 18),  // kink
+            ethers.parseUnits("0.20", 18), // slope1
+            ethers.parseUnits("1.00", 18), // slope2
+            ethers.parseUnits("0.10", 18), // reserveFactor
+            ethers.parseUnits("2.00", 18), // maxBorrowRate
+            ethers.parseUnits("0.05", 18), // maxRateChange
+            ethers.parseUnits("0.02", 18), // ethPriceRiskPremium
+            ethers.parseUnits("0.05", 18), // ethVolatilityThreshold
+            3600 // oracleStalenessWindow
+        ];
+        const irm = await InterestRateModel.deploy(
+            deployer.address,
+            oracleAddress,
+            irmParams
+        );
+        await irm.waitForDeployment();
+        const irmAddress = await irm.getAddress();
+        console.log("\u2705 InterestRateModel deployed to:", irmAddress);
 
         // Set up GlintToken as collateral
         console.log("\n🔧 Setting up GlintToken as collateral...");
@@ -98,12 +130,13 @@ async function main() {
         }
 
         // Update App.jsx with new addresses
-        console.log("\n📝 Updating frontend addresses...");
+        console.log("\n\uD83D\uDCDD Updating frontend addresses...");
         try {
             const { updateAppAddresses } = require('./update-app-addresses.js');
             await updateAppAddresses({
                 liquidityPoolV3Address,
                 lendingManagerAddress,
+                interestRateModelAddress: irmAddress,
                 tokens: {
                     GLINT: glintTokenAddress,
                     CORAL: coralTokenAddress,
@@ -111,18 +144,19 @@ async function main() {
                     USDT: "0x0000000000000000000000000000000000000000"
                 }
             });
-            console.log("✅ Frontend addresses updated");
+            console.log("\u2705 Frontend addresses updated");
         } catch (error) {
-            console.log("⚠️  Failed to update frontend addresses:", error.message);
+            console.log("\u26A0\uFE0F  Failed to update frontend addresses:", error.message);
         }
 
         // Deployment summary
-        console.log("\n🎉 DEPLOYMENT SUMMARY:");
+        console.log("\n\uD83C\uDF89 DEPLOYMENT SUMMARY:");
         console.log("=====================");
         console.log("StablecoinManager:", stablecoinManagerAddress);
         console.log("LiquidityPoolV3:", liquidityPoolV3Address);
         console.log("LendingManager:", lendingManagerAddress);
         console.log("GlintToken:", glintTokenAddress);
+        console.log("InterestRateModel:", irmAddress);
         console.log("GlintToken Price Feed:", glintFeedAddress);
         console.log("CORAL Price Feed:", coralFeedAddress);
         console.log("\n✅ All contracts deployed successfully!");

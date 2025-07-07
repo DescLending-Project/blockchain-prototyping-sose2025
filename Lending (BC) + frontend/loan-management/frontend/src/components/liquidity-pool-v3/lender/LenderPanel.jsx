@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ethers } from 'ethers'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Button } from '../../ui/button'
@@ -13,6 +13,9 @@ import {
     TooltipTrigger,
 } from "../../ui/tooltip"
 import { LendingPoolStatus } from '../shared/LendingPoolStatus'
+import { LendingRateSimulator } from '../shared/InterestRateSimulator'
+import InterestRateModelABI from '../../../InterestRateModel.json'
+import { INTEREST_RATE_MODEL_ADDRESS } from '../../../App.jsx'
 
 function CountdownTimer({ targetDate, label }) {
     const [timeLeft, setTimeLeft] = useState('')
@@ -87,6 +90,52 @@ function CountdownTimer({ targetDate, label }) {
     )
 }
 
+// Hook to fetch real-time rates from InterestRateModel
+function useInterestRates(utilization) {
+    const [borrowRate, setBorrowRate] = useState(null);
+    const [supplyRate, setSupplyRate] = useState(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        let interval;
+        async function fetchRates() {
+            try {
+                if (!window.ethereum) return;
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                console.log('[InterestRateModel] Utilization:', utilization);
+                console.log('[InterestRateModel] Address:', INTEREST_RATE_MODEL_ADDRESS);
+                // Convert utilization to 1e18 fixed-point BigInt
+                const utilizationFixed = BigInt(Math.floor(utilization * 1e18));
+                const irm = new ethers.Contract(
+                    INTEREST_RATE_MODEL_ADDRESS,
+                    InterestRateModelABI.abi,
+                    provider
+                );
+                const borrow = await irm.getBorrowRate(utilizationFixed);
+                const supply = await irm.getSupplyRate(utilizationFixed, borrow);
+                console.log('[InterestRateModel] Borrow:', borrow?.toString(), 'Supply:', supply?.toString());
+                if (isMounted) {
+                    setBorrowRate(Number(borrow) / 1e18);
+                    setSupplyRate(Number(supply) / 1e18);
+                }
+            } catch (err) {
+                console.error('[InterestRateModel] Error fetching rates:', err);
+                if (isMounted) {
+                    setBorrowRate(null);
+                    setSupplyRate(null);
+                }
+            }
+        }
+        fetchRates();
+        interval = setInterval(fetchRates, 30000); // update every 30s
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, [utilization]);
+    return { borrowRate, supplyRate };
+}
+
 export function LenderPanel({ contract, liquidityPoolContract, account }) {
     const [lenderInfo, setLenderInfo] = useState(null)
     const [depositAmount, setDepositAmount] = useState('')
@@ -106,6 +155,12 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
     const [repaymentRiskMultiplier, setRepaymentRiskMultiplier] = useState(null)
     const [globalRiskMultiplier, setGlobalRiskMultiplier] = useState(null)
     const [historyMinMax, setHistoryMinMax] = useState({ min: 0, max: 0 })
+    const [simulatedSupplyRate, setSimulatedSupplyRate] = useState(null)
+    const [useSimulatedRate, setUseSimulatedRate] = useState(true)
+    const [utilization, setUtilization] = useState(0);
+    const [refreshProgress, setRefreshProgress] = useState(0);
+    // Fetch real-time rates
+    const { borrowRate, supplyRate } = useInterestRates(utilization);
 
     useEffect(() => {
         if (contract && account) {
@@ -119,7 +174,41 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
             loadRealTimeReturnRate()
             loadRiskMetrics()
         }
-    }, [contract, liquidityPoolContract, account])
+        async function fetchUtilization() {
+            try {
+                if (!liquidityPoolContract || !contract) return;
+                // Get total borrowed and total supplied from contracts
+                const totalBorrowed = await liquidityPoolContract.totalBorrowedAllTime();
+                const totalSupplied = await contract.totalLent();
+                // Avoid division by zero
+                if (Number(totalSupplied) > 0) {
+                    setUtilization(Number(totalBorrowed) / Number(totalSupplied));
+                } else {
+                    setUtilization(0);
+                }
+            } catch (err) {
+                setUtilization(0);
+            }
+        }
+        fetchUtilization();
+        const interval = setInterval(fetchUtilization, 30000); // update every 30s
+        return () => clearInterval(interval);
+    }, [liquidityPoolContract, contract]);
+
+    useEffect(() => {
+        let interval;
+        let start = Date.now();
+        setRefreshProgress(0);
+        interval = setInterval(() => {
+            const elapsed = (Date.now() - start) / 1000;
+            setRefreshProgress(Math.min(elapsed / 30, 1));
+            if (elapsed >= 30) {
+                start = Date.now();
+                setRefreshProgress(0);
+            }
+        }, 100);
+        return () => clearInterval(interval);
+    }, [utilization]);
 
     const checkNetwork = async () => {
         try {
@@ -276,17 +365,31 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
         }
     }
 
+    // Handler for simulator
+    const handleSimulatorRateChange = useCallback(({ supplyRate }) => {
+        setSimulatedSupplyRate(supplyRate);
+    }, []);
+
+    // Calculate interest using either simulated or contract rate
     const calculatePotentialInterest = async () => {
         try {
-            if (!calculatorAmount || !calculatorDays) return
-            const amount = parseEther(calculatorAmount)
-            const days = parseInt(calculatorDays)
-            const interest = await contract.calculatePotentialInterest(amount, days)
-            setPotentialInterest(formatEther(interest))
+            if (!calculatorAmount || !calculatorDays) return;
+            const amount = parseEther(calculatorAmount);
+            const days = parseInt(calculatorDays);
+            let interest;
+            if (useSimulatedRate && simulatedSupplyRate !== null) {
+                // Simulated: simple interest, not compounding
+                interest = Number(amount) * simulatedSupplyRate * days / 365;
+                setPotentialInterest((interest / 1e18).toFixed(6));
+            } else {
+                // Use contract calculation
+                const contractInterest = await contract.calculatePotentialInterest(amount, days);
+                setPotentialInterest(formatEther(contractInterest));
+            }
         } catch (err) {
-            console.error('Failed to calculate potential interest:', err)
+            console.error('Failed to calculate potential interest:', err);
         }
-    }
+    };
 
     const handleDeposit = async () => {
         try {
@@ -421,6 +524,61 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
 
     return (
         <div className="space-y-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <CardTitle>Real-Time Protocol Rates</CardTitle>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Info className="h-4 w-4 text-blue-500 cursor-pointer" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                    <p><b>Borrow Rate:</b> The current interest rate for borrowers, based on pool utilization.</p>
+                                    <p className="mt-2"><b>Supply Rate:</b> The current interest rate for suppliers/lenders, after reserve factor.</p>
+                                    <p className="mt-2"><b>Utilization:</b> The percentage of supplied funds currently borrowed.</p>
+                                    <p className="mt-2 text-xs text-gray-500">These values update automatically every 30 seconds.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                    {/* Circular progress indicator */}
+                    <svg width="28" height="28" viewBox="0 0 36 36" className="ml-2">
+                        <circle
+                            cx="18" cy="18" r="16"
+                            fill="none"
+                            stroke="#e5e7eb"
+                            strokeWidth="4"
+                        />
+                        <circle
+                            cx="18" cy="18" r="16"
+                            fill="none"
+                            stroke="#3b82f6"
+                            strokeWidth="4"
+                            strokeDasharray={2 * Math.PI * 16}
+                            strokeDashoffset={2 * Math.PI * 16 * (1 - refreshProgress)}
+                            strokeLinecap="round"
+                            style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+                        />
+                    </svg>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex gap-8">
+                        <div>
+                            <span className="font-medium">Borrow Rate:</span>
+                            <span className="ml-2 text-blue-700">{borrowRate !== null ? `${(borrowRate * 100).toFixed(2)}%` : 'Loading...'}</span>
+                        </div>
+                        <div>
+                            <span className="font-medium">Supply Rate:</span>
+                            <span className="ml-2 text-green-700">{supplyRate !== null ? `${(supplyRate * 100).toFixed(2)}%` : 'Loading...'}</span>
+                        </div>
+                        <div>
+                            <span className="font-medium">Utilization:</span>
+                            <span className="ml-2 text-purple-700">{utilization !== null ? `${(utilization * 100).toFixed(2)}%` : 'Loading...'}</span>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
             <LendingPoolStatus contract={liquidityPoolContract} />
 
             <Card>
@@ -547,8 +705,16 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                             </div>
 
                             <div className="mt-6">
-                                <h3 className="text-lg font-semibold mb-2">Interest Calculator</h3>
-                                <div className="grid grid-cols-2 gap-4">
+                                <h3 className="text-lg font-semibold mb-2">Lending Rate Simulator & Interest Calculator</h3>
+                                <TooltipProvider>
+                                    <LendingRateSimulator onRateChange={handleSimulatorRateChange} />
+                                </TooltipProvider>
+                                <div className="flex items-center gap-2 mt-4">
+                                    <label className="text-sm font-medium">Use simulated rate from above</label>
+                                    <input type="checkbox" checked={useSimulatedRate} onChange={e => setUseSimulatedRate(e.target.checked)} />
+                                    <span className="text-xs text-gray-500">({useSimulatedRate ? (simulatedSupplyRate !== null ? (simulatedSupplyRate * 100).toFixed(2) + '%' : '...') : 'contract rate'})</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 mt-6">
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Amount ({tokenSymbol})</label>
                                         <Input
@@ -597,188 +763,187 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                                         <p className="font-medium">{potentialInterest} {tokenSymbol}</p>
                                     </div>
                                 )}
-                            </div>
 
-                            {withdrawalStatus && (
-                                <div className="mt-6 space-y-4">
-                                    <Alert>
-                                        <Info className="h-4 w-4" />
-                                        <AlertDescription>
-                                            <div className="space-y-2">
-                                                <p>• Minimum deposit: 0.01 {tokenSymbol}</p>
-                                                <p>• Maximum deposit: 100 {tokenSymbol}</p>
-                                                <p>• Withdrawal cooldown: 24 hours</p>
-                                                {!withdrawalStatus.isAvailableWithoutPenalty && (
-                                                    <p className="text-red-500">
-                                                        • Early withdrawal penalty: {formatEther(withdrawalStatus.penaltyIfWithdrawnNow)} {tokenSymbol}
-                                                    </p>
-                                                )}
-                                                <p>• Next interest distribution: {formatTimestamp(withdrawalStatus.nextInterestDistribution)}</p>
-                                                <p>• Available interest: {formatEther(withdrawalStatus.availableInterest)} {tokenSymbol}</p>
-                                            </div>
-                                        </AlertDescription>
-                                    </Alert>
-
-                                    {/* Withdrawal Status Card */}
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="flex items-center gap-2">
-                                                Withdrawal Status
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger>
-                                                            <Info className="h-4 w-4 text-gray-500" />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent className="max-w-xs">
-                                                            <p>Principal withdrawals have a 24-hour cooldown period.</p>
-                                                            <p className="mt-2">Interest can be withdrawn at any time without cooldown.</p>
-                                                            <p className="mt-2">Early principal withdrawals incur a 5% penalty.</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="space-y-4">
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <p className="text-sm text-gray-500">Principal Withdrawal</p>
-                                                        <p className="text-lg font-semibold">
-                                                            {lenderInfo?.pendingPrincipalWithdrawal ?
-                                                                `${formatEther(lenderInfo.pendingPrincipalWithdrawal)} ${tokenSymbol}` :
-                                                                'No pending withdrawal'}
+                                {withdrawalStatus && (
+                                    <div className="mt-6 space-y-4">
+                                        <Alert>
+                                            <Info className="h-4 w-4" />
+                                            <AlertDescription>
+                                                <div className="space-y-2">
+                                                    <p>• Minimum deposit: 0.01 {tokenSymbol}</p>
+                                                    <p>• Maximum deposit: 100 {tokenSymbol}</p>
+                                                    <p>• Withdrawal cooldown: 24 hours</p>
+                                                    {!withdrawalStatus.isAvailableWithoutPenalty && (
+                                                        <p className="text-red-500">
+                                                            • Early withdrawal penalty: {formatEther(withdrawalStatus.penaltyIfWithdrawnNow)} {tokenSymbol}
                                                         </p>
-                                                        {lenderInfo?.pendingPrincipalWithdrawal > 0 && (
-                                                            <div className="mt-2 space-y-1">
-                                                                <p className="text-sm text-gray-500">
-                                                                    Available at: {formatTimestamp(withdrawalStatus.availableAt)}
-                                                                </p>
-                                                                {!withdrawalStatus.isAvailableWithoutPenalty && (
-                                                                    <p className="text-sm text-red-500">
-                                                                        Early withdrawal penalty: {formatEther(withdrawalStatus.penaltyIfWithdrawnNow)} {tokenSymbol}
+                                                    )}
+                                                    <p>• Next interest distribution: {formatTimestamp(withdrawalStatus.nextInterestDistribution)}</p>
+                                                    <p>• Available interest: {formatEther(withdrawalStatus.availableInterest)} {tokenSymbol}</p>
+                                                </div>
+                                            </AlertDescription>
+                                        </Alert>
+
+                                        {/* Withdrawal Status Card */}
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle className="flex items-center gap-2">
+                                                    Withdrawal Status
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger>
+                                                                <Info className="h-4 w-4 text-gray-500" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="max-w-xs">
+                                                                <p>Principal withdrawals have a 24-hour cooldown period.</p>
+                                                                <p className="mt-2">Interest can be withdrawn at any time without cooldown.</p>
+                                                                <p className="mt-2">Early principal withdrawals incur a 5% penalty.</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="space-y-4">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <p className="text-sm text-gray-500">Principal Withdrawal</p>
+                                                            <p className="text-lg font-semibold">
+                                                                {lenderInfo?.pendingPrincipalWithdrawal ?
+                                                                    `${formatEther(lenderInfo.pendingPrincipalWithdrawal)} ${tokenSymbol}` :
+                                                                    'No pending withdrawal'}
+                                                            </p>
+                                                            {lenderInfo?.pendingPrincipalWithdrawal > 0 && (
+                                                                <div className="mt-2 space-y-1">
+                                                                    <p className="text-sm text-gray-500">
+                                                                        Available at: {formatTimestamp(withdrawalStatus.availableAt)}
                                                                     </p>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500">Available Interest</p>
-                                                        <p className="text-lg font-semibold">{formatEther(withdrawalStatus.availableInterest)} {tokenSymbol}</p>
-                                                        <p className="text-sm text-gray-500 mt-2">
-                                                            Can be withdrawn anytime
-                                                        </p>
+                                                                    {!withdrawalStatus.isAvailableWithoutPenalty && (
+                                                                        <p className="text-sm text-red-500">
+                                                                            Early withdrawal penalty: {formatEther(withdrawalStatus.penaltyIfWithdrawnNow)} {tokenSymbol}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm text-gray-500">Available Interest</p>
+                                                            <p className="text-lg font-semibold">{formatEther(withdrawalStatus.availableInterest)} {tokenSymbol}</p>
+                                                            <p className="text-sm text-gray-500 mt-2">
+                                                                Can be withdrawn anytime
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            )}
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                )}
 
-                            <div className="space-y-4">
-                                <div>
-                                    <Input
-                                        type="number"
-                                        placeholder={`Amount to deposit (${tokenSymbol})`}
-                                        value={depositAmount}
-                                        onChange={(e) => setDepositAmount(e.target.value)}
-                                    />
-                                    <Button
-                                        className="mt-2"
-                                        onClick={handleDeposit}
-                                        disabled={isLoading || !depositAmount}
-                                    >
-                                        Deposit
-                                    </Button>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex space-x-2">
+                                <div className="space-y-4">
+                                    <div>
+                                        <Input
+                                            type="number"
+                                            placeholder={`Amount to deposit (${tokenSymbol})`}
+                                            value={depositAmount}
+                                            onChange={(e) => setDepositAmount(e.target.value)}
+                                        />
                                         <Button
-                                            variant={withdrawalType === 'principal' ? 'default' : 'outline'}
-                                            onClick={() => setWithdrawalType('principal')}
+                                            className="mt-2"
+                                            onClick={handleDeposit}
+                                            disabled={isLoading || !depositAmount}
                                         >
-                                            Principal
-                                        </Button>
-                                        <Button
-                                            variant={withdrawalType === 'interest' ? 'default' : 'outline'}
-                                            onClick={() => setWithdrawalType('interest')}
-                                        >
-                                            Interest
+                                            Deposit
                                         </Button>
                                     </div>
 
-                                    {withdrawalType === 'principal' ? (
-                                        <>
-                                            <div className="relative">
-                                                <Input
-                                                    type="number"
-                                                    placeholder={`Amount to withdraw (${tokenSymbol})`}
-                                                    value={withdrawAmount}
-                                                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                                                />
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger className="absolute right-2 top-2">
-                                                            <Info className="h-4 w-4 text-gray-500" />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Principal withdrawals require a 24-hour cooldown period.</p>
-                                                            <p className="mt-2">Early withdrawals incur a 5% penalty.</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </div>
-                                            <div className="flex space-x-2">
-                                                <Button
-                                                    onClick={handleRequestWithdrawal}
-                                                    disabled={isLoading || !withdrawAmount}
-                                                >
-                                                    Request Withdrawal
-                                                </Button>
-                                                {lenderInfo?.pendingPrincipalWithdrawal > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex space-x-2">
+                                            <Button
+                                                variant={withdrawalType === 'principal' ? 'default' : 'outline'}
+                                                onClick={() => setWithdrawalType('principal')}
+                                            >
+                                                Principal
+                                            </Button>
+                                            <Button
+                                                variant={withdrawalType === 'interest' ? 'default' : 'outline'}
+                                                onClick={() => setWithdrawalType('interest')}
+                                            >
+                                                Interest
+                                            </Button>
+                                        </div>
+
+                                        {withdrawalType === 'principal' ? (
+                                            <>
+                                                <div className="relative">
+                                                    <Input
+                                                        type="number"
+                                                        placeholder={`Amount to withdraw (${tokenSymbol})`}
+                                                        value={withdrawAmount}
+                                                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                                                    />
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger className="absolute right-2 top-2">
+                                                                <Info className="h-4 w-4 text-gray-500" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Principal withdrawals require a 24-hour cooldown period.</p>
+                                                                <p className="mt-2">Early withdrawals incur a 5% penalty.</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </div>
+                                                <div className="flex space-x-2">
                                                     <Button
-                                                        onClick={handleCancelWithdrawal}
-                                                        disabled={isLoading}
-                                                        variant="outline"
+                                                        onClick={handleRequestWithdrawal}
+                                                        disabled={isLoading || !withdrawAmount}
                                                     >
-                                                        Cancel Withdrawal
+                                                        Request Withdrawal
+                                                    </Button>
+                                                    {lenderInfo?.pendingPrincipalWithdrawal > 0 && (
+                                                        <Button
+                                                            onClick={handleCancelWithdrawal}
+                                                            disabled={isLoading}
+                                                            variant="outline"
+                                                        >
+                                                            Cancel Withdrawal
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                {withdrawalStatus?.canComplete && (
+                                                    <Button
+                                                        onClick={handleCompleteWithdrawal}
+                                                        disabled={isLoading}
+                                                        className="w-full"
+                                                    >
+                                                        Complete Withdrawal
                                                     </Button>
                                                 )}
-                                            </div>
-                                            {withdrawalStatus?.canComplete && (
+                                            </>
+                                        ) : (
+                                            <div className="space-y-2">
                                                 <Button
-                                                    onClick={handleCompleteWithdrawal}
-                                                    disabled={isLoading}
+                                                    onClick={handleRequestWithdrawal}
+                                                    disabled={isLoading || Number(withdrawalStatus?.availableInterest) === 0}
                                                     className="w-full"
                                                 >
-                                                    Complete Withdrawal
+                                                    Withdraw Interest ({formatEther(withdrawalStatus?.availableInterest)} {tokenSymbol})
                                                 </Button>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            <Button
-                                                onClick={handleRequestWithdrawal}
-                                                disabled={isLoading || Number(withdrawalStatus?.availableInterest) === 0}
-                                                className="w-full"
-                                            >
-                                                Withdraw Interest ({formatEther(withdrawalStatus?.availableInterest)} {tokenSymbol})
-                                            </Button>
-                                            <p className="text-sm text-gray-500 text-center">
-                                                Interest can be withdrawn at any time without cooldown
-                                            </p>
-                                        </div>
-                                    )}
+                                                <p className="text-sm text-gray-500 text-center">
+                                                    Interest can be withdrawn at any time without cooldown
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+                            {error && (
+                                <Alert variant="destructive" className="mt-4">
+                                    <AlertDescription>{error}</AlertDescription>
+                                </Alert>
+                            )}
                         </div>
-                    )}
-
-                    {error && (
-                        <Alert variant="destructive" className="mt-4">
-                            <AlertDescription>{error}</AlertDescription>
-                        </Alert>
                     )}
                 </CardContent>
             </Card>
@@ -810,7 +975,6 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                                             />
                                         ))}
                                     </g>
-
                                     {/* Interest Rate Line */}
                                     {interestHistory.length > 0 && (
                                         <>
@@ -841,7 +1005,6 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                                         </>
                                     )}
                                 </svg>
-
                                 {/* X-axis Labels */}
                                 <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-gray-500">
                                     {interestHistory.map((entry, i) => (
@@ -852,7 +1015,6 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                                 </div>
                             </div>
                         </div>
-
                         {/* Interest Rate Table */}
                         <div className="rounded-lg border bg-card">
                             <div className="overflow-x-auto">
@@ -871,7 +1033,6 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
                                             const change = prevRate !== null && !isNaN(currentRate)
                                                 ? ((currentRate - prevRate) / prevRate * 100).toFixed(2)
                                                 : null;
-
                                             return (
                                                 <tr key={idx} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                                                     <td className="px-4 py-3 text-sm">
