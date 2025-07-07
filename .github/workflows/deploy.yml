@@ -1,0 +1,56 @@
+name: Deploy to Phala Cloud
+
+on:
+  push:
+    branches: [feat/tlsn-verification-ms-on-phala]
+    paths:
+      - tlsn-verifier/Dockerfile
+      - tlsn-verifier/docker-compose.phala.yml
+      - tlsn-verifier/**
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Build and push Docker image (linux/amd64)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./tlsn-verifier
+          file: ./tlsn-verifier/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKER_IMAGE_NAME }}:latest
+            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Update image reference in docker-compose.phala.yml
+        run: |
+          sed -i "s|image: .*|image: ${{ secrets.DOCKER_IMAGE_NAME }}:latest|" tlsn-verifier/docker-compose.phala.yml
+
+      - name: Deploy to Phala Cloud
+        uses: Leechael/phala-deploy-action@v2
+        with:
+          phala-api-key: ${{ secrets.PHALA_CLOUD_API_KEY }}
+          app-id : dd9152201fc339d95df4e8dff26c6bb8081c0001
+          cvm-name: ${{ secrets.APP_NAME }}
+          compose-file: './tlsn-verifier/docker-compose.phala.yml'
+          vcpu: '4'
+          memory: '8192'
+          disk-size: '40'
+          envs: |
+            TLSN_VERIFIER_API_KEY: "${{ secrets.TLSN_VERIFIER_API_KEY }}"
+           
