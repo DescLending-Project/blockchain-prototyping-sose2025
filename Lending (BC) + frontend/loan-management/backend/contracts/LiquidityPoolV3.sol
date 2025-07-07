@@ -10,6 +10,7 @@ import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import "./StablecoinManager.sol";
 import "./LendingManager.sol";
+import "./IntegratedCreditSystem.sol";
 
 contract LiquidityPoolV3 is
     Initializable,
@@ -43,6 +44,10 @@ contract LiquidityPoolV3 is
 
     StablecoinManager public stablecoinManager;
     LendingManager public lendingManager;
+    
+    // ZK-Proof Integration
+    IntegratedCreditSystem public creditSystem;
+    bool public zkProofRequired; // Whether ZK proofs are required for borrowing
 
     // Risk Tier Definitions (0-100 score range)
     enum RiskTier {
@@ -107,6 +112,11 @@ contract LiquidityPoolV3 is
     );
     event GracePeriodExtended(address indexed user, uint256 newDeadline);
     event UserError(address indexed user, string message);
+    
+    // ZK-Proof Integration Events
+    event CreditSystemUpdated(address indexed oldSystem, address indexed newSystem);
+    event ZKProofRequirementToggled(bool required);
+    event ZKProofValidationFailed(address indexed user, string reason);
 
     modifier noReentrancy() {
         require(!locked, "No reentrancy");
@@ -125,11 +135,19 @@ contract LiquidityPoolV3 is
         require(!paused, "Contract is paused");
         _;
     }
+    
+    modifier requiresZKProof() {
+        if (zkProofRequired && address(creditSystem) != address(0)) {
+            require(creditSystem.isEligibleToBorrow(msg.sender), "ZK proof verification required");
+        }
+        _;
+    }
 
     function initialize(
         address initialOwner,
         address _stablecoinManager,
-        address _lendingManager
+        address _lendingManager,
+        address _creditSystem
     ) public initializer {
         __Ownable_init(initialOwner);
         __AccessControl_init();
@@ -138,6 +156,12 @@ contract LiquidityPoolV3 is
 
         stablecoinManager = StablecoinManager(_stablecoinManager);
         lendingManager = LendingManager(payable(_lendingManager));
+        
+        // Initialize ZK-proof system
+        if (_creditSystem != address(0)) {
+            creditSystem = IntegratedCreditSystem(_creditSystem);
+            zkProofRequired = true; // Enable ZK proof requirement by default
+        }
 
         _initializeRiskTiers();
     }
@@ -383,7 +407,8 @@ contract LiquidityPoolV3 is
         );
     }
 
-    function borrow(uint256 amount) external whenNotPaused noReentrancy {
+    //function borrow(uint256 amount) external whenNotPaused noReentrancy {
+    function borrow(uint256 amount) external whenNotPaused noReentrancy requiresZKProof {
         if (amount == 0) {
             emit UserError(msg.sender, "Amount must be greater than 0");
             revert("Amount must be greater than 0");
@@ -514,7 +539,81 @@ contract LiquidityPoolV3 is
     }
 
     function getCreditScore(address user) external view returns (uint256) {
+        // If ZK-proof system is active, try to get score from there first
+        if (address(creditSystem) != address(0)) {
+            try creditSystem.getUserCreditProfile(user) returns (
+                bool hasTradFi,
+                bool hasAccount,
+                bool hasNesting,
+                uint256 finalScore,
+                bool isEligible,
+                uint256 lastUpdate
+            ) {
+                if (finalScore > 0) {
+                    return finalScore;
+                }
+            } catch {
+                // Fall back to stored score if ZK system fails
+            }
+        }
         return creditScore[user];
+    }
+    
+    function updateCreditScoreFromZK(
+        address user,
+        uint256 score
+    ) external {
+        require(msg.sender == address(creditSystem), "Only credit system can update");
+        require(score <= 100, "Score out of range");
+        
+        uint256 oldScore = creditScore[user];
+        creditScore[user] = score;
+        
+        emit CreditScoreAssigned(user, score);
+    }
+    
+    /// @notice Set the integrated credit system
+    /// @param _creditSystem Address of the credit system contract
+    function setCreditSystem(address _creditSystem) external onlyOwner {
+        address oldSystem = address(creditSystem);
+        creditSystem = IntegratedCreditSystem(_creditSystem);
+        emit CreditSystemUpdated(oldSystem, _creditSystem);
+    }
+    
+    /// @notice Toggle ZK proof requirement for borrowing
+    /// @param required Whether ZK proofs are required
+    function setZKProofRequirement(bool required) external onlyOwner {
+        zkProofRequired = required;
+        emit ZKProofRequirementToggled(required);
+    }
+    
+
+    function getZKVerificationStatus(address user) 
+        external 
+        view 
+        returns (
+            bool hasTradFi,
+            bool hasAccount,
+            bool hasNesting,
+            uint256 finalScore,
+            bool isEligible
+        ) 
+    {
+        if (address(creditSystem) != address(0)) {
+            try creditSystem.getUserCreditProfile(user) returns (
+                bool tradFi,
+                bool account,
+                bool nesting,
+                uint256 score,
+                bool eligible,
+                uint256 lastUpdate
+            ) {
+                return (tradFi, account, nesting, score, eligible);
+            } catch {
+                return (false, false, false, 0, false);
+            }
+        }
+        return (false, false, false, 0, false);
     }
 
     function setPriceFeed(address token, address feed) external onlyOwner {
