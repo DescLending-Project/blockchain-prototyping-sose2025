@@ -31,8 +31,8 @@ RUN addgroup -g 1001 -S nodejs && \
 
 WORKDIR /app
 
-# Copy only production dependencies
-COPY package*.json ./
+# Copy both package.json and package-lock.json from builder
+COPY --from=builder /app/package.json /app/package-lock.json ./
 RUN npm ci --only=production
 
 # Copy compiled JavaScript from builder
