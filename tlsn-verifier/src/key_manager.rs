@@ -1,27 +1,61 @@
-
-use k256::{
-    ecdsa::{SigningKey, VerifyingKey, Signature, signature::Signer},
-    EncodedPoint
-};use once_cell::sync::OnceCell;
-use std::error::Error;
-
-use sha2::{Sha512, Digest};
-
-use rand_core::OsRng;
+use crate::types::*;
+use crate::types::KeyManagerError;
 use hex;
+use hyper::{Body, Client, Request};
+use hyperlocal::{UnixClientExt, Uri};
+use p256::{
+    EncodedPoint,
+    ecdsa::{Signature, VerifyingKey, SigningKey, signature::Signer},
+};
+
+use p256::pkcs8::DecodePrivateKey;
+
+use once_cell::sync::OnceCell;
+use rand_core::OsRng;
+use serde_json::json;
+use sha2::{Digest, Sha512};
 
 pub struct KeyMaterial {
     pub signing_key: SigningKey,
+    pub source: KeySource,
+    pub certificate_chain: Option<Vec<String>>,
+
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum KeySource {
+    Tappd,
+    Random,
 }
 
 impl KeyMaterial {
-    pub fn new() -> Self {
+    pub fn new_random() -> Self {
         let signing_key = SigningKey::random(&mut OsRng);
-        Self { signing_key }
+        Self {
+            signing_key,
+            source: KeySource::Random,
+            certificate_chain: None,
+        }
+    }
+
+    pub fn from_get_key_response(response: &GetKeyResponse) -> Result<Self, String> {
+        let signing_key = match SigningKey::from_pkcs8_pem(&response.key) {
+            Ok(key) => key,
+            Err(e) => {
+                eprintln!("Failed to create signing key from Tappd key: {}", e);
+                return Ok(KeyMaterial::new_random());
+            }
+        };
+        Ok(Self {
+            signing_key,
+            source: KeySource::Tappd,
+            certificate_chain: Some(response.certificate_chain.clone()),
+        })
     }
 
     pub fn public_key_bytes(&self) -> Vec<u8> {
-        self.signing_key.verifying_key()
+        self.signing_key
+            .verifying_key()
             .to_encoded_point(false)
             .as_bytes()
             .to_vec()
@@ -51,29 +85,86 @@ impl KeyMaterial {
         format!("0x{}", hex::encode(hash))
     }
 
-
     pub fn sign_message(&self, message: &[u8]) -> Signature {
         self.signing_key.sign(message)
     }
 }
+
 static KEY_MATERIAL: OnceCell<KeyMaterial> = OnceCell::new();
 
-pub async fn init_key_material_from_tappd_socket() -> Result<(), Box<dyn Error>> {   
+/// Calls /prpc/Tappd.DeriveKey?json over Unix socket and returns the key ID
+pub async fn derive_key_from_tappd() -> Result<GetKeyResponse, KeyManagerError> {
+    // 1. Prepare client and endpoint URI
+    let client = Client::unix();
+    let uri: hyperlocal::Uri = Uri::new("/var/run/tappd.sock", "/prpc/Tappd.DeriveKey?json").into();
+
+    // 2. Empty JSON body
+    let req = Request::post(uri)
+        .header("Content-Type", "application/json")
+        .body(Body::from(json!({}).to_string()))
+        .map_err(|e| KeyManagerError {
+            message: format!("Failed to build request: {}", e),
+        })?;
+
+    // 3. Send request
+    let res = client.request(req).await.map_err(|e| KeyManagerError {
+        message: format!("Failed to send request: {}", e),
+    })?;
+
+
+    // 4. Read body
+    let body_bytes = hyper::body::to_bytes(res.into_body())
+        .await
+        .map_err(|e| KeyManagerError {
+            message: format!("Failed to read response body: {}", e),
+        })?;
+
+    // 5. Parse JSON
+    let parsed: GetKeyResponse =
+        serde_json::from_slice(&body_bytes).map_err(|e| KeyManagerError {
+            message: format!("Failed to parse GetKeyResponse: {}", e),
+        })?;
+    Ok(parsed)
+}
+
+pub async fn init_key_material_from_tappd_socket() -> Result<(), KeyManagerError> {
+    let key_material = match derive_key_from_tappd().await {
+        Ok(key_response) => {
+            // Use the key from Tappd
+            println!("Successfully derived key from Tappd");
+            match KeyMaterial::from_get_key_response(&key_response) {
+                Ok(km) => {
+                    println!("Successfully created signing key from Tappd key");
+                    km
+                }
+                Err(e) => {
+                    println!("Error creating signing key from Tappd key: {}", e);
+                    println!("Falling back to random key generation");
+                    KeyMaterial::new_random()
+                }
+            }
+        }
+        Err(e) => {
+            // Fall back to random key generation
+            println!("Error deriving key from Tappd: {:?}", e);
+            println!("Falling back to random key generation");
+            KeyMaterial::new_random()
+        }
+    };
+
+    // Log the key source
+    println!("Key source: {:?}", key_material.source);
+
     // Set KEY_MATERIAL
     KEY_MATERIAL
-        .set(KeyMaterial::new())
-        .map_err(|_| "Key material already initialized")?;
+        .set(key_material)
+        .map_err(|_| KeyManagerError {
+            message: "Key material already initialized".to_string(),
+        })?;
 
     Ok(())
 }
 
-/// Get a reference to the initialized key material
-///
-/// # Panics
-/// Panics if `init_key_material()` was never called.
-pub fn get_key_material() -> &'static KeyMaterial {
-    KEY_MATERIAL.get().expect("Key material not initialized")
-}
 
 /// Safe optional getter (returns None if not initialized)
 pub fn try_get_key_material() -> Option<&'static KeyMaterial> {

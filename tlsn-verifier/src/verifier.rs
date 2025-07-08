@@ -125,6 +125,12 @@ pub fn verify_proof(json: &str) -> Result<VerificationResult, VerificationError>
         message: format!("Regex compilation failed: {}", e),
     })?;
 
+    /// Extracts the credit score from the received HTML response using a regex pattern.
+    /// If the credit score is not found in the response, returns a `VerificationError`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `VerificationError` if the credit score value cannot be found in the response.
     let _credit_score = score_regex
         .captures(&recv)
         .and_then(|cap| cap.get(1))

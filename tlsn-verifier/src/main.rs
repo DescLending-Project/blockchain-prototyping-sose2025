@@ -18,7 +18,6 @@ async fn main() -> std::io::Result<()> {
             "Key material initialization failed",
         )
     })?;
-    let key_material = key_manager::try_get_key_material().expect("Key material not initialized");
     
     let host = config::get_host();
     let port = config::get_port();

@@ -1,6 +1,6 @@
 use crate::key_manager::{KeyMaterial, try_get_key_material};
 use crate::types::{AttestationError, SignedAttestation};
-use dstack_sdk::dstack_client::GetQuoteResponse;
+use crate::types::*;
 use hyper::{Body, Client, Request};
 use hyperlocal::{UnixClientExt, Uri};
 use serde_json::json;
@@ -79,5 +79,6 @@ pub async fn get_attestation_report_with_signature() -> Result<SignedAttestation
         quote: report_data,
         signature_hex_encoded: signature,
         verifying_key_hex_encoded: encoded_key,
+        verifying_key_certificate_chain: key_material.certificate_chain.clone(),
     })
 }
