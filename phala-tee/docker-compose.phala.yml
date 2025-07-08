@@ -1,0 +1,47 @@
+services:
+
+  dstack-service:
+    container_name: dstack-service
+    image: docker.io/rbbozkurt/dstack-service:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - DSTACK_SERVICE_PORT=8081
+      - NODE_ENV=production
+    volumes:
+      - /var/run/tappd.sock:/var/run/tappd.sock
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/dstack"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - tee-network
+  tlsn-verifier:
+    container_name: tlsn-verifier
+    image: docker.io/rbbozkurt/tlsn-verifier:latest
+    ports:
+      - "8080:8080"
+    platform: linux/amd64
+    depends_on:
+      dstack-service:
+        condition: service_healthy
+    networks:
+      - tee-network
+    restart: on-failure
+    environment:
+      - TLSN_VERIFIER_API_KEY
+      - GRANT_SUDO=yes
+      - TLSN_VERIFIER_HOST=0.0.0.0
+      - TLSN_VERIFIER_PORT=8080
+      - TLSN_VERIFIER_ACCEPTED_SERVER_NAMES=openbanking-api-826260723607.europe-west3.run.app
+      - TLSN_VERIFIER_ACCEPTED_VERSION=0.1.0-alpha.10
+      - DSTACK_SERVICE_PORT=8081
+      - DSTACK_SERVICE_HOST=dstack-service
+
+networks:
+  tee-network:
+    driver: bridge
+# Try with GRANT_SUDO=yes to avoid permission issues with /var/run/dstack.sock

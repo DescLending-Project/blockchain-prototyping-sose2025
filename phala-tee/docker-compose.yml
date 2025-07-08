@@ -1,0 +1,41 @@
+services:
+  dstack-service:
+    container_name: dstack-service
+    image: docker.io/rbbozkurt/dstack-service:latest
+    build:
+      context: ./dstack-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./dstack-service/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/dstack"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - tee-network
+
+  tlsn-verifier:
+    container_name: tlsn-verifier
+    image: docker.io/rbbozkurt/tlsn-verifier:latest
+    build:
+      context: ./tlsn-verifier
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./tlsn-verifier/.env
+    platform: linux/amd64
+    depends_on:
+      dstack-service:
+        condition: service_healthy
+    networks:
+      - tee-network
+    restart: on-failure
+
+networks:
+  tee-network:
+    driver: bridge
