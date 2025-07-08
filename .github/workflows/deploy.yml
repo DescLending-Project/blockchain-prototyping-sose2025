@@ -4,9 +4,9 @@ on:
   push:
     branches: [feat/tlsn-verification-ms-on-phala]
     paths:
-      - tlsn-verifier/Dockerfile
-      - tlsn-verifier/docker-compose.phala.yml
-      - tlsn-verifier/**
+      - phala-tee/tlsn-verifier/Dockerfile
+      - phala-tee/tlsn-verifier/docker-compose.phala.yml
+      - phala-tee/tlsn-verifier/**
   workflow_dispatch:
 
 jobs:
@@ -26,20 +26,37 @@ jobs:
           username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
           password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
 
-      - name: Build and push Docker image (linux/amd64)
+      - name: Build and push tlsn-verifier Docker image (linux/amd64)
         uses: docker/build-push-action@v5
         with:
-          context: ./tlsn-verifier
-          file: ./tlsn-verifier/Dockerfile
+          context: ./phala-tee/tlsn-verifier
+          file: ./phala-tee/tlsn-verifier/Dockerfile
           push: true
           platforms: linux/amd64
           tags: |
-            ${{ secrets.DOCKER_IMAGE_NAME }}:latest
-            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+            ${{ secrets.TLSN_VERIFIER_DOCKER_IMAGE_NAME }}:latest
+            ${{ secrets.TLSN_VERIFIER_DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
       - name: Update image reference in docker-compose.phala.yml
         run: |
-          sed -i "s|image: .*|image: ${{ secrets.DOCKER_IMAGE_NAME }}:latest|" tlsn-verifier/docker-compose.phala.yml
+          sed -i "s|image: .*|image: ${{ secrets.TLSN_VERIFIER_DOCKER_IMAGE_NAME }}:latest|" ./phala-tee/docker-compose.phala.yml
+
+      - name: Build and push dstack-service Docker image (linux/amd64)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./phala-tee/dstack-service
+          file: ./phala-tee/dstack-service/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DSTACK_SERVICE_DOCKER_IMAGE_NAME }}:latest
+            ${{ secrets.DSTACK_SERVICE_DOCKER_IMAGE_NAME }}:${{ github.sha }}
+
+      
+      - name: Update image reference in docker-compose.phala.yml
+        run: |
+          sed -i "s|image: .*|image: ${{ secrets.DSTACK_SERVICE_DOCKER_IMAGE_NAME }}:latest|" ./phala-tee/docker-compose.phala.yml
+
 
       - name: Deploy to Phala Cloud
         uses: Leechael/phala-deploy-action@v2
@@ -47,7 +64,7 @@ jobs:
           phala-api-key: ${{ secrets.PHALA_CLOUD_API_KEY }}
           app-id : dd9152201fc339d95df4e8dff26c6bb8081c0001
           cvm-name: ${{ secrets.APP_NAME }}
-          compose-file: './tlsn-verifier/docker-compose.phala.yml'
+          compose-file: './phala-tee/docker-compose.phala.yml'
           vcpu: '4'
           memory: '8192'
           disk-size: '40'
