@@ -2,23 +2,60 @@
 
 TLSNotary Verifier is a secure service running in a Trusted Execution Environment (TEE) that validates TLSNotary proofs and provides attestation reports to verify its own integrity.
 
-## Deployed on 
+## Deployed on
 
 Phala Cloud : [https://e6f67fdea04a3d240fe43f6089e27e7b51205ec6-8080.dstack-prod8.phala.network](https://e6f67fdea04a3d240fe43f6089e27e7b51205ec6-8080.dstack-prod8.phala.network)
 
 via : `../github/workflows/deploy.yml`
 
-To test the deployment ci/cd locally also see : `../.secrets.template` and create your own `../.secrets` and also run `act workflow_dispatch --secret-file .secrets --container-architecture linux/amd64` in parent directory `../`
+To test the deployment CI/CD locally also see: `../.secrets.template` and create your own `../.secrets` and then run :
+```bashscript
+act workflow_dispatch --secret-file .secrets --container-architecture linux/amd64
+```
+in the parent directory `../`.
 
-`Dockerfile` : Used to generate docker image to be deployed and run on Phala Cloud, defined in `docker-compose.phala.yml`.
+- `Dockerfile`: Used to generate Docker image to be deployed and run on Phala Cloud, defined in docker-compose.phala.yml.
 
-`docker-compose.phala.yml` :  Docker compose to compose up in Phala Cloud, gets the generated docker image from `Dockerfile`. Used in `../github/workflows/deploy.yml`. Mounts `/var/run/tappd.sock:/var/run/tappd.sock` volume to be able to read attestion report from hardware. Sets the env variables.
+- `docker-compose.phala.yml`: Docker Compose configuration for Phala Cloud. Pulls the image from `Dockerfile`, mounts `/var/run/tappd.sock`, and sets environment variables.
 
-`docker-compose.yml` : Used to compose up from local settings using `.env` to run image locally. 
+- `docker-compose.yml`: Used to compose up locally using `.env` for testing.
 
 
 ## Overview
-This service verifies the authenticity of TLSNotary proofs, which are cryptographic proofs that demonstrate a TLS connection happened with specific data exchanged. The verifier runs in a Trusted Execution Environment to ensure that the verification process itself can be trusted. The tlsn proof verification process takes roughly ±14 ms in TEE.
+This service verifies the authenticity of TLSNotary proofs, which are cryptographic proofs that demonstrate a TLS connection occurred with specific data exchanged. The verifier runs inside a TEE, ensuring that verification cannot be tampered with. TLSN proof verification takes approximately ±14 ms in the TEE.
+
+## Key Derivation and Generation Process
+The verifier running inside a Trusted Execution Environment (TEE) generates a fresh **EC key pair** using a deterministic derivation process:
+
+1. The verifier sends a `DeriveKey` request to the TEE's secure API:
+    ```http
+    POST /prpc/Tappd.DeriveKey?json
+    Content-Type: application/json
+
+    {
+        // empty
+    }
+    ```
+2. Internally, the TEE:
+    - Derives a key pair (`SigningKey` / `VerifyingKey`) from **root key**.
+    - Serializes the **private key** and **certificates** in **PEM** format and returns as follows.
+    ```json
+    {
+        "key": "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMG...kljULmdS\n-----END PRIVATE KEY-----\n",
+        "certificate_chain": 
+            [
+                "-----BEGIN CERTIFICATE-----\nMIIBQjCB6qADAgECAhRR...CaEDDTjk=\n-----END CERTIFICATE-----\n",
+                "-----BEGIN CERTIFICATE-----\nMIIBqjCCAU+gAwIBAgIU...szIg==\n-----END CERTIFICATE-----\n"
+            ]
+    }
+
+    ```
+3. On the client (host), the response is used to reconstruct the key:
+```rust
+let signing_key = SigningKey::from_pkcs8_pem(&response.key)?;
+let verifying_key = signing_key.verifying_key();
+```
+This process ensures the key is deterministically tied to the session identifier but generated within the enclave. It is used to sign the attestation quote.
 
 ## Features
 
@@ -42,14 +79,25 @@ This service verifies the authenticity of TLSNotary proofs, which are cryptograp
 
     **Example Response**
      ```json
-    "attestation": {
-            "Ok": {
-                "quote": "0400...000",
-                "signature_hex_encoded": "5d9...f2c",
-                "verifying_key_hex_encoded": "044...422"
-            }
-        }
+    {
+        "quote": "0400...000",
+        "signature_hex_encoded": "5d9...f2c",
+        "verifying_key_hex_encoded": "044...422",
+        "verifying_key_certificate_chain": 
+            ["-----BEGIN PUBLIC KEY-----\nMFYwEAYHKo...\n-----END PUBLIC KEY-----",
+            "-----BEGIN PUBLIC KEY-----\nPFYklOYHsV...\n-----END PUBLIC KEY-----"]
+    }
     ```
+
+    **Fields Explanation**
+
+    - `quote`: The attestation report from the TEE, which includes report_data tied to the verifier's key.
+
+    - `signature_hex_encoded`: Signature (ECDSA) of the quote, generated using the verifier's private key.
+
+    - `verifying_key_hex_encoded`: The public key used to verify the quote signature (uncompressed SEC1 format, hex).
+  
+    - `verifying_key_certificate_chain` : A certificate chain (PEM format) proving that the enclave key pair was generated and certified by a valid DCAP authority. Includes the verifier’s leaf certificate and root CA certificate.
 
  - **POST /verify-proof**
 
@@ -94,7 +142,10 @@ This service verifies the authenticity of TLSNotary proofs, which are cryptograp
             "Ok": {
                 "quote": "0400...000",
                 "signature_hex_encoded": "5d9...f2c",
-                "verifying_key_hex_encoded": "044...422"
+                "verifying_key_hex_encoded": "044...422",
+                "verifying_key_certificate_chain": 
+                    ["-----BEGIN PUBLIC KEY-----\nMFYwEAYHKo...\n-----END PUBLIC KEY-----",
+                    "-----BEGIN PUBLIC KEY-----\nPFYklOYHsV...\n-----END PUBLIC KEY-----"]
             }
         }
     }
@@ -165,6 +216,18 @@ let verifying_key_bytes = signing_key.verifying_key()
 
 let verifying_key_hex_encoded = hex::encode(verifying_key_bytes)
 ```
+
+### verifying_key_certificate_chain
+
+A PEM-encoded **X.509 certificate** chain that proves the authenticity and attestation status of the TEE:
+
+- The **leaf certificate** is bound to the public key (`VerifyingKey`) generated inside the enclave.
+
+- The certificate includes a DCAP-signed quote (via SGX PCK certificate extensions) verifying that the enclave is running trusted code and holds the corresponding private key.
+
+- The chain ends with the **root certificate** issued by Intel’s DCAP Certificate Authority (or equivalent).
+
+This chain allows external verifiers to **validate the public key origin and integrity** through DCAP. It ensures the key pair was securely generated inside a TEE and not tampered with.
 
 ## Verification
 
