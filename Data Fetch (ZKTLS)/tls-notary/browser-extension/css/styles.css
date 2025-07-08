@@ -121,6 +121,28 @@ button:hover {
 .status-verified { background-color: #188038; }
 .status-failed { background-color: #d93025; }
 
+.delete-proof-btn {
+  background-color: #d93025;
+  color: white;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 10px;
+  float: right;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.delete-proof-btn:hover {
+  background-color: #b7271e;
+}
+
 .modal {
   display: none;
   position: fixed;
