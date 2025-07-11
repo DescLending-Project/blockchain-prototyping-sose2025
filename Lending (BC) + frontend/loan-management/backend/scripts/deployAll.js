@@ -294,6 +294,36 @@ async function main() {
         110 // 110% liquidation threshold
     );
 
+    // Deploy InterestRateModel
+    console.log("\nDeploying InterestRateModel...");
+    const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+    // Example parameters, adjust as needed
+    const irmParams = [
+        ethers.parseUnits("0.02", 18), // baseRate
+        ethers.parseUnits("0.8", 18),  // kink
+        ethers.parseUnits("0.20", 18), // slope1
+        ethers.parseUnits("1.00", 18), // slope2
+        ethers.parseUnits("0.10", 18), // reserveFactor
+        ethers.parseUnits("2.00", 18), // maxBorrowRate
+        ethers.parseUnits("0.05", 18), // maxRateChange
+        ethers.parseUnits("0.02", 18), // ethPriceRiskPremium
+        ethers.parseUnits("0.05", 18), // ethVolatilityThreshold
+        3600 // oracleStalenessWindow
+    ];
+    // Use deployer.address and a mock oracle for now
+    const OracleMock = await ethers.getContractFactory("OracleMock");
+    const oracleMock = await OracleMock.deploy();
+    await oracleMock.waitForDeployment();
+    const oracleAddress = await oracleMock.getAddress();
+    const irm = await InterestRateModel.deploy(
+        deployer.address,
+        oracleAddress,
+        irmParams
+    );
+    await irm.waitForDeployment();
+    const irmAddress = await irm.getAddress();
+    console.log("InterestRateModel deployed to:", irmAddress);
+
     // --- Deployment summary ---
     console.log("\nDeployment Summary:");
     console.log("-------------------");
@@ -306,6 +336,7 @@ async function main() {
     console.log("StablecoinManager:", stablecoinManagerAddress);
     console.log("LiquidityPoolV3:", liquidityPoolV3Address);
     console.log("LendingManager:", lendingManagerAddress);
+    console.log("InterestRateModel:", irmAddress);
 
     // Update App.jsx with new addresses
     console.log("\nUpdating App.jsx addresses...");
@@ -313,6 +344,7 @@ async function main() {
         const updateResult = await updateAppAddresses({
             liquidityPoolV3Address,
             lendingManagerAddress,
+            interestRateModelAddress: irmAddress,
             tokens: {
                 GLINT: glintTokenAddress,
                 CORAL: coralTokenAddress,
@@ -324,6 +356,18 @@ async function main() {
     } catch (error) {
         console.error("Failed to update App.jsx:", error.message);
         // Don't exit, continue with mockup
+    }
+
+    // Copy ABI to frontend
+    const fs = require('fs');
+    const path = require('path');
+    const abiSrc = path.join(__dirname, '../artifacts/contracts/InterestRateModel.sol/InterestRateModel.json');
+    const abiDest = path.join(__dirname, '../../frontend/src/abis/InterestRateModel.json');
+    try {
+        fs.copyFileSync(abiSrc, abiDest);
+        console.log('InterestRateModel ABI copied to frontend.');
+    } catch (e) {
+        console.error('Failed to copy InterestRateModel ABI:', e.message);
     }
 
     console.log("\nAll contracts and feeds deployed and configured successfully!");

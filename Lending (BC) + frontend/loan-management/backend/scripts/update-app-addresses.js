@@ -83,6 +83,21 @@ function updateAppAddresses(deploymentData) {
             /(const LENDING_MANAGER_ADDRESS = ')[^']+(')/,
             `$1${deploymentData.lendingManagerAddress}$2`
         );
+        // Add or update InterestRateModel address
+        if (deploymentData.interestRateModelAddress) {
+            if (content.match(/const INTEREST_RATE_MODEL_ADDRESS = '[^']+'/)) {
+                content = content.replace(
+                    /(const INTEREST_RATE_MODEL_ADDRESS = ')[^']+(')/,
+                    `$1${deploymentData.interestRateModelAddress}$2`
+                );
+            } else {
+                // Insert after POOL_ADDRESS or at the top
+                content = content.replace(
+                    /(const POOL_ADDRESS = '[^']+';\n)/,
+                    `$1const INTEREST_RATE_MODEL_ADDRESS = '${deploymentData.interestRateModelAddress}';\n`
+                );
+            }
+        }
 
         // Update CONTRACT_ADDRESSES for both networks
         ['sepolia', 'sonic'].forEach(network => {

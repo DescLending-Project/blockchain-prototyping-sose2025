@@ -15,12 +15,13 @@
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "@openzeppelin/contracts-upgradeable": "^5.0.1",
     "@openzeppelin/hardhat-upgrades": "^3.9.0",
-    "hardhat": "^2.19.5"
+    "ethers": "^6.11.1",
+    "hardhat": "^2.19.5",
+    "hardhat-coverage": "^0.9.19"
   },
   "dependencies": {
     "@chainlink/contracts": "^0.8.0",
     "@openzeppelin/contracts": "^5.0.1",
-    "dotenv": "^16.5.0",
-    "ethers": "^6.11.1"
+    "dotenv": "^16.5.0"
   }
 }

@@ -47,6 +47,18 @@ contracts.forEach(contractName => {
     }
 });
 
+// Add after copying other ABIs
+const irmSrc = path.join(__dirname, '../artifacts/contracts/InterestRateModel.sol/InterestRateModel.json');
+const irmDest = path.join(__dirname, '../../frontend/src/InterestRateModel.json');
+try {
+    fs.copyFileSync(irmSrc, irmDest);
+    console.log('Copied InterestRateModel.json');
+    copiedCount++;
+} catch (e) {
+    console.error('Failed to copy InterestRateModel.json:', e.message);
+    errorCount++;
+}
+
 console.log(`Summary: Successfully copied ${copiedCount} files`);
 if (errorCount > 0) {
     console.log(`Errors: ${errorCount} files`);
