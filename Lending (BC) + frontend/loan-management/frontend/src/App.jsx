@@ -16,8 +16,8 @@ import { CollateralPanel } from './components/liquidity-pool-v3/user/CollateralP
 import { DEFAULT_NETWORK } from './config/networks'
 
 // Contract addresses
-const POOL_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
-const LENDING_MANAGER_ADDRESS = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
+const POOL_ADDRESS = '0x8817A667FfF3D1F9184A85AA761f07FDce42275A';
+const LENDING_MANAGER_ADDRESS = '0x8e29486ca582b56881Ce9c77f1fE36880D27B3D9';
 
 // Network-specific token addresses
 const NETWORK_TOKENS = {
@@ -53,7 +53,7 @@ const CONTRACT_ADDRESSES = {
 // Collateral tokens array - will be updated based on network
 const COLLATERAL_TOKENS = [
   {
-    address: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707', // GLINT
+    address: '0x5AB05FdE3A6B69F1C86A1f0FE489d9099c6e385c', // GLINT
     symbol: 'GLINT',
     name: 'Glint Token',
     isStablecoin: false
@@ -65,14 +65,14 @@ const COLLATERAL_TOKENS = [
     isStablecoin: false
   },
   {
-    address: '0x0000000000000000000000000000000000000000', // USDC - unique mock address for localhost
+    address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', // USDC - unique mock address for localhost
     symbol: 'USDC',
     name: 'USD Coin',
     isStablecoin: true,
     decimals: 6
   },
   {
-    address: '0x0000000000000000000000000000000000000000', // USDT - unique mock address for localhost
+    address: '0x7169d38820dfd117c3fa1f22a697dba58d90ba06', // USDT - unique mock address for localhost
     symbol: 'USDT',
     name: 'Tether USD',
     isStablecoin: true,
