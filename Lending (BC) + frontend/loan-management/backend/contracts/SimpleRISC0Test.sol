@@ -112,7 +112,7 @@ contract SimpleRISC0Test {
     /// @param journalData The journal data from the proof
 
 
-    /*function testNestingProof(
+    function testNestingProof(
         bytes calldata seal,
         bytes calldata journalData
     ) external {
@@ -136,31 +136,7 @@ contract SimpleRISC0Test {
             emit ProofVerificationFailed(msg.sender, "Unknown error");
             revert("Nesting verification failed: Unknown error");
         }
-    }*/
-
-    function testNestingProof(bytes calldata seal, bytes calldata journalData) external {
-    // For nesting proof, try real verification first, then fall back to mock
-    if (!demoMode) {
-        // Try real verification
-        try verifier.verify(seal, NESTING_PROOF_IMAGE_ID, sha256(journalData)) {
-            hasVerifiedNesting[msg.sender] = true;
-            emit NestingProofVerified(msg.sender, block.timestamp);
-            return;
-        } catch Error(string memory reason) {
-            emit ProofVerificationFailed(msg.sender, string(abi.encodePacked("Real verification failed: ", reason)));
-        } catch {
-            emit ProofVerificationFailed(msg.sender, "Real verification failed: Unknown error");
-        }
     }
-    
-    // Fall back to mock verification
-    if (_isMockProof(seal, "MOCK_NESTING_SEAL_")) {
-        hasVerifiedNesting[msg.sender] = true;
-        emit NestingProofVerified(msg.sender, block.timestamp);
-    } else {
-        revert("Neither real nor mock verification succeeded");
-    }
-}
     
     /// @notice Check if a seal is a mock proof
     function _isMockProof(bytes calldata seal, string memory prefix) internal pure returns (bool) {
