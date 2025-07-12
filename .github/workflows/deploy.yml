@@ -34,18 +34,18 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ${{ secrets.DOCKER_IMAGE_NAME }}:latest
-            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+            ${{ secrets.TLSN_VERIFIER_DOCKER_IMAGE_NAME }}:latest
+            ${{ secrets.TLSN_VERIFIER_DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
       - name: Update image reference in docker-compose.phala.yml
         run: |
-          sed -i "s|image: .*|image: ${{ secrets.DOCKER_IMAGE_NAME }}:latest|" tlsn-verifier/docker-compose.phala.yml
+          sed -i "s|image: .*|image: ${{ secrets.TLSN_VERIFIER_DOCKER_IMAGE_NAME }}:latest|" tlsn-verifier/docker-compose.phala.yml
 
       - name: Deploy to Phala Cloud
         uses: Leechael/phala-deploy-action@v2
         with:
           phala-api-key: ${{ secrets.PHALA_CLOUD_API_KEY }}
-          app-id : dd9152201fc339d95df4e8dff26c6bb8081c0001
+          app-id : cca9b4af5419d0e175884f7350dabe0e0c7cf231
           cvm-name: ${{ secrets.APP_NAME }}
           compose-file: './tlsn-verifier/docker-compose.phala.yml'
           vcpu: '4'
