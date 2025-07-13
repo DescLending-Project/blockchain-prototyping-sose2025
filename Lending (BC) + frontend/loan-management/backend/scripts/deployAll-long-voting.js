@@ -20,11 +20,11 @@ async function main() {
     await timelock.deployed();
     console.log("TimelockController deployed at:", timelock.address);
 
-    // 3. Deploy ProtocolGovernor
-    const ProtocolGovernor = await ethers.getContractFactory("ProtocolGovernor");
-    const governor = await ProtocolGovernor.deploy(govToken.address, timelock.address);
+    // 3. Deploy ProtocolGovernorLongVoting (long voting period)
+    const ProtocolGovernorLongVoting = await ethers.getContractFactory("mocks/ProtocolGovernorLongVoting");
+    const governor = await ProtocolGovernorLongVoting.deploy(govToken.address, timelock.address);
     await governor.deployed();
-    console.log("ProtocolGovernor deployed at:", governor.address);
+    console.log("ProtocolGovernorLongVoting deployed at:", governor.address);
 
     // 4. Grant roles on Timelock
     const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
@@ -94,7 +94,7 @@ async function main() {
     console.log("\nDeployment complete:");
     console.log("GovToken:", govToken.address);
     console.log("TimelockController:", timelock.address);
-    console.log("ProtocolGovernor:", governor.address);
+    console.log("ProtocolGovernorLongVoting:", governor.address);
     console.log("StablecoinManager:", stablecoinManagerAddress);
     console.log("InterestRateModel:", interestRateModelAddress);
     console.log("LiquidityPool:", liquidityPoolAddress);
@@ -104,7 +104,7 @@ async function main() {
     updateAppAddresses({
         GovToken: govToken.address,
         TimelockController: timelock.address,
-        ProtocolGovernor: governor.address,
+        ProtocolGovernorLongVoting: governor.address,
         StablecoinManager: stablecoinManagerAddress,
         InterestRateModel: interestRateModelAddress,
         LiquidityPool: liquidityPoolAddress,
@@ -115,4 +115,4 @@ async function main() {
 main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
-});
+}); 

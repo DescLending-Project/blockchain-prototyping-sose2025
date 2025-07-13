@@ -10,6 +10,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
 import { Contract, Provider } from "ethers"
+import { GovernancePanel } from "./governance/GovernancePanel";
 
 interface DashboardProps {
     contract: Contract;
@@ -45,7 +46,7 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
             )}
 
             <Tabs defaultValue="user" className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
+                <TabsList className="grid w-full grid-cols-6">
                     <TabsTrigger value="user">User Dashboard</TabsTrigger>
                     <TabsTrigger value="lend">Lend</TabsTrigger>
                     <TabsTrigger value="borrow">Borrow</TabsTrigger>
@@ -53,6 +54,7 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                     {isLiquidator && (
                         <TabsTrigger value="liquidator">Liquidator Panel</TabsTrigger>
                     )}
+                    <TabsTrigger value="governance">Governance</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="user">
@@ -91,6 +93,12 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                         </Card>
                     </TabsContent>
                 )}
+
+                <TabsContent value="governance">
+                    <Card className="p-6 bg-muted/30 backdrop-blur-sm">
+                        <GovernancePanel account={account || ''} provider={provider} />
+                    </Card>
+                </TabsContent>
             </Tabs>
         </div>
     )

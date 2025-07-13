@@ -1,72 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 
-// Contract names to copy
-const contracts = [
-    'LendingManager',
-    'LiquidityPool',
-    'StablecoinManager'
-];
+const contracts = ['GovToken', 'ProtocolGovernor'];
+const srcDir = path.join(__dirname, '../../artifacts/backend/contracts');
+const destDir = path.join(__dirname, '../../frontend/src/abis');
 
-// Paths
-const backendArtifactsPath = path.join(__dirname, '../artifacts/contracts');
-const frontendArtifactsPath = path.join(__dirname, '../../frontend/src');
+if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
 
-console.log('Copying contract artifacts from backend to frontend...');
-
-// Ensure frontend artifacts directory exists
-if (!fs.existsSync(frontendArtifactsPath)) {
-    fs.mkdirSync(frontendArtifactsPath, { recursive: true });
-    console.log('Created frontend artifacts directory');
-}
-
-let copiedCount = 0;
-let errorCount = 0;
-
-contracts.forEach(contractName => {
-    const sourcePath = path.join(backendArtifactsPath, `${contractName}.sol`, `${contractName}.json`);
-    const destPath = path.join(frontendArtifactsPath, `${contractName}.json`);
-
-    try {
-        if (fs.existsSync(sourcePath)) {
-            // Read the artifact
-            const artifact = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
-
-            // Write to frontend
-            fs.writeFileSync(destPath, JSON.stringify(artifact, null, 2));
-
-            console.log(`Copied ${contractName}.json`);
-            copiedCount++;
-        } else {
-            console.log(`Warning: ${sourcePath} not found`);
-            errorCount++;
-        }
-    } catch (error) {
-        console.error(`Error copying ${contractName}.json:`, error.message);
-        errorCount++;
+contracts.forEach(name => {
+    const artifact = path.join(srcDir, `${name}.sol/${name}.json`);
+    if (fs.existsSync(artifact)) {
+        fs.copyFileSync(artifact, path.join(destDir, `${name}.json`));
+        console.log(`Copied ${name} ABI`);
+    } else {
+        console.warn(`Artifact not found: ${artifact}`);
     }
-});
-
-// Add after copying other ABIs
-const irmSrc = path.join(__dirname, '../artifacts/contracts/InterestRateModel.sol/InterestRateModel.json');
-const irmDest = path.join(__dirname, '../../frontend/src/InterestRateModel.json');
-try {
-    fs.copyFileSync(irmSrc, irmDest);
-    console.log('Copied InterestRateModel.json');
-    copiedCount++;
-} catch (e) {
-    console.error('Failed to copy InterestRateModel.json:', e.message);
-    errorCount++;
-}
-
-console.log(`Summary: Successfully copied ${copiedCount} files`);
-if (errorCount > 0) {
-    console.log(`Errors: ${errorCount} files`);
-}
-
-if (errorCount === 0) {
-    console.log('All contract artifacts copied successfully!');
-} else {
-    console.log('Some artifacts could not be copied. Please check the errors above.');
-    process.exit(1);
-} 
+}); 

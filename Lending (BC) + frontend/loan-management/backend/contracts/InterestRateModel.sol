@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/AggregatorV3Interface.sol";
 
-contract InterestRateModel is Ownable {
+contract InterestRateModel {
+    // --- DAO reference and permissions ---
+    // bytes32 public constant SET_PARAMETERS_PERMISSION =
+    //     keccak256("SET_PARAMETERS_PERMISSION");
+    // bytes32 public constant SET_RISK_ADJUSTMENT_PERMISSION =
+    //     keccak256("SET_RISK_ADJUSTMENT_PERMISSION");
+    // bytes32 public constant SET_ORACLE_PERMISSION =
+    //     keccak256("SET_ORACLE_PERMISSION");
+
     // --- Parameters (18 decimals) ---
     uint256 public baseRate;
     uint256 public kink;
@@ -46,30 +53,41 @@ contract InterestRateModel is Ownable {
         uint256 oracleStalenessWindow;
     }
 
+    address public timelock;
+
     constructor(
-        address _owner,
         address _ethUsdOracle,
-        RateParams memory params
-    ) Ownable(_owner) {
+        address _timelock,
+        uint256 _baseRate,
+        uint256 _kink,
+        uint256 _slope1,
+        uint256 _slope2,
+        uint256 _reserveFactor,
+        uint256 _maxBorrowRate,
+        uint256 _maxRateChange,
+        uint256 _ethPriceRiskPremium,
+        uint256 _ethVolatilityThreshold,
+        uint256 _oracleStalenessWindow
+    ) {
+        timelock = _timelock;
         ethUsdOracle = _ethUsdOracle;
-        baseRate = params.baseRate;
-        kink = params.kink;
-        slope1 = params.slope1;
-        slope2 = params.slope2;
-        reserveFactor = params.reserveFactor;
-        maxBorrowRate = params.maxBorrowRate;
-        maxRateChange = params.maxRateChange;
-        ethPriceRiskPremium = params.ethPriceRiskPremium;
-        ethVolatilityThreshold = params.ethVolatilityThreshold;
-        oracleStalenessWindow = params.oracleStalenessWindow;
+        baseRate = _baseRate;
+        kink = _kink;
+        slope1 = _slope1;
+        slope2 = _slope2;
+        reserveFactor = _reserveFactor;
+        maxBorrowRate = _maxBorrowRate;
+        maxRateChange = _maxRateChange;
+        ethPriceRiskPremium = _ethPriceRiskPremium;
+        ethVolatilityThreshold = _ethVolatilityThreshold;
+        oracleStalenessWindow = _oracleStalenessWindow;
         protocolRiskAdjustment = 0;
-        lastBorrowRate = params.baseRate;
+        lastBorrowRate = _baseRate;
         lastUpdateTimestamp = block.timestamp;
     }
 
-    // Add a new modifier for legacy revert string
-    modifier onlyOwnerString() {
-        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+    modifier onlyTimelock() {
+        if (msg.sender != timelock) revert OnlyTimelockInterestRateModel();
         _;
     }
 
@@ -85,7 +103,7 @@ contract InterestRateModel is Ownable {
         uint256 _ethPriceRiskPremium,
         uint256 _ethVolatilityThreshold,
         uint256 _oracleStalenessWindow
-    ) external onlyOwnerString {
+    ) external onlyTimelock {
         baseRate = _baseRate;
         kink = _kink;
         slope1 = _slope1;
@@ -101,12 +119,12 @@ contract InterestRateModel is Ownable {
 
     function setProtocolRiskAdjustment(
         int256 adjustment
-    ) external onlyOwnerString {
+    ) external onlyTimelock {
         protocolRiskAdjustment = adjustment;
         emit ParametersUpdated();
     }
 
-    function setOracle(address newOracle) external onlyOwnerString {
+    function setOracle(address newOracle) external onlyTimelock {
         ethUsdOracle = newOracle;
         emit OracleUpdated(newOracle);
     }
@@ -166,11 +184,11 @@ contract InterestRateModel is Ownable {
         view
         returns (uint256 price, uint256 updatedAt)
     {
-        if (ethUsdOracle == address(0)) revert("Oracle not set");
+        if (ethUsdOracle == address(0)) revert OracleNotSet();
         AggregatorV3Interface oracle = AggregatorV3Interface(ethUsdOracle);
         (, int256 answer, , uint256 updatedAt_, ) = oracle.latestRoundData();
         if (block.timestamp - updatedAt_ > oracleStalenessWindow)
-            revert("Stale oracle");
+            revert StaleOracle();
         return (uint256(answer), updatedAt_);
     }
 
@@ -195,4 +213,62 @@ contract InterestRateModel is Ownable {
         uint256 supplyRate = getSupplyRate(utilization, borrowRate);
         return (borrowRate, supplyRate);
     }
+
+    // --- Risk/Multiplier Logic (moved from LiquidityPool) ---
+    function getWeightedRiskScore(
+        uint256[4] memory borrowedByTier
+    ) public pure returns (uint256) {
+        uint256 weightedSum = borrowedByTier[0] *
+            1 +
+            borrowedByTier[1] *
+            2 +
+            borrowedByTier[2] *
+            3 +
+            borrowedByTier[3] *
+            4;
+        uint256 validBorrowed = borrowedByTier[0] +
+            borrowedByTier[1] +
+            borrowedByTier[2] +
+            borrowedByTier[3];
+        if (validBorrowed == 0) return 0;
+        return weightedSum / validBorrowed;
+    }
+
+    function getRiskMultiplier(
+        uint256 weightedScore
+    ) public pure returns (uint256) {
+        if (weightedScore == 0) return 1e18;
+        if (weightedScore <= 1) return 9e17;
+        if (weightedScore <= 2) return 1e18;
+        if (weightedScore <= 3) return 11e17;
+        return 12e17;
+    }
+
+    function getRepaymentRatio(
+        uint256 totalBorrowed,
+        uint256 totalRepaid
+    ) public pure returns (uint256) {
+        if (totalBorrowed == 0) return 1e18;
+        return (totalRepaid * 1e18) / totalBorrowed;
+    }
+
+    function getRepaymentRiskMultiplier(
+        uint256 repaymentRatio
+    ) public pure returns (uint256) {
+        if (repaymentRatio >= 95e16) return 1e18;
+        if (repaymentRatio >= 90e16) return 105e16;
+        if (repaymentRatio >= 80e16) return 110e16;
+        return 120e16;
+    }
+
+    function getGlobalRiskMultiplier(
+        uint256 riskMult,
+        uint256 repayMult
+    ) public pure returns (uint256) {
+        return (riskMult * repayMult) / 1e18;
+    }
 }
+
+error OnlyTimelockInterestRateModel();
+error StaleOracle();
+error OracleNotSet();

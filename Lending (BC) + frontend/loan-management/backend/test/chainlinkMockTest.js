@@ -1,3 +1,4 @@
+require('@nomicfoundation/hardhat-chai-matchers');
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { upgrades } = require("hardhat");
@@ -12,81 +13,85 @@ describe("LiquidityPool - Chainlink Automation Simulation with Glint Token", fun
     // Deploy StablecoinManager first
     const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
     stablecoinManager = await StablecoinManager.deploy(deployer.address);
-    await stablecoinManager.waitForDeployment();
-    const stablecoinManagerAddress = await stablecoinManager.getAddress();
+    await stablecoinManager.deployed();
+    const stablecoinManagerAddress = await stablecoinManager.address;
 
     // Deploy InterestRateModel with correct constructor arguments
     const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
-    interestRateModel = await InterestRateModel.deploy(deployer.address, ethers.ZeroAddress, {
-      baseRate: 0,
-      kink: ethers.parseUnits("0.8", 18),
-      slope1: 0,
-      slope2: 0,
-      reserveFactor: 0,
-      maxBorrowRate: 0,
-      maxRateChange: 0,
-      ethPriceRiskPremium: 0,
-      ethVolatilityThreshold: 0,
-      oracleStalenessWindow: 0
-    });
-    await interestRateModel.waitForDeployment();
-    const interestRateModelAddress = await interestRateModel.getAddress();
+    interestRateModel = await InterestRateModel.deploy(
+      deployer.address,
+      ethers.constants.AddressZero,
+      "50000000000000000", // 5% baseRate (0.05 * 1e18)
+      "800000000000000000", // 80% kink (0.8 * 1e18)
+      "100000000000000000", // 10% slope1 (0.1 * 1e18)
+      "300000000000000000", // 30% slope2 (0.3 * 1e18)
+      "100000000000000000", // 10% reserveFactor (0.1 * 1e18)
+      "1000000000000000000", // 100% maxBorrowRate (1.0 * 1e18)
+      "50000000000000000", // 5% maxRateChange (0.05 * 1e18)
+      "30000000000000000", // 3% ethPriceRiskPremium (0.03 * 1e18)
+      "200000000000000000", // 20% ethVolatilityThreshold (0.2 * 1e18)
+      86400 // 24h oracleStalenessWindow (in seconds)
+    );
+    await interestRateModel.deployed();
+    const interestRateModelAddress = interestRateModel.address;
 
     // Deploy LiquidityPool with correct arguments
     const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     liquidityPool = await upgrades.deployProxy(LiquidityPool, [
       deployer.address,
       stablecoinManagerAddress,
-      ethers.ZeroAddress,
+      ethers.constants.AddressZero, // Use correct zero address
       interestRateModelAddress
     ], {
       initializer: "initialize",
     });
-    await liquidityPool.waitForDeployment();
-    const poolAddress = await liquidityPool.getAddress();
+    await liquidityPool.deployed();
+    const poolAddress = liquidityPool.address;
+    if (!poolAddress) throw new Error("LiquidityPool address is undefined before deploying LendingManager");
 
-    // Now deploy LendingManager with correct pool address
+    // Now deploy LendingManager with correct argument order: (poolAddress, deployer.address)
     const LendingManager = await ethers.getContractFactory("LendingManager");
-    lendingManager = await LendingManager.deploy(deployer.address, poolAddress);
-    await lendingManager.waitForDeployment();
-    const lendingManagerAddress = await lendingManager.getAddress();
+    lendingManager = await LendingManager.deploy(poolAddress, deployer.address);
+    await lendingManager.deployed();
+    const lendingManagerAddress = lendingManager.address;
+    if (!lendingManagerAddress) throw new Error("LendingManager address is undefined after deployment");
 
     // Update LiquidityPool with the correct LendingManager address
     await liquidityPool.setLendingManager(lendingManagerAddress);
 
     // Fund the liquidity pool directly
     await deployer.sendTransaction({
-      to: await liquidityPool.getAddress(),
-      value: ethers.parseEther("10")
+      to: await liquidityPool.address,
+      value: ethers.utils.parseEther("10")
     });
 
     // Deploy GlintToken
     const GlintToken = await ethers.getContractFactory("GlintToken");
-    const initialSupply = ethers.parseEther("100");
+    const initialSupply = ethers.utils.parseEther("100");
     glintToken = await GlintToken.deploy(initialSupply);
-    await glintToken.waitForDeployment();
+    await glintToken.deployed();
 
     // Deploy Mock Price Feed
     const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
     mockFeedGlint = await MockPriceFeed.deploy(1e8, 8); // $1 initial price
-    await mockFeedGlint.waitForDeployment();
+    await mockFeedGlint.deployed();
 
     // Set up collateral token
-    await liquidityPool.setAllowedCollateral(glintToken.target, true);
-    await liquidityPool.setPriceFeed(glintToken.target, mockFeedGlint.target);
+    await liquidityPool.setAllowedCollateral(glintToken.address, true);
+    await liquidityPool.setPriceFeed(glintToken.address, mockFeedGlint.address);
 
     // Fund pool with enough ETH for lending
     await deployer.sendTransaction({
-      to: await liquidityPool.getAddress(),
-      value: ethers.parseEther("10") // Send 10 ETH to ensure enough funds
+      to: await liquidityPool.address,
+      value: ethers.utils.parseEther("10") // Send 10 ETH to ensure enough funds
     });
 
     // Deposit as lender to set up totalLent
-    await lendingManager.connect(deployer).depositFunds({ value: ethers.parseEther("10") });
+    await lendingManager.connect(deployer).depositFunds({ value: ethers.utils.parseEther("10") });
 
     // Transfer and approve Glint tokens to user1
-    await glintToken.transfer(user1.address, ethers.parseEther("10"));
-    await glintToken.connect(user1).approve(liquidityPool.target, ethers.parseEther("10"));
+    await glintToken.transfer(user1.address, ethers.utils.parseEther("10"));
+    await glintToken.connect(user1).approve(liquidityPool.address, ethers.utils.parseEther("10"));
 
     // Set credit score
     await liquidityPool.setCreditScore(user1.address, 80);
@@ -94,10 +99,10 @@ describe("LiquidityPool - Chainlink Automation Simulation with Glint Token", fun
 
   it("should trigger upkeep and execute liquidation", async function () {
     // Deposit collateral
-    await liquidityPool.connect(user1).depositCollateral(glintToken.target, ethers.parseEther("5"));
+    await liquidityPool.connect(user1).depositCollateral(glintToken.address, ethers.utils.parseEther("5"));
 
     // Borrow funds (less than half of totalLent)
-    await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
+    await liquidityPool.connect(user1).borrow(ethers.utils.parseEther("1"));
 
     // Drop price to trigger liquidation
     await mockFeedGlint.setPrice(2e7); // $0.20
@@ -114,13 +119,16 @@ describe("LiquidityPool - Chainlink Automation Simulation with Glint Token", fun
     expect(upkeepNeeded).to.be.true;
 
     // Perform upkeep
-    await expect(liquidityPool.performUpkeep(performData))
-      .to.emit(liquidityPool, "LiquidationExecuted");
+    // Use manual event check to avoid provider error with .to.emit
+    const tx = await liquidityPool.performUpkeep(performData);
+    const receipt = await tx.wait();
+    const found = receipt.events && receipt.events.some(e => e.event === "LiquidationExecuted");
+    expect(found).to.be.true;
 
     // Verify liquidation was executed
     expect(await liquidityPool.isLiquidatable(user1.address)).to.be.false;
     expect(await liquidityPool.userDebt(user1.address)).to.equal(0);
-    expect(await liquidityPool.getCollateral(user1.address, glintToken.target)).to.equal(0);
+    expect(await liquidityPool.getCollateral(user1.address, glintToken.address)).to.equal(0);
   });
 });
 

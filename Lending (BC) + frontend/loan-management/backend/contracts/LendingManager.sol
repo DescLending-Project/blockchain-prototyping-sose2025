@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "./LiquidityPool.sol";
 import "./InterestRateModel.sol";
+import "./interfaces/IGovToken.sol";
 
 // Minimal interfaces for external calls
 interface ILiquidityPool {
@@ -14,6 +14,53 @@ interface ILiquidityPool {
     function interestRateModel() external view returns (address);
 
     function getGlobalRiskMultiplier() external view returns (uint256);
+
+    function checkCollateralization(
+        address user
+    ) external view returns (bool, uint256);
+
+    function userDebt(address user) external view returns (uint256);
+
+    function isLiquidatable(address user) external view returns (bool);
+
+    function liquidationStartTime(address user) external view returns (uint256);
+
+    function GRACE_PERIOD() external view returns (uint256);
+
+    function LIQUIDATION_PENALTY() external view returns (uint256);
+
+    function getAllowedCollateralTokens()
+        external
+        view
+        returns (address[] memory);
+
+    function isOracleHealthy(address token) external view returns (bool);
+
+    function collateralBalance(
+        address token,
+        address user
+    ) external view returns (uint256);
+
+    function clearCollateral(
+        address token,
+        address user,
+        address to,
+        uint256 amount
+    ) external;
+
+    function clearDebt(address user, uint256 amount) external;
+
+    function minPartialLiquidationAmount() external view returns (uint256);
+
+    function isAllowedCollateral(address token) external view returns (bool);
+
+    function getTokenValue(address token) external view returns (uint256);
+
+    function getLTV(address token) external view returns (uint256);
+
+    function SAFETY_BUFFER() external view returns (uint256);
+
+    function totalFunds() external view returns (uint256); // <-- Added
 }
 
 interface IInterestRateModel {
@@ -30,7 +77,18 @@ interface IInterestRateModel {
     ) external view returns (uint256);
 }
 
-contract LendingManager is Ownable {
+contract LendingManager {
+    bytes32 public constant SET_INTEREST_TIER_PERMISSION =
+        keccak256("SET_INTEREST_TIER_PERMISSION");
+    bytes32 public constant SET_FEE_PARAMETERS_PERMISSION =
+        keccak256("SET_FEE_PARAMETERS_PERMISSION");
+    bytes32 public constant SET_EARLY_WITHDRAWAL_PENALTY_PERMISSION =
+        keccak256("SET_EARLY_WITHDRAWAL_PENALTY_PERMISSION");
+    bytes32 public constant SET_DAILY_RATE_PERMISSION =
+        keccak256("SET_DAILY_RATE_PERMISSION");
+    bytes32 public constant SET_RESERVE_ADDRESS_PERMISSION =
+        keccak256("SET_RESERVE_ADDRESS_PERMISSION");
+
     struct LenderInfo {
         uint256 balance; // Principal balance
         uint256 depositTimestamp;
@@ -54,6 +112,7 @@ contract LendingManager is Ownable {
     uint256 public lastRateUpdateDay;
     mapping(uint256 => uint256) public dailyInterestRate;
     InterestTier[] public interestTiers;
+    IGovToken public govToken;
 
     uint256 public constant SECONDS_PER_DAY = 86400;
     uint256 public constant WITHDRAWAL_COOLDOWN = 1 days;
@@ -64,6 +123,7 @@ contract LendingManager is Ownable {
     // Reference to LiquidityPool
     address public liquidityPool;
     address public reserveAddress;
+    address public timelock;
 
     // Fee parameters (in basis points, e.g. 100 = 1%)
     uint256 public originationFee; // e.g. 100 = 1%
@@ -99,12 +159,22 @@ contract LendingManager is Ownable {
         uint256 unlockTime
     );
     event WithdrawalCancelled(address indexed lender, uint256 amount);
+    event LiquidationExecuted(
+        address indexed user,
+        address indexed liquidator,
+        uint256 amount
+    );
+    event PartialLiquidation(
+        address indexed user,
+        address indexed liquidator,
+        address indexed collateralToken,
+        uint256 collateralSeized,
+        uint256 debtRepaid
+    );
 
-    constructor(
-        address initialOwner,
-        address _liquidityPool
-    ) Ownable(initialOwner) {
+    constructor(address _liquidityPool, address _timelock) {
         liquidityPool = _liquidityPool;
+        timelock = _timelock;
         EARLY_WITHDRAWAL_PENALTY = 5; // 5% penalty
         currentDailyRate = 1000130400000000000; // 1.0001304e18 ~5% APY daily rate
         lastRateUpdateDay = block.timestamp / SECONDS_PER_DAY;
@@ -113,6 +183,11 @@ contract LendingManager is Ownable {
         interestTiers.push(InterestTier(10 ether, 1.0001500e18)); // 10+ ETH: 5.5% APY
         interestTiers.push(InterestTier(5 ether, 1.0001400e18)); // 5+ ETH: 5.2% APY
         interestTiers.push(InterestTier(1 ether, 1.0001304e18)); // 1+ ETH: 5% APY
+    }
+
+    modifier onlyTimelock() {
+        if (msg.sender != timelock) revert OnlyTimelockLendingManager();
+        _;
     }
 
     function depositFunds() external payable {
@@ -137,6 +212,11 @@ contract LendingManager is Ownable {
 
         (bool success, ) = liquidityPool.call{value: msg.value}("");
         require(success, "Deposit failed");
+
+        uint256 reward = msg.value / 1e16; // 1 GOV per 0.01 ETH
+        if (address(govToken) != address(0) && reward > 0) {
+            govToken.mint(msg.sender, reward);
+        }
 
         emit FundsDeposited(msg.sender, msg.value);
     }
@@ -456,20 +536,128 @@ contract LendingManager is Ownable {
         return dynamicRate;
     }
 
-    // --- Base APR for Lender (stub, replace with real logic) ---
-    function baseLenderAPR(address lender) public pure returns (uint256) {
-        // TODO: Replace with actual calculation
-        // For now, return 6% APR (0.06e18)
-        return 6e16;
+    // --- Base APR for Lender (dynamic, not stub) ---
+    function baseLenderAPR(address lender) public view returns (uint256) {
+        // Return the dynamic supply rate (APY) for the protocol
+        return getLenderRate();
     }
 
     // --- Borrower Rate (View, for future use) ---
     function getBorrowerRate(uint256 tier) public view returns (uint256) {
         require(liquidityPool != address(0), "LiquidityPool not set");
-        // Example: use base rate per tier (not implemented here), apply global multiplier
-        // uint256 baseRate = baseBorrowRateByTier[tier];
-        // return (baseRate * ILiquidityPool(liquidityPool).getGlobalRiskMultiplier()) / 1e18;
-        return 0; // Placeholder
+        // Compute utilization
+        uint256 totalSupplied = ILiquidityPool(liquidityPool).totalFunds();
+        uint256 totalBorrowed = ILiquidityPool(liquidityPool)
+            .totalBorrowedAllTime() -
+            ILiquidityPool(liquidityPool).totalRepaidAllTime();
+        uint256 utilization = totalSupplied > 0
+            ? (totalBorrowed * 1e18) / totalSupplied
+            : 0;
+        // Get the base rate for the utilization from the InterestRateModel
+        address irm = ILiquidityPool(liquidityPool).interestRateModel();
+        uint256 baseRate = IInterestRateModel(irm).getBorrowRate(utilization);
+        // Optionally, apply a tier-based modifier here if needed (not in interface)
+        // Apply the global risk multiplier from the pool
+        uint256 globalMult = ILiquidityPool(liquidityPool)
+            .getGlobalRiskMultiplier();
+        return (baseRate * globalMult) / 1e18;
+    }
+
+    // --- Liquidation Logic (moved from LiquidityPool) ---
+    function isUndercollateralized(
+        address pool,
+        address user
+    ) public view returns (bool) {
+        (bool healthy, ) = ILiquidityPool(pool).checkCollateralization(user);
+        return !healthy && ILiquidityPool(pool).userDebt(user) > 0;
+    }
+
+    function executeLiquidation(address pool, address user) external {
+        require(
+            ILiquidityPool(pool).isLiquidatable(user),
+            "Account not marked for liquidation"
+        );
+        require(
+            block.timestamp >=
+                ILiquidityPool(pool).liquidationStartTime(user) +
+                    ILiquidityPool(pool).GRACE_PERIOD(),
+            "Grace period not ended"
+        );
+        address[] memory tokens = ILiquidityPool(pool)
+            .getAllowedCollateralTokens();
+        for (uint i = 0; i < tokens.length; i++) {
+            require(
+                ILiquidityPool(pool).isOracleHealthy(tokens[i]),
+                "Oracle circuit breaker triggered"
+            );
+        }
+        uint256 debt = ILiquidityPool(pool).userDebt(user);
+        uint256 penalty = (debt * ILiquidityPool(pool).LIQUIDATION_PENALTY()) /
+            100;
+        uint256 totalToRepay = debt + penalty;
+        for (uint i = 0; i < tokens.length; i++) {
+            address token = tokens[i];
+            uint256 balance = ILiquidityPool(pool).collateralBalance(
+                token,
+                user
+            );
+            if (balance > 0) {
+                ILiquidityPool(pool).clearCollateral(
+                    token,
+                    user,
+                    msg.sender,
+                    balance
+                );
+            }
+        }
+        ILiquidityPool(pool).clearDebt(user, debt);
+        emit LiquidationExecuted(user, msg.sender, totalToRepay);
+    }
+
+    function executePartialLiquidation(
+        address pool,
+        address user,
+        address collateralToken
+    ) external {
+        require(isUndercollateralized(pool, user), "Position healthy");
+        require(
+            ILiquidityPool(pool).isAllowedCollateral(collateralToken),
+            "Invalid collateral"
+        );
+        uint256 debt = ILiquidityPool(pool).userDebt(user);
+        uint256 price = ILiquidityPool(pool).getTokenValue(collateralToken);
+        uint256 ltv = ILiquidityPool(pool).getLTV(collateralToken);
+        require(ltv > 0, "LTV not set");
+        require(price > 0, "Collateral price is zero");
+        uint256 buffer = ILiquidityPool(pool).SAFETY_BUFFER();
+        uint256 numerator = debt * (100 + buffer) * 1e18;
+        uint256 denominator = ltv * price;
+        require(denominator != 0, "Division by zero in partial liquidation");
+        uint256 collateralToSeize = numerator / denominator;
+        uint256 userBalance = ILiquidityPool(pool).collateralBalance(
+            collateralToken,
+            user
+        );
+        if (collateralToSeize > userBalance) collateralToSeize = userBalance;
+        require(
+            collateralToSeize >=
+                ILiquidityPool(pool).minPartialLiquidationAmount(),
+            "Below min liquidation"
+        );
+        ILiquidityPool(pool).clearCollateral(
+            collateralToken,
+            user,
+            msg.sender,
+            collateralToSeize
+        );
+        ILiquidityPool(pool).clearDebt(user, debt);
+        emit PartialLiquidation(
+            user,
+            msg.sender,
+            collateralToken,
+            collateralToSeize,
+            debt
+        );
     }
 
     // Internal functions
@@ -586,7 +774,7 @@ contract LendingManager is Ownable {
         uint256 index,
         uint256 minAmount,
         uint256 rate
-    ) external onlyOwner {
+    ) external onlyTimelock {
         require(rate >= 1e18, "Rate must be >= 1");
         if (index >= interestTiers.length) {
             interestTiers.push(InterestTier(minAmount, rate));
@@ -598,28 +786,34 @@ contract LendingManager is Ownable {
     function setFeeParameters(
         uint256 _originationFee,
         uint256 _lateFee
-    ) external onlyOwner {
+    ) external onlyTimelock {
         require(_originationFee <= 10000 && _lateFee <= 10000, "Fee too high"); // max 100%
         originationFee = _originationFee;
         lateFee = _lateFee;
         emit FeeParametersUpdated(_originationFee, _lateFee);
     }
 
-    function setEarlyWithdrawalPenalty(uint256 newPenalty) external onlyOwner {
+    function setEarlyWithdrawalPenalty(
+        uint256 newPenalty
+    ) external onlyTimelock {
         require(newPenalty <= 100, "Penalty too high");
         EARLY_WITHDRAWAL_PENALTY = newPenalty;
     }
 
-    function setCurrentDailyRate(uint256 newRate) external onlyOwner {
+    function setCurrentDailyRate(uint256 newRate) external onlyTimelock {
         require(newRate >= 1e18, "Rate must be >= 1");
         currentDailyRate = newRate;
         lastRateUpdateDay = block.timestamp / SECONDS_PER_DAY;
     }
 
-    function setReserveAddress(address _reserve) external onlyOwner {
+    function setReserveAddress(address _reserve) external onlyTimelock {
         require(_reserve != address(0), "Invalid reserve address");
         reserveAddress = _reserve;
         emit ReserveAddressUpdated(_reserve);
+    }
+
+    function setGovToken(address _govToken) external onlyTimelock {
+        govToken = IGovToken(_govToken);
     }
 
     function collectOriginationFee(
@@ -653,3 +847,5 @@ contract LendingManager is Ownable {
     // Add receive function to accept ETH
     receive() external payable {}
 }
+
+error OnlyTimelockLendingManager();

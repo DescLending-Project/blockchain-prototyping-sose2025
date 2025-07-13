@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -13,7 +12,6 @@ import "./InterestRateModel.sol";
 
 contract LiquidityPool is
     Initializable,
-    OwnableUpgradeable,
     AccessControlUpgradeable,
     AutomationCompatibleInterface
 {
@@ -46,6 +44,8 @@ contract LiquidityPool is
     StablecoinManager public stablecoinManager;
     LendingManager public lendingManager;
     InterestRateModel public interestRateModel;
+
+    address public timelock;
 
     // Risk Tier Definitions (0-100 score range)
     enum RiskTier {
@@ -189,24 +189,23 @@ contract LiquidityPool is
         _;
     }
 
+    modifier onlyTimelock() {
+        if (msg.sender != timelock) revert OnlyTimelockLiquidityPool();
+        _;
+    }
+
     function initialize(
-        address initialOwner,
+        address _timelock,
         address _stablecoinManager,
         address _lendingManager,
         address _interestRateModel
     ) public initializer {
-        __Ownable_init(initialOwner);
         __AccessControl_init();
-        _setRoleAdmin(DEFAULT_ADMIN_ROLE, DEFAULT_ADMIN_ROLE);
-        _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
-
+        timelock = _timelock;
         stablecoinManager = StablecoinManager(_stablecoinManager);
         lendingManager = LendingManager(payable(_lendingManager));
         interestRateModel = InterestRateModel(_interestRateModel);
-
         _initializeRiskTiers();
-
-        // Set default for upgrade-safe storage
         minPartialLiquidationAmount = 1e16;
     }
 
@@ -287,27 +286,52 @@ contract LiquidityPool is
             if (isLiquidatable[user]) {
                 uint256 deadline = liquidationStartTime[user] + GRACE_PERIOD;
                 if (block.timestamp >= deadline) {
-                    executeLiquidation(user);
+                    lendingManager.executeLiquidation(address(this), user);
                 }
             }
         }
     }
 
-    function setAdmin(address newAdmin) external onlyOwner {
+    // --- DAO Permission IDs ---
+    bytes32 public constant SET_ADMIN_PERMISSION =
+        keccak256("SET_ADMIN_PERMISSION");
+    bytes32 public constant ALLOW_COLLATERAL_PERMISSION =
+        keccak256("ALLOW_COLLATERAL_PERMISSION");
+    bytes32 public constant UPDATE_BORROW_TIER_PERMISSION =
+        keccak256("UPDATE_BORROW_TIER_PERMISSION");
+    bytes32 public constant EXTRACT_FUNDS_PERMISSION =
+        keccak256("EXTRACT_FUNDS_PERMISSION");
+    bytes32 public constant SET_CREDIT_SCORE_PERMISSION =
+        keccak256("SET_CREDIT_SCORE_PERMISSION");
+    bytes32 public constant SET_PRICE_FEED_PERMISSION =
+        keccak256("SET_PRICE_FEED_PERMISSION");
+    bytes32 public constant TOGGLE_PAUSE_PERMISSION =
+        keccak256("TOGGLE_PAUSE_PERMISSION");
+    bytes32 public constant SET_LENDING_MANAGER_PERMISSION =
+        keccak256("SET_LENDING_MANAGER_PERMISSION");
+    bytes32 public constant SET_MAX_PRICE_AGE_PERMISSION =
+        keccak256("SET_MAX_PRICE_AGE_PERMISSION");
+    bytes32 public constant SET_RESERVE_ADDRESS_PERMISSION =
+        keccak256("SET_RESERVE_ADDRESS_PERMISSION");
+    bytes32 public constant SET_MIN_PARTIAL_LIQUIDATION_AMOUNT_PERMISSION =
+        keccak256("SET_MIN_PARTIAL_LIQUIDATION_AMOUNT_PERMISSION");
+    bytes32 public constant SET_TIER_FEE_PERMISSION =
+        keccak256("SET_TIER_FEE_PERMISSION");
+
+    // --- Admin/DAO Functions ---
+    function setAdmin(address newAdmin) external onlyTimelock {
         require(newAdmin != address(0), "Invalid address");
-        _transferOwnership(newAdmin);
-        _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
-        _revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        timelock = newAdmin;
     }
 
     function getAdmin() external view returns (address) {
-        return owner();
+        return timelock;
     }
 
     function setAllowedCollateral(
         address token,
         bool allowed
-    ) external onlyOwner {
+    ) external onlyTimelock {
         isAllowedCollateral[token] = allowed;
 
         bool alreadyExists = false;
@@ -420,7 +444,7 @@ contract LiquidityPool is
         uint256 collateralRatio,
         int256 interestRateModifier,
         uint256 maxLoanAmount
-    ) external onlyOwner {
+    ) external onlyTimelock {
         require(tierIndex < borrowTierConfigs.length, "Invalid tier");
         borrowTierConfigs[tierIndex] = BorrowTierConfig(
             minScore,
@@ -678,13 +702,13 @@ contract LiquidityPool is
         emit Repaid(msg.sender, msg.value);
     }
 
-    function extract(uint256 amount) external onlyOwner noReentrancy {
+    function extract(uint256 amount) external onlyTimelock noReentrancy {
         require(
             amount <= address(this).balance,
             "Insufficient contract balance"
         );
-        payable(owner()).transfer(amount);
-        emit Extracted(owner(), amount);
+        payable(msg.sender).transfer(amount);
+        emit Extracted(msg.sender, amount);
     }
 
     function withdrawForLendingManager(uint256 amount) external noReentrancy {
@@ -702,7 +726,7 @@ contract LiquidityPool is
     function setCreditScore(
         address user,
         uint256 score
-    ) external onlyOwner validAddress(user) {
+    ) external onlyTimelock validAddress(user) {
         require(score <= 100, "Score out of range");
         creditScore[user] = score;
         emit CreditScoreAssigned(user, score);
@@ -712,7 +736,7 @@ contract LiquidityPool is
         return creditScore[user];
     }
 
-    function setPriceFeed(address token, address feed) external onlyOwner {
+    function setPriceFeed(address token, address feed) external onlyTimelock {
         require(isAllowedCollateral[token], "Token not allowed as collateral");
         priceFeed[token] = feed;
     }
@@ -754,46 +778,6 @@ contract LiquidityPool is
         liquidationStartTime[user] = block.timestamp;
 
         emit LiquidationStarted(user);
-    }
-
-    function executeLiquidation(address user) public {
-        require(isLiquidatable[user], "Account not marked for liquidation");
-        require(
-            block.timestamp >= liquidationStartTime[user] + GRACE_PERIOD,
-            "Grace period not ended"
-        );
-        // Check all oracles for user's collateral
-        address[] memory tokens = getAllowedCollateralTokens();
-        for (uint i = 0; i < tokens.length; i++) {
-            require(
-                isOracleHealthy(tokens[i]),
-                "Oracle circuit breaker triggered"
-            );
-        }
-
-        uint256 debt = userDebt[user];
-        uint256 penalty = (debt * LIQUIDATION_PENALTY) / 100;
-        uint256 totalToRepay = debt + penalty;
-
-        for (uint i = 0; i < tokens.length; i++) {
-            address token = tokens[i];
-            uint256 balance = collateralBalance[token][user];
-            if (balance > 0) {
-                collateralBalance[token][user] = 0;
-                IERC20(token).transfer(msg.sender, balance);
-            }
-        }
-
-        userDebt[user] = 0;
-        borrowTimestamp[user] = 0;
-        isLiquidatable[user] = false;
-        liquidationStartTime[user] = 0;
-        // Remove all debt from borrowedAmountByRiskTier
-        borrowedAmountByRiskTier[getRiskTier(user)] -= debt;
-        // Track protocol-wide repayment (treat as repaid for risk purposes)
-        totalRepaidAllTime += debt;
-
-        emit LiquidationExecuted(user, msg.sender, totalToRepay);
     }
 
     function recoverFromLiquidation(address token, uint256 amount) external {
@@ -871,7 +855,7 @@ contract LiquidityPool is
         return address(this).balance;
     }
 
-    function togglePause() external onlyOwner {
+    function togglePause() external onlyTimelock {
         paused = !paused;
         emit EmergencyPaused(paused);
     }
@@ -880,14 +864,12 @@ contract LiquidityPool is
         return paused;
     }
 
-    function setLiquidator(
-        address _liquidator
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setLiquidator(address _liquidator) external onlyTimelock {
         liquidator = _liquidator;
     }
 
     // Remove getMaxBorrowAmount if it only uses LTV logic
-    function setLendingManager(address _lendingManager) external onlyOwner {
+    function setLendingManager(address _lendingManager) external onlyTimelock {
         require(
             _lendingManager != address(0),
             "Invalid lending manager address"
@@ -895,67 +877,11 @@ contract LiquidityPool is
         lendingManager = LendingManager(payable(_lendingManager));
     }
 
-    // --- Weighted Risk Score (View) ---
-    function getWeightedRiskScore() public view returns (uint256) {
-        uint256 weightedSum;
-        uint256 validBorrowed;
-        weightedSum += borrowedAmountByRiskTier[RiskTier.TIER_1] * 1;
-        weightedSum += borrowedAmountByRiskTier[RiskTier.TIER_2] * 2;
-        weightedSum += borrowedAmountByRiskTier[RiskTier.TIER_3] * 3;
-        weightedSum += borrowedAmountByRiskTier[RiskTier.TIER_4] * 4;
-        validBorrowed =
-            borrowedAmountByRiskTier[RiskTier.TIER_1] +
-            borrowedAmountByRiskTier[RiskTier.TIER_2] +
-            borrowedAmountByRiskTier[RiskTier.TIER_3] +
-            borrowedAmountByRiskTier[RiskTier.TIER_4];
-        if (validBorrowed == 0) return 0;
-        // Defensive: prevent division by zero
-        require(validBorrowed != 0, "Division by zero in weighted risk score");
-        return weightedSum / validBorrowed; // returns 1 to 4
-    }
-
-    // --- Risk Multiplier (View) ---
-    function getRiskMultiplier() public view returns (uint256) {
-        uint256 score = getWeightedRiskScore();
-        if (score == 0) return 1e18; // fallback
-        if (score <= 1) return 9e17; // safer pool → 0.9
-        if (score <= 2) return 1e18; // neutral → 1.0
-        if (score <= 3) return 11e17; // more risk → 1.1
-        return 12e17; // highest risk → 1.2
-    }
-
-    // --- Repayment Ratio (View) ---
-    function getRepaymentRatio() public view returns (uint256) {
-        if (totalBorrowedAllTime == 0) return 1e18; // default 100%
-        // Defensive: prevent division by zero
-        require(
-            totalBorrowedAllTime != 0,
-            "Division by zero in repayment ratio"
-        );
-        return (totalRepaidAllTime * 1e18) / totalBorrowedAllTime;
-    }
-
-    // --- Repayment Risk Multiplier (View) ---
-    function getRepaymentRiskMultiplier() public view returns (uint256) {
-        uint256 ratio = getRepaymentRatio(); // 0 to 1e18
-        if (ratio >= 95e16) return 1e18; // >=95% repaid → 1.0x
-        if (ratio >= 90e16) return 105e16; // 90-94% → 1.05x
-        if (ratio >= 80e16) return 110e16; // 80-89% → 1.10x
-        return 120e16; // <80% → 1.20x
-    }
-
-    // --- Global Risk Multiplier (View) ---
-    function getGlobalRiskMultiplier() public view returns (uint256) {
-        uint256 tierMult = getRiskMultiplier();
-        uint256 repayMult = getRepaymentRiskMultiplier();
-        return (tierMult * repayMult) / 1e18;
-    }
-
     // --- Throttling for automation ---
     uint256 public lastUpkeep;
     uint256 public constant UPKEEP_COOLDOWN = 60; // 1 min
 
-    function setMaxPriceAge(address token, uint256 age) external onlyOwner {
+    function setMaxPriceAge(address token, uint256 age) external onlyTimelock {
         require(age <= 1 days, "Too large");
         maxPriceAge[token] = age;
     }
@@ -1003,64 +929,16 @@ contract LiquidityPool is
         return (uint256(answer), updatedAt_);
     }
 
-    // --- Helper for undercollateralization ---
-    function isUndercollateralized(address user) public view returns (bool) {
-        (bool healthy, ) = checkCollateralization(user);
-        return !healthy && userDebt[user] > 0;
-    }
-
-    // --- Partial Liquidation ---
-    function executePartialLiquidation(
-        address user,
-        address collateralToken
-    ) external noReentrancy whenNotPaused {
-        require(isUndercollateralized(user), "Position healthy");
-        require(isAllowedCollateral[collateralToken], "Invalid collateral");
-        uint256 debt = userDebt[user];
-        uint256 price = getTokenValue(collateralToken); // 18 decimals
-        uint256 ltv = stablecoinManager.getLTV(collateralToken); // e.g., 75 for 75%
-        require(ltv > 0, "LTV not set");
-        require(price > 0, "Collateral price is zero");
-        uint256 buffer = SAFETY_BUFFER;
-        // Collateral to seize = (debt * (100 + buffer)) / (ltv * price/1e18)
-        uint256 numerator = debt * (100 + buffer) * 1e18;
-        uint256 denominator = ltv * price;
-        require(denominator != 0, "Division by zero in partial liquidation");
-        uint256 collateralToSeize = numerator / denominator;
-        uint256 userBalance = collateralBalance[collateralToken][user];
-        if (collateralToSeize > userBalance) collateralToSeize = userBalance;
-        require(
-            collateralToSeize >= minPartialLiquidationAmount,
-            "Below min liquidation"
-        );
-        // Update state
-        collateralBalance[collateralToken][user] -= collateralToSeize;
-        userDebt[user] = 0;
-        borrowTimestamp[user] = 0;
-        isLiquidatable[user] = false;
-        liquidationStartTime[user] = 0;
-        // Remove all debt from borrowedAmountByRiskTier
-        borrowedAmountByRiskTier[getRiskTier(user)] -= debt;
-        totalRepaidAllTime += debt;
-        // Transfer collateral to liquidator
-        IERC20(collateralToken).transfer(msg.sender, collateralToSeize);
-        emit PartialLiquidation(
-            user,
-            msg.sender,
-            collateralToken,
-            collateralToSeize,
-            debt
-        );
-    }
-
     // --- Admin functions for new system ---
-    function setReserveAddress(address _reserve) external onlyOwner {
+    function setReserveAddress(address _reserve) external onlyTimelock {
         require(_reserve != address(0), "Invalid reserve address");
         reserveAddress = _reserve;
         emit ReserveAddressUpdated(_reserve);
     }
 
-    function setMinPartialLiquidationAmount(uint256 amount) external onlyOwner {
+    function setMinPartialLiquidationAmount(
+        uint256 amount
+    ) external onlyTimelock {
         minPartialLiquidationAmount = amount;
     }
 
@@ -1068,7 +946,7 @@ contract LiquidityPool is
         uint256 tier,
         uint256 originationFee,
         uint256 lateFeeAPR
-    ) external onlyOwner {
+    ) external onlyTimelock {
         require(tier < borrowTierConfigs.length, "Invalid tier");
         tierFees[tier] = TierFee(originationFee, lateFeeAPR);
         emit TierFeeUpdated(tier, originationFee, lateFeeAPR);
@@ -1103,7 +981,8 @@ contract LiquidityPool is
         // Mass undercollateralization
         uint256 under = 0;
         for (uint i = 0; i < users.length; i++) {
-            if (isUndercollateralized(users[i])) under++;
+            if (lendingManager.isUndercollateralized(address(this), users[i]))
+                under++;
         }
         if (users.length > 0 && (under * 100) / users.length > 5) {
             paused = true;
@@ -1176,4 +1055,29 @@ contract LiquidityPool is
             totalInstallmentsRemaining = 0;
         }
     }
+
+    // --- Interface hooks for LendingManager ---
+    function clearCollateral(
+        address token,
+        address user,
+        address to,
+        uint256 amount
+    ) external {
+        require(msg.sender == address(lendingManager), "Only LendingManager");
+        collateralBalance[token][user] -= amount;
+        IERC20(token).transfer(to, amount);
+    }
+
+    function clearDebt(address user, uint256 amount) external {
+        require(msg.sender == address(lendingManager), "Only LendingManager");
+        userDebt[user] = 0;
+        borrowTimestamp[user] = 0;
+        isLiquidatable[user] = false;
+        liquidationStartTime[user] = 0;
+        // Remove all debt from borrowedAmountByRiskTier
+        borrowedAmountByRiskTier[getRiskTier(user)] -= amount;
+        totalRepaidAllTime += amount;
+    }
 }
+
+error OnlyTimelockLiquidityPool();
