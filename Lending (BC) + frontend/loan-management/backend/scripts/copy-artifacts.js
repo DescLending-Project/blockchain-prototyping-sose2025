@@ -4,7 +4,7 @@ const path = require('path');
 // Contract names to copy
 const contracts = [
     'LendingManager',
-    'LiquidityPoolV3',
+    'LiquidityPool',
     'StablecoinManager'
 ];
 

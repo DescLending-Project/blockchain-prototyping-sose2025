@@ -30,24 +30,24 @@ async function main() {
         await stablecoinManager.waitForDeployment();
         console.log("StablecoinManager deployed to:", stablecoinManager.target);
 
-        // Deploy LiquidityPoolV3 first (without initialization)
-        console.log("Deploying LiquidityPoolV3...");
-        const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
-        const liquidityPool = await LiquidityPoolV3.deploy();
+        // Deploy LiquidityPool first (without initialization)
+        console.log("Deploying LiquidityPool...");
+        const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
+        const liquidityPool = await LiquidityPool.deploy();
         await liquidityPool.waitForDeployment();
-        console.log("LiquidityPoolV3 deployed to:", liquidityPool.target);
+        console.log("LiquidityPool deployed to:", liquidityPool.target);
 
-        // Deploy LendingManager with LiquidityPoolV3 address
+        // Deploy LendingManager with LiquidityPool address
         console.log("Deploying LendingManager...");
         const LendingManager = await ethers.getContractFactory("LendingManager");
         const lendingManager = await LendingManager.deploy(deployer.address, liquidityPool.target);
         await lendingManager.waitForDeployment();
         console.log("LendingManager deployed to:", lendingManager.target);
 
-        // Initialize LiquidityPoolV3 with both addresses
-        console.log("Initializing LiquidityPoolV3...");
+        // Initialize LiquidityPool with both addresses
+        console.log("Initializing LiquidityPool...");
         await liquidityPool.initialize(deployer.address, stablecoinManager.target, lendingManager.target);
-        console.log("LiquidityPoolV3 initialized");
+        console.log("LiquidityPool initialized");
 
         // Set up GlintToken as collateral
         console.log("Setting up GlintToken as collateral...");
@@ -84,7 +84,7 @@ async function main() {
 
         console.log("\n✅ Deployment and setup completed!");
         console.log("\n📋 Contract addresses:");
-        console.log("LiquidityPoolV3:", liquidityPool.target);
+        console.log("LiquidityPool:", liquidityPool.target);
         console.log("LendingManager:", lendingManager.target);
         console.log("GlintToken:", glintToken.target);
         console.log("StablecoinManager:", stablecoinManager.target);

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-interface ILiquidityPoolV3 {
+interface ILiquidityPool {
     function depositCollateral(address token, uint256 amount) external;
 }
 
 contract ReentrancyAttacker {
-    ILiquidityPoolV3 public pool;
+    ILiquidityPool public pool;
     address public token;
     bool public attackInProgress;
 
     constructor(address _pool, address _token) {
-        pool = ILiquidityPoolV3(_pool);
+        pool = ILiquidityPool(_pool);
         token = _token;
     }
 

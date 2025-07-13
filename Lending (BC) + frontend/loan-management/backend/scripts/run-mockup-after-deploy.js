@@ -43,7 +43,7 @@ async function runMockupSimulation(contractAddresses = null) {
     const addresses = contractAddresses || await getDeployedAddresses();
 
     console.log("📋 Using deployed contracts:");
-    console.log("   LiquidityPoolV3:", addresses.liquidityPool);
+    console.log("   LiquidityPool:", addresses.liquidityPool);
     console.log("   LendingManager:", addresses.lendingManager);
     console.log("   GlintToken:", addresses.glintToken);
 
@@ -61,11 +61,11 @@ async function runMockupSimulation(contractAddresses = null) {
     console.log(`LendingManager ABI has ${LendingManagerArtifact.abi.length} entries (functions/events)`);
 
     // Connect to contracts
-    const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
+    const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const LendingManager = await ethers.getContractFactory("LendingManager");
     const GlintToken = await ethers.getContractFactory("GlintToken");
 
-    const liquidityPool = LiquidityPoolV3.attach(addresses.liquidityPool);
+    const liquidityPool = LiquidityPool.attach(addresses.liquidityPool);
     const lendingManager = LendingManager.attach(addresses.lendingManager);
     const glintToken = GlintToken.attach(addresses.glintToken);
 
@@ -248,7 +248,7 @@ async function getDeployedAddresses() {
             if (fs.existsSync(logPath)) {
                 const logContent = fs.readFileSync(logPath, 'utf8');
 
-                const liquidityPoolMatch = logContent.match(/LiquidityPoolV3 deployed to: (0x[a-fA-F0-9]{40})/);
+                const liquidityPoolMatch = logContent.match(/LiquidityPool deployed to: (0x[a-fA-F0-9]{40})/);
                 const lendingManagerMatch = logContent.match(/LendingManager deployed to: (0x[a-fA-F0-9]{40})/);
                 const glintTokenMatch = logContent.match(/GlintToken deployed to: (0x[a-fA-F0-9]{40})/);
 

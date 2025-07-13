@@ -2,8 +2,8 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { upgrades } = require("hardhat");
 
-describe("LiquidityPoolV3 - Chainlink Automation Simulation with Glint Token", function () {
-  let liquidityPool, lendingManager, glintToken, mockFeedGlint;
+describe("LiquidityPool - Chainlink Automation Simulation with Glint Token", function () {
+  let liquidityPool, lendingManager, stablecoinManager, interestRateModel, glintToken, mockFeedGlint;
   let deployer, user1, user2;
 
   beforeEach(async function () {
@@ -11,28 +11,47 @@ describe("LiquidityPoolV3 - Chainlink Automation Simulation with Glint Token", f
 
     // Deploy StablecoinManager first
     const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
-    const stablecoinManager = await StablecoinManager.deploy(deployer.address);
+    stablecoinManager = await StablecoinManager.deploy(deployer.address);
     await stablecoinManager.waitForDeployment();
     const stablecoinManagerAddress = await stablecoinManager.getAddress();
 
-    // Deploy LiquidityPoolV3 first (without LendingManager for now)
-    const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
-    liquidityPool = await upgrades.deployProxy(LiquidityPoolV3, [
+    // Deploy InterestRateModel with correct constructor arguments
+    const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+    interestRateModel = await InterestRateModel.deploy(deployer.address, ethers.ZeroAddress, {
+      baseRate: 0,
+      kink: ethers.parseUnits("0.8", 18),
+      slope1: 0,
+      slope2: 0,
+      reserveFactor: 0,
+      maxBorrowRate: 0,
+      maxRateChange: 0,
+      ethPriceRiskPremium: 0,
+      ethVolatilityThreshold: 0,
+      oracleStalenessWindow: 0
+    });
+    await interestRateModel.waitForDeployment();
+    const interestRateModelAddress = await interestRateModel.getAddress();
+
+    // Deploy LiquidityPool with correct arguments
+    const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
+    liquidityPool = await upgrades.deployProxy(LiquidityPool, [
       deployer.address,
       stablecoinManagerAddress,
-      ethers.ZeroAddress // Temporary placeholder
+      ethers.ZeroAddress,
+      interestRateModelAddress
     ], {
       initializer: "initialize",
     });
     await liquidityPool.waitForDeployment();
+    const poolAddress = await liquidityPool.getAddress();
 
-    // Deploy LendingManager with LiquidityPoolV3 address
+    // Now deploy LendingManager with correct pool address
     const LendingManager = await ethers.getContractFactory("LendingManager");
-    lendingManager = await LendingManager.deploy(deployer.address, await liquidityPool.getAddress());
+    lendingManager = await LendingManager.deploy(deployer.address, poolAddress);
     await lendingManager.waitForDeployment();
     const lendingManagerAddress = await lendingManager.getAddress();
 
-    // Update LiquidityPoolV3 with the correct LendingManager address
+    // Update LiquidityPool with the correct LendingManager address
     await liquidityPool.setLendingManager(lendingManagerAddress);
 
     // Fund the liquidity pool directly

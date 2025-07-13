@@ -49,6 +49,10 @@ contract StablecoinManager is Ownable {
                     ? stablecoinLTV[token]
                     : DEFAULT_STABLECOIN_LTV;
         }
+        // For volatile tokens, allow per-token config or fallback to default
+        if (stablecoinLTV[token] > 0) {
+            return stablecoinLTV[token];
+        }
         return DEFAULT_VOLATILE_LTV;
     }
 
@@ -61,10 +65,63 @@ contract StablecoinManager is Ownable {
                     ? stablecoinLiquidationThreshold[token]
                     : DEFAULT_STABLECOIN_LIQUIDATION_THRESHOLD;
         }
-        return 0; // Volatile tokens use the main contract's threshold
+        // For volatile tokens, allow per-token config or fallback to 0
+        if (stablecoinLiquidationThreshold[token] > 0) {
+            return stablecoinLiquidationThreshold[token];
+        }
+        return 0;
     }
 
     function isTokenStablecoin(address token) external view returns (bool) {
         return isStablecoin[token];
+    }
+
+    // Added for test/debugging: returns (isStablecoin, LTV, liquidationThreshold)
+    function getStablecoinParams(
+        address token
+    ) external view returns (bool, uint256, uint256) {
+        return (
+            isStablecoin[token],
+            stablecoinLTV[token] > 0
+                ? stablecoinLTV[token]
+                : DEFAULT_STABLECOIN_LTV,
+            stablecoinLiquidationThreshold[token] > 0
+                ? stablecoinLiquidationThreshold[token]
+                : DEFAULT_STABLECOIN_LIQUIDATION_THRESHOLD
+        );
+    }
+
+    // Aliases for test/integration compatibility
+    function setParams(
+        address token,
+        bool allowed,
+        uint256 ltv,
+        uint256 requiredRatio
+    ) external onlyOwner {
+        require(ltv <= MAX_STABLECOIN_LTV, "LTV too high");
+        require(
+            requiredRatio >= DEFAULT_STABLECOIN_LIQUIDATION_THRESHOLD,
+            "Threshold too low"
+        );
+
+        isStablecoin[token] = allowed;
+        stablecoinLTV[token] = ltv;
+        stablecoinLiquidationThreshold[token] = requiredRatio;
+
+        emit StablecoinParamsSet(token, allowed, ltv, requiredRatio);
+    }
+
+    function getParams(
+        address token
+    ) external view returns (bool, uint256, uint256) {
+        return (
+            isStablecoin[token],
+            stablecoinLTV[token] > 0
+                ? stablecoinLTV[token]
+                : DEFAULT_STABLECOIN_LTV,
+            stablecoinLiquidationThreshold[token] > 0
+                ? stablecoinLiquidationThreshold[token]
+                : DEFAULT_STABLECOIN_LIQUIDATION_THRESHOLD
+        );
     }
 }

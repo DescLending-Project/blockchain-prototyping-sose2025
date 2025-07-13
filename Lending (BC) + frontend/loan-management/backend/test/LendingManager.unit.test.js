@@ -2,12 +2,17 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("LendingManager - Unit", function () {
-    let manager, owner, addr1, addr2, mockPool;
+    let manager, owner, addr1, addr2, mockPool, mockIRM;
     beforeEach(async function () {
         [owner, addr1, addr2] = await ethers.getSigners();
         const MockPool = await ethers.getContractFactory("MockPool");
         mockPool = await MockPool.deploy();
         await mockPool.waitForDeployment();
+        // Deploy MockInterestRateModel and set in MockPool
+        const MockIRM = await ethers.getContractFactory("MockInterestRateModel");
+        mockIRM = await MockIRM.deploy();
+        await mockIRM.waitForDeployment();
+        await mockPool.setInterestRateModel(mockIRM.target);
         const LendingManager = await ethers.getContractFactory("LendingManager");
         manager = await LendingManager.deploy(owner.address, mockPool.target);
         await manager.waitForDeployment();
@@ -101,7 +106,7 @@ describe("LendingManager - Unit", function () {
         }
     });
     it("should revert on deposit below min or above max", async function () {
-        await expect(manager.connect(addr1).depositFunds({ value: ethers.parseEther("0.001") })).to.be.revertedWith("Deposit amount too low");
+        await expect(manager.connect(addr1).depositFunds({ value: ethers.parseEther("0.001") })).to.be.revertedWith("Deposit too low");
         await expect(manager.connect(addr1).depositFunds({ value: ethers.parseEther("101") })).to.be.revertedWith("Deposit would exceed maximum limit");
     });
     it("should revert on withdrawal before cooldown or over balance", async function () {

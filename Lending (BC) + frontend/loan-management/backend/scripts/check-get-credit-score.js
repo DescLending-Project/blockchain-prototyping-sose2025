@@ -3,8 +3,8 @@ const { ethers } = require("hardhat");
 async function main() {
     const poolAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
     const testAddress = "0x90F79bf6EB2c4f870365E785982E1f101E93b906";
-    const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
-    const pool = LiquidityPoolV3.attach(poolAddress);
+    const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
+    const pool = LiquidityPool.attach(poolAddress);
 
     try {
         const score = await pool.getCreditScore(testAddress);

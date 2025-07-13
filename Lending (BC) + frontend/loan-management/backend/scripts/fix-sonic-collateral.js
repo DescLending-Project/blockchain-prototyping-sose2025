@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
 require('dotenv').config();
-const LiquidityPoolV3 = require('../artifacts/contracts/LiquidityPoolV3.sol/LiquidityPoolV3.json');
+const LiquidityPool = require('../artifacts/contracts/LiquidityPool.sol/LiquidityPool.json');
 
 // Sonic network config
 const SONIC_RPC_URL = process.env.SONIC_RPC_URL;
@@ -39,7 +39,7 @@ async function main() {
     }
     const provider = new ethers.JsonRpcProvider(SONIC_RPC_URL);
     const wallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
-    const contract = new ethers.Contract(POOL_ADDRESS, LiquidityPoolV3.abi, wallet);
+    const contract = new ethers.Contract(POOL_ADDRESS, LiquidityPool.abi, wallet);
 
     // Remove Sepolia tokens from allowed list
     for (const token of SEPOLIA_TOKENS) {

@@ -8,7 +8,7 @@ async function main() {
     const [deployer] = await ethers.getSigners();
 
     // Create borrower account from mockup simulation
-    const borrowerAccount = new ethers.Wallet("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd", ethers.provider);
+    const borrowerAccount = new ethers.Wallet("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd", ethers.provider);
 
     console.log("👤 Borrower account:", borrowerAccount.address);
 
@@ -20,11 +20,11 @@ async function main() {
     };
 
     // Connect to contracts
-    const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
+    const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const LendingManager = await ethers.getContractFactory("LendingManager");
     const GlintToken = await ethers.getContractFactory("GlintToken");
 
-    const liquidityPool = LiquidityPoolV3.attach(addresses.liquidityPool);
+    const liquidityPool = LiquidityPool.attach(addresses.liquidityPool);
     const lendingManager = LendingManager.attach(addresses.lendingManager);
     const glintToken = GlintToken.attach(addresses.glintToken);
 

@@ -17,8 +17,8 @@ async function main() {
 
     // Try to get contract factory and attach
     try {
-        const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
-        const pool = LiquidityPoolV3.attach(poolAddress);
+        const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
+        const pool = LiquidityPool.attach(poolAddress);
 
         console.log("✅ Successfully attached to contract");
 

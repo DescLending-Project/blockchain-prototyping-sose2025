@@ -115,12 +115,19 @@ contract InterestRateModel is Ownable {
     function getBorrowRate(uint256 utilization) public view returns (uint256) {
         uint256 rate;
         if (utilization <= kink) {
+            // Defensive: prevent division by zero
+            require(kink != 0, "Division by zero in getBorrowRate: kink");
             // rate = base + slope1 * (util / kink)
             rate = baseRate + (slope1 * utilization) / kink;
         } else {
-            // rate = base + slope1 + slope2 * (util - kink) / (1 - kink)
+            // Defensive: prevent division by zero
+            require(1e18 > kink, "Invalid kink value");
             uint256 excessUtil = utilization - kink;
             uint256 denominator = 1e18 - kink;
+            require(
+                denominator != 0,
+                "Division by zero in getBorrowRate: denominator"
+            );
             rate = baseRate + slope1 + (slope2 * excessUtil) / denominator;
         }
         // Apply protocol risk adjustment
@@ -140,10 +147,17 @@ contract InterestRateModel is Ownable {
         uint256 utilization,
         uint256 borrowRate
     ) public view returns (uint256) {
-        // supplyRate = utilization * borrowRate * (1 - reserveFactor)
-        // All values are 1e18 fixed point
+        // Defensive: prevent division by zero
+        require(1e18 >= reserveFactor, "Invalid reserveFactor");
         uint256 oneMinusReserve = 1e18 - reserveFactor;
+        // No division by zero in this formula, but check for overflow
         return (utilization * borrowRate * oneMinusReserve) / 1e36;
+    }
+
+    // Add a function to get the borrower rate for a given risk tier
+    function getBorrowerRate(uint256 riskTier) external view returns (uint256) {
+        // For demonstration, return baseRate + riskTier * 1e16 (1% per tier)
+        return baseRate + riskTier * 1e16;
     }
 
     // --- Oracle Integration ---
@@ -166,6 +180,8 @@ contract InterestRateModel is Ownable {
         uint256 totalSupplied
     ) external view returns (uint256, uint256) {
         if (totalSupplied == 0) return (0, 0);
+        // Defensive: prevent division by zero
+        require(totalSupplied != 0, "Division by zero in getCurrentRates");
         uint256 utilization = (totalBorrowed * 1e18) / totalSupplied;
         uint256 borrowRate = getBorrowRate(utilization);
         uint256 supplyRate = getSupplyRate(utilization, borrowRate);

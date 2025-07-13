@@ -18,13 +18,13 @@ async function main() {
     }
 
     console.log("📋 Found deployed contracts:");
-    console.log("   LiquidityPoolV3:", addresses.liquidityPool);
+    console.log("   LiquidityPool:", addresses.liquidityPool);
     console.log("   LendingManager:", addresses.lendingManager);
     console.log("   GlintToken:", addresses.glintToken);
 
     // Create additional accounts for simulation
     const lenderAccount = new ethers.Wallet(process.env.PRIVATE_KEY || "0x1234567890123456789012345678901234567890123456789012345678901234", ethers.provider);
-    const borrowerAccount = new ethers.Wallet("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd", ethers.provider);
+    const borrowerAccount = new ethers.Wallet("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd", ethers.provider);
 
     // Fund the borrower account
     await deployer.sendTransaction({
@@ -38,11 +38,11 @@ async function main() {
     console.log("   Borrower Account:", borrowerAccount.address);
 
     // Connect to contracts
-    const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
+    const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const LendingManager = await ethers.getContractFactory("LendingManager");
     const GlintToken = await ethers.getContractFactory("GlintToken");
 
-    const liquidityPool = LiquidityPoolV3.attach(addresses.liquidityPool);
+    const liquidityPool = LiquidityPool.attach(addresses.liquidityPool);
     const lendingManager = LendingManager.attach(addresses.lendingManager);
     const glintToken = GlintToken.attach(addresses.glintToken);
 
@@ -191,7 +191,7 @@ async function getContractAddresses() {
             const logContent = fs.readFileSync(logPath, 'utf8');
 
             // Extract addresses from log
-            const liquidityPoolMatch = logContent.match(/LiquidityPoolV3 deployed to: (0x[a-fA-F0-9]{40})/);
+            const liquidityPoolMatch = logContent.match(/LiquidityPool deployed to: (0x[a-fA-F0-9]{40})/);
             const lendingManagerMatch = logContent.match(/LendingManager deployed to: (0x[a-fA-F0-9]{40})/);
             const glintTokenMatch = logContent.match(/GlintToken deployed to: (0x[a-fA-F0-9]{40})/);
 
@@ -217,14 +217,14 @@ async function getContractAddresses() {
                 // Extract addresses from network data
                 const addresses = {};
                 for (const [name, info] of Object.entries(networkData.proxies || {})) {
-                    if (name.includes('LiquidityPoolV3')) {
+                    if (name.includes('LiquidityPool')) {
                         addresses.liquidityPool = info.address;
                     }
                 }
 
                 if (addresses.liquidityPool) {
                     // For now, return what we have and log the missing ones
-                    console.log("⚠️  Found LiquidityPoolV3 address from OpenZeppelin artifacts");
+                    console.log("⚠️  Found LiquidityPool address from OpenZeppelin artifacts");
                     console.log("⚠️  You may need to manually set LendingManager and GlintToken addresses");
                     return {
                         liquidityPool: addresses.liquidityPool,

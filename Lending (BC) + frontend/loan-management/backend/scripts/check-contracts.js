@@ -9,13 +9,13 @@ async function main() {
     // Get the provider
     const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
 
-    // Check LiquidityPoolV3
-    console.log("\nChecking LiquidityPoolV3 at:", CONTRACT_ADDRESS);
+    // Check LiquidityPool
+    console.log("\nChecking LiquidityPool at:", CONTRACT_ADDRESS);
     const liquidityPoolCode = await provider.getCode(CONTRACT_ADDRESS);
     if (liquidityPoolCode === '0x') {
-        console.log("LiquidityPoolV3 is NOT deployed at this address");
+        console.log("LiquidityPool is NOT deployed at this address");
     } else {
-        console.log("LiquidityPoolV3 is deployed");
+        console.log("LiquidityPool is deployed");
 
         // Try to call getBalance
         try {

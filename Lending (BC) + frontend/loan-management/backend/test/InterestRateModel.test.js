@@ -1,6 +1,5 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-console.log('DEBUG: ethers =', ethers);
 
 describe("InterestRateModel", function () {
     let owner, other, model, oracleMock;
@@ -169,7 +168,7 @@ describe("InterestRateModel", function () {
     describe("Oracle integration", () => {
         it("returns ETH price and updatedAt", async () => {
             // Set price to 2000e8, updatedAt to now
-            const price = ethers.parseUnits("200000000000", 8); // 2000 * 1e8
+            const price = 2000e8; // 2000 * 1e8 = 200000000000 (reasonable price)
             const now = Math.floor(Date.now() / 1000);
             await oracleMock.setLatestRoundData(price, now);
             const [ethPrice, updatedAt] = await model.getEthPrice();
@@ -177,7 +176,7 @@ describe("InterestRateModel", function () {
             expect(updatedAt).to.equal(now);
         });
         it("reverts if oracle is stale", async () => {
-            const price = ethers.parseUnits("200000000000", 8);
+            const price = 2000e8;
             const oldTime = Math.floor(Date.now() / 1000) - 4000;
             await oracleMock.setLatestRoundData(price, oldTime);
             await expect(model.getEthPrice()).to.be.revertedWith("Stale oracle");

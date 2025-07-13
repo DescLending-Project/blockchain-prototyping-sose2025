@@ -5,20 +5,20 @@ import { Card } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'
 import { Button } from './components/ui/button'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
-import LiquidityPoolV3ABI from './LiquidityPoolV3.json'
+import LiquidityPoolABI from './LiquidityPool.json'
 import LendingManagerABI from './LendingManager.json'
-import { LenderPanel } from './components/liquidity-pool-v3/lender/LenderPanel'
-import BorrowerPanel from './components/liquidity-pool-v3/borrower/BorrowerPanel'
-import { LiquidatorPanel } from './components/liquidity-pool-v3/liquidator/LiquidatorPanel'
-import { AdminPanel } from './components/liquidity-pool-v3/admin/AdminPanel'
-import { Dashboard } from './components/liquidity-pool-v3/Dashboard'
-import { CollateralPanel } from './components/liquidity-pool-v3/user/CollateralPanel'
+import { LenderPanel } from './components/liquidity-pool/lender/LenderPanel'
+import BorrowerPanel from './components/liquidity-pool/borrower/BorrowerPanel'
+import { LiquidatorPanel } from './components/liquidity-pool/liquidator/LiquidatorPanel'
+import { AdminPanel } from './components/liquidity-pool/admin/AdminPanel'
+import { Dashboard } from './components/liquidity-pool/Dashboard'
+import { CollateralPanel } from './components/liquidity-pool/user/CollateralPanel'
 import { DEFAULT_NETWORK } from './config/networks'
 
 // Contract addresses
-const POOL_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
-export const INTEREST_RATE_MODEL_ADDRESS = '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6';
-const LENDING_MANAGER_ADDRESS = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
+const POOL_ADDRESS = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
+export const INTEREST_RATE_MODEL_ADDRESS = '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318';
+const LENDING_MANAGER_ADDRESS = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
 
 // Network-specific token addresses
 const NETWORK_TOKENS = {
@@ -54,7 +54,7 @@ const CONTRACT_ADDRESSES = {
 // Collateral tokens array - will be updated based on network
 const COLLATERAL_TOKENS = [
   {
-    address: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707', // GLINT
+    address: '0x0165878A594ca255338adfa4d48449f69242Eb8F', // GLINT
     symbol: 'GLINT',
     name: 'Glint Token',
     isStablecoin: false
@@ -125,7 +125,7 @@ export default function App() {
       // Initialize contracts with ABI from imported JSON
       const liquidityPoolContract = new ethers.Contract(
         addresses.pool,
-        LiquidityPoolV3ABI.abi,
+        LiquidityPoolABI.abi,
         signer
       );
 
@@ -377,7 +377,7 @@ export default function App() {
       setIsLoading(true)
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
-      const contract = new ethers.Contract(POOL_ADDRESS, LiquidityPoolV3ABI.abi, signer)
+      const contract = new ethers.Contract(POOL_ADDRESS, LiquidityPoolABI.abi, signer)
 
       const tx = await contract.togglePause()
       await tx.wait()
@@ -421,8 +421,8 @@ export default function App() {
 
             if (isAccountAvailable) {
               const signer = await provider.getSigner()
-              // Create LiquidityPoolV3 contract instance
-              const contract = new ethers.Contract(addresses.pool, LiquidityPoolV3ABI.abi, signer)
+              // Create LiquidityPool contract instance
+              const contract = new ethers.Contract(addresses.pool, LiquidityPoolABI.abi, signer)
               // Create LendingManager contract instance
               const lendingManagerContract = new ethers.Contract(addresses.lending, LendingManagerABI.abi, signer)
 
@@ -497,7 +497,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto p-4">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Liquidity Pool V3</h1>
+          <h1 className="text-2xl font-bold">Liquidity Pool</h1>
           {account ? (
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600">

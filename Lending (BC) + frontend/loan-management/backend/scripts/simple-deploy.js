@@ -21,32 +21,50 @@ async function main() {
         const stablecoinManagerAddress = await stablecoinManager.getAddress();
         console.log("✅ StablecoinManager deployed to:", stablecoinManagerAddress);
 
-        // Deploy LiquidityPoolV3
-        console.log("\n📄 Deploying LiquidityPoolV3...");
-        const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
-        const liquidityPoolV3 = await upgrades.deployProxy(LiquidityPoolV3, [
+        // Deploy LiquidityPool
+        console.log("\n📄 Deploying LiquidityPool...");
+        const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
+        // Deploy InterestRateModel with correct constructor arguments
+        const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+        const interestRateModel = await InterestRateModel.deploy(deployer.address, ethers.ZeroAddress, {
+            baseRate: 0,
+            kink: 0,
+            slope1: 0,
+            slope2: 0,
+            reserveFactor: 0,
+            maxBorrowRate: 0,
+            maxRateChange: 0,
+            ethPriceRiskPremium: 0,
+            ethVolatilityThreshold: 0,
+            oracleStalenessWindow: 0
+        });
+        await interestRateModel.waitForDeployment();
+        const interestRateModelAddress = await interestRateModel.getAddress();
+
+        const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
             deployer.address,
             stablecoinManagerAddress,
-            ethers.ZeroAddress // Temporary placeholder for LendingManager
+            ethers.ZeroAddress, // Temporary placeholder for LendingManager
+            interestRateModelAddress
         ], {
             initializer: "initialize",
         });
-        await liquidityPoolV3.waitForDeployment();
-        const liquidityPoolV3Address = await liquidityPoolV3.getAddress();
-        console.log("✅ LiquidityPoolV3 deployed to:", liquidityPoolV3Address);
+        await liquidityPool.waitForDeployment();
+        const liquidityPoolAddress = await liquidityPool.getAddress();
+        console.log("✅ LiquidityPool deployed to:", liquidityPoolAddress);
 
         // Deploy LendingManager
         console.log("\n📄 Deploying LendingManager...");
         const LendingManager = await ethers.getContractFactory("LendingManager");
-        const lendingManager = await LendingManager.deploy(deployer.address, liquidityPoolV3Address);
+        const lendingManager = await LendingManager.deploy(deployer.address, liquidityPoolAddress);
         await lendingManager.waitForDeployment();
         const lendingManagerAddress = await lendingManager.getAddress();
         console.log("✅ LendingManager deployed to:", lendingManagerAddress);
 
-        // Update LiquidityPoolV3 with LendingManager address
-        console.log("\n🔗 Connecting LiquidityPoolV3 to LendingManager...");
-        await liquidityPoolV3.setLendingManager(lendingManagerAddress);
-        console.log("✅ LiquidityPoolV3 connected to LendingManager");
+        // Update LiquidityPool with LendingManager address
+        console.log("\n🔗 Connecting LiquidityPool to LendingManager...");
+        await liquidityPool.setLendingManager(lendingManagerAddress);
+        console.log("✅ LiquidityPool connected to LendingManager");
 
         // Deploy GlintToken
         console.log("\n📄 Deploying GlintToken...");
@@ -78,7 +96,6 @@ async function main() {
 
         // --- Deploy InterestRateModel ---
         console.log("\n\uD83D\uDCC4 Deploying InterestRateModel...");
-        const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
         const irmParams = [
             ethers.parseUnits("0.02", 18), // baseRate
             ethers.parseUnits("0.8", 18),  // kink
@@ -102,8 +119,8 @@ async function main() {
 
         // Set up GlintToken as collateral
         console.log("\n🔧 Setting up GlintToken as collateral...");
-        await liquidityPoolV3.setAllowedCollateral(glintTokenAddress, true);
-        await liquidityPoolV3.setPriceFeed(glintTokenAddress, glintFeedAddress);
+        await liquidityPool.setAllowedCollateral(glintTokenAddress, true);
+        await liquidityPool.setPriceFeed(glintTokenAddress, glintFeedAddress);
         console.log("✅ GlintToken configured as collateral");
 
         // Set up CORAL as collateral (using a mock address)
@@ -116,8 +133,8 @@ async function main() {
         await coralFeed.waitForDeployment();
         const coralFeedAddress = await coralFeed.getAddress();
 
-        await liquidityPoolV3.setAllowedCollateral(coralTokenAddress, true);
-        await liquidityPoolV3.setPriceFeed(coralTokenAddress, coralFeedAddress);
+        await liquidityPool.setAllowedCollateral(coralTokenAddress, true);
+        await liquidityPool.setPriceFeed(coralTokenAddress, coralFeedAddress);
         console.log("✅ CORAL configured as collateral");
 
         // Copy artifacts to frontend
@@ -134,7 +151,7 @@ async function main() {
         try {
             const { updateAppAddresses } = require('./update-app-addresses.js');
             await updateAppAddresses({
-                liquidityPoolV3Address,
+                liquidityPoolAddress,
                 lendingManagerAddress,
                 interestRateModelAddress: irmAddress,
                 tokens: {
@@ -153,7 +170,7 @@ async function main() {
         console.log("\n\uD83C\uDF89 DEPLOYMENT SUMMARY:");
         console.log("=====================");
         console.log("StablecoinManager:", stablecoinManagerAddress);
-        console.log("LiquidityPoolV3:", liquidityPoolV3Address);
+        console.log("LiquidityPool:", liquidityPoolAddress);
         console.log("LendingManager:", lendingManagerAddress);
         console.log("GlintToken:", glintTokenAddress);
         console.log("InterestRateModel:", irmAddress);
@@ -165,14 +182,14 @@ async function main() {
         console.log("\n🎭 Running full mockup simulation...");
         try {
             // Set environment variables for the mockup script
-            process.env.LIQUIDITY_POOL_ADDRESS = liquidityPoolV3Address;
+            process.env.LIQUIDITY_POOL_ADDRESS = liquidityPoolAddress;
             process.env.LENDING_MANAGER_ADDRESS = lendingManagerAddress;
             process.env.GLINT_TOKEN_ADDRESS = glintTokenAddress;
 
             // Import and run the mockup script
             const { runMockupSimulation } = require('./run-mockup-after-deploy.js');
             await runMockupSimulation({
-                liquidityPool: liquidityPoolV3Address,
+                liquidityPool: liquidityPoolAddress,
                 lendingManager: lendingManagerAddress,
                 glintToken: glintTokenAddress
             });
@@ -184,13 +201,13 @@ async function main() {
             // Fallback to basic setup
             try {
                 // Set credit scores for test accounts
-                await liquidityPoolV3.setCreditScore("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC", 85); // Account #2
-                await liquidityPoolV3.setCreditScore("0x90F79bf6EB2c4f870365E785982E1f101E93b906", 75); // Account #3
+                await liquidityPool.setCreditScore("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC", 85); // Account #2
+                await liquidityPool.setCreditScore("0x90F79bf6EB2c4f870365E785982E1f101E93b906", 75); // Account #3
                 console.log("✅ Credit scores set for test accounts");
 
                 // Set liquidation thresholds
-                await liquidityPoolV3.setLiquidationThreshold(glintTokenAddress, 130);
-                await liquidityPoolV3.setLiquidationThreshold(coralTokenAddress, 130);
+                await liquidityPool.setLiquidationThreshold(glintTokenAddress, 130);
+                await liquidityPool.setLiquidationThreshold(coralTokenAddress, 130);
                 console.log("✅ Liquidation thresholds set");
 
                 console.log("✅ Basic setup completed");

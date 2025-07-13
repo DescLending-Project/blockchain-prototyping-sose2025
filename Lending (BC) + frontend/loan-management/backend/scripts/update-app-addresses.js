@@ -77,7 +77,7 @@ function updateAppAddresses(deploymentData) {
         // Update the contract addresses
         content = content.replace(
             /(const POOL_ADDRESS = ')[^']+(')/,
-            `$1${deploymentData.liquidityPoolV3Address}$2`
+            `$1${deploymentData.liquidityPoolAddress}$2`
         );
         content = content.replace(
             /(const LENDING_MANAGER_ADDRESS = ')[^']+(')/,
@@ -103,7 +103,7 @@ function updateAppAddresses(deploymentData) {
         ['sepolia', 'sonic'].forEach(network => {
             content = content.replace(
                 new RegExp(`(${network}:\\s*{[^}]*pool:\\s*')[^']*(')`, 'm'),
-                `$1${deploymentData.liquidityPoolV3Address}$2`
+                `$1${deploymentData.liquidityPoolAddress}$2`
             );
             content = content.replace(
                 new RegExp(`(${network}:\\s*{[^}]*lending:\\s*')[^']*(')`, 'm'),

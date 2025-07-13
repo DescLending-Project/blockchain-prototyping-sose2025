@@ -97,7 +97,7 @@ async function main() {
     const glintFeedAddress = await glintFeed.getAddress();
     console.log("MockPriceFeed for GlintToken deployed to:", glintFeedAddress);
 
-    // Deploy MockPriceFeed for CORAL with initial price of 1.00 and 8 decimals (before deploying LiquidityPoolV3)
+    // Deploy MockPriceFeed for CORAL with initial price of 1.00 and 8 decimals (before deploying LiquidityPool)
     console.log("\nDeploying MockPriceFeed for CORAL...");
     const coralFeed = await MockPriceFeed.deploy(
         ethers.parseUnits("1.00", 8),
@@ -135,47 +135,65 @@ async function main() {
     const stablecoinManagerAddress = await stablecoinManager.getAddress();
     console.log("StablecoinManager deployed to:", stablecoinManagerAddress);
 
-    // Deploy LiquidityPoolV3 first (without LendingManager for now)
-    console.log("\nDeploying LiquidityPoolV3...");
-    const LiquidityPoolV3 = await ethers.getContractFactory("LiquidityPoolV3");
-    const liquidityPoolV3 = await upgrades.deployProxy(LiquidityPoolV3, [
+    // Deploy LiquidityPool first (without LendingManager for now)
+    console.log("\nDeploying LiquidityPool...");
+    const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
+    // Deploy InterestRateModel with correct constructor arguments
+    const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+    const interestRateModel = await InterestRateModel.deploy(deployer.address, ethers.ZeroAddress, {
+        baseRate: 0,
+        kink: 0,
+        slope1: 0,
+        slope2: 0,
+        reserveFactor: 0,
+        maxBorrowRate: 0,
+        maxRateChange: 0,
+        ethPriceRiskPremium: 0,
+        ethVolatilityThreshold: 0,
+        oracleStalenessWindow: 0
+    });
+    await interestRateModel.waitForDeployment();
+    const interestRateModelAddress = await interestRateModel.getAddress();
+
+    const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
         deployer.address,
         stablecoinManagerAddress,
-        ethers.ZeroAddress // Temporary placeholder for LendingManager
+        ethers.ZeroAddress, // Temporary placeholder for LendingManager
+        interestRateModelAddress
     ], {
         initializer: "initialize",
     });
-    await liquidityPoolV3.waitForDeployment();
-    const liquidityPoolV3Address = await liquidityPoolV3.getAddress();
-    console.log("LiquidityPoolV3 deployed to:", liquidityPoolV3Address);
+    await liquidityPool.waitForDeployment();
+    const liquidityPoolAddress = await liquidityPool.getAddress();
+    console.log("LiquidityPool deployed to:", liquidityPoolAddress);
 
-    // Deploy LendingManager with LiquidityPoolV3 address
+    // Deploy LendingManager with LiquidityPool address
     console.log("\nDeploying LendingManager...");
     const LendingManager = await ethers.getContractFactory("LendingManager");
-    const lendingManager = await LendingManager.deploy(deployer.address, liquidityPoolV3Address);
+    const lendingManager = await LendingManager.deploy(deployer.address, liquidityPoolAddress);
     await lendingManager.waitForDeployment();
     const lendingManagerAddress = await lendingManager.getAddress();
     console.log("LendingManager deployed to:", lendingManagerAddress);
 
-    // Update LiquidityPoolV3 with the correct LendingManager address
-    console.log("\nUpdating LiquidityPoolV3 with LendingManager address...");
-    await liquidityPoolV3.setLendingManager(lendingManagerAddress);
-    console.log("LiquidityPoolV3 updated with LendingManager address");
+    // Update LiquidityPool with the correct LendingManager address
+    console.log("\nUpdating LiquidityPool with LendingManager address...");
+    await liquidityPool.setLendingManager(lendingManagerAddress);
+    console.log("LiquidityPool updated with LendingManager address");
 
     // Set up GlintToken as collateral
     console.log("\nSetting up GlintToken as collateral...");
-    const setCollateralTx = await liquidityPoolV3.setAllowedCollateral(glintTokenAddress, true);
+    const setCollateralTx = await liquidityPool.setAllowedCollateral(glintTokenAddress, true);
     await setCollateralTx.wait();
     console.log("GlintToken set as allowed collateral");
 
     // Set price feed for GLINT after LendingManager is set
     try {
-        await liquidityPoolV3.setPriceFeed(glintTokenAddress, glintFeedAddress);
+        await liquidityPool.setPriceFeed(glintTokenAddress, glintFeedAddress);
         console.log("GLINT price feed set");
         // Verify
-        const pf = await liquidityPoolV3.getPriceFeed(glintTokenAddress);
+        const pf = await liquidityPool.getPriceFeed(glintTokenAddress);
         console.log("GLINT price feed address in contract:", pf);
-        const value = await liquidityPoolV3.getTokenValue(glintTokenAddress);
+        const value = await liquidityPool.getTokenValue(glintTokenAddress);
         console.log("GLINT price feed value:", ethers.formatUnits(value, 18), "USD");
     } catch (e) {
         console.error("Failed to set or verify GLINT price feed:", e);
@@ -184,13 +202,13 @@ async function main() {
     // Set up CORAL as collateral
     console.log("\nSetting up CORAL as collateral...");
     const coralTokenAddress = "0xecc6f14f4b64eedd56111d80f46ce46933dc2d64";
-    const setCoralCollateralTx = await liquidityPoolV3.setAllowedCollateral(coralTokenAddress, true);
+    const setCoralCollateralTx = await liquidityPool.setAllowedCollateral(coralTokenAddress, true);
     await setCoralCollateralTx.wait();
     console.log("CORAL set as allowed collateral");
 
-    // Set price feed for CORAL on the deployed LiquidityPoolV3
+    // Set price feed for CORAL on the deployed LiquidityPool
     try {
-        await liquidityPoolV3.setPriceFeed(coralTokenAddress, coralFeedAddress);
+        await liquidityPool.setPriceFeed(coralTokenAddress, coralFeedAddress);
         console.log("CORAL price feed set");
     } catch (e) {
         console.error("Failed to set CORAL price feed:", e);
@@ -199,13 +217,13 @@ async function main() {
     // Set up USDC as collateral (only if not localhost)
     if (networkName !== "localhost") {
         console.log("\nSetting up USDC as collateral...");
-        const setUsdcCollateralTx = await liquidityPoolV3.setAllowedCollateral(usdcAddress, true);
+        const setUsdcCollateralTx = await liquidityPool.setAllowedCollateral(usdcAddress, true);
         await setUsdcCollateralTx.wait();
         console.log("USDC set as allowed collateral");
 
         // Set price feed for USDC based on network config
         try {
-            await liquidityPoolV3.setPriceFeed(usdcAddress, usdcMockFeedAddress);
+            await liquidityPool.setPriceFeed(usdcAddress, usdcMockFeedAddress);
             console.log("USDC price feed set");
         } catch (e) {
             console.error("Failed to set USDC price feed:", e);
@@ -213,13 +231,13 @@ async function main() {
 
         // Set up USDT as collateral
         console.log("\nSetting up USDT as collateral...");
-        const setUsdtCollateralTx = await liquidityPoolV3.setAllowedCollateral(usdtAddress, true);
+        const setUsdtCollateralTx = await liquidityPool.setAllowedCollateral(usdtAddress, true);
         await setUsdtCollateralTx.wait();
         console.log("USDT set as allowed collateral");
 
         // Set price feed for USDT based on network config
         try {
-            await liquidityPoolV3.setPriceFeed(usdtAddress, usdtMockFeedAddress);
+            await liquidityPool.setPriceFeed(usdtAddress, usdtMockFeedAddress);
             console.log("USDT price feed set");
         } catch (e) {
             console.error("Failed to set USDT price feed:", e);
@@ -253,10 +271,10 @@ async function main() {
     const setupPriceFeed = async (token, feed, retries = 3) => {
         for (let i = 0; i < retries; i++) {
             try {
-                await liquidityPoolV3.setPriceFeed(token, feed);
+                await liquidityPool.setPriceFeed(token, feed);
                 console.log(`Price feed set for ${token}`);
                 // Verify it works
-                await verifyTokenSetup(liquidityPoolV3, token);
+                await verifyTokenSetup(liquidityPool, token);
                 return true;
             } catch (e) {
                 console.error(`Attempt ${i + 1}/${retries} failed to set price feed for ${token}:`, e.message);
@@ -296,7 +314,6 @@ async function main() {
 
     // Deploy InterestRateModel
     console.log("\nDeploying InterestRateModel...");
-    const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
     // Example parameters, adjust as needed
     const irmParams = [
         ethers.parseUnits("0.02", 18), // baseRate
@@ -334,7 +351,7 @@ async function main() {
     console.log("USDC:", usdcAddress);
     console.log("USDT:", usdtAddress);
     console.log("StablecoinManager:", stablecoinManagerAddress);
-    console.log("LiquidityPoolV3:", liquidityPoolV3Address);
+    console.log("LiquidityPool:", liquidityPoolAddress);
     console.log("LendingManager:", lendingManagerAddress);
     console.log("InterestRateModel:", irmAddress);
 
@@ -342,7 +359,7 @@ async function main() {
     console.log("\nUpdating App.jsx addresses...");
     try {
         const updateResult = await updateAppAddresses({
-            liquidityPoolV3Address,
+            liquidityPoolAddress,
             lendingManagerAddress,
             interestRateModelAddress: irmAddress,
             tokens: {
@@ -376,14 +393,14 @@ async function main() {
     console.log("\n=== RUNNING MOCKUP PLATFORM BEHAVIOR SIMULATION ===");
     try {
         // Set environment variables for the mockup script
-        process.env.LIQUIDITY_POOL_ADDRESS = liquidityPoolV3Address;
+        process.env.LIQUIDITY_POOL_ADDRESS = liquidityPoolAddress;
         process.env.LENDING_MANAGER_ADDRESS = lendingManagerAddress;
         process.env.GLINT_TOKEN_ADDRESS = glintTokenAddress;
 
         // Import and run the mockup script
         const { runMockupSimulation } = require('./run-mockup-after-deploy.js');
         await runMockupSimulation({
-            liquidityPool: liquidityPoolV3Address,
+            liquidityPool: liquidityPoolAddress,
             lendingManager: lendingManagerAddress,
             glintToken: glintTokenAddress
         });

@@ -2,6 +2,33 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./LiquidityPool.sol";
+import "./InterestRateModel.sol";
+
+// Minimal interfaces for external calls
+interface ILiquidityPool {
+    function totalBorrowedAllTime() external view returns (uint256);
+
+    function totalRepaidAllTime() external view returns (uint256);
+
+    function interestRateModel() external view returns (address);
+
+    function getGlobalRiskMultiplier() external view returns (uint256);
+}
+
+interface IInterestRateModel {
+    function getCurrentRates(
+        uint256 totalBorrowed,
+        uint256 totalSupplied
+    ) external view returns (uint256, uint256);
+
+    function getBorrowRate(uint256 utilization) external view returns (uint256);
+
+    function getSupplyRate(
+        uint256 utilization,
+        uint256 borrowRate
+    ) external view returns (uint256);
+}
 
 contract LendingManager is Ownable {
     struct LenderInfo {
@@ -34,8 +61,22 @@ contract LendingManager is Ownable {
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01 ether;
     uint256 public constant MAX_DEPOSIT_AMOUNT = 100 ether;
 
-    // Reference to LiquidityPoolV3
+    // Reference to LiquidityPool
     address public liquidityPool;
+    address public reserveAddress;
+
+    // Fee parameters (in basis points, e.g. 100 = 1%)
+    uint256 public originationFee; // e.g. 100 = 1%
+    uint256 public lateFee; // e.g. 500 = 5%
+
+    event FeeCollected(
+        address indexed user,
+        uint256 amount,
+        string feeType,
+        uint256 tier
+    );
+    event ReserveAddressUpdated(address indexed newReserve);
+    event FeeParametersUpdated(uint256 originationFee, uint256 lateFee);
 
     event FundsDeposited(address indexed lender, uint256 amount);
     event InterestCredited(address indexed lender, uint256 interest);
@@ -65,7 +106,7 @@ contract LendingManager is Ownable {
     ) Ownable(initialOwner) {
         liquidityPool = _liquidityPool;
         EARLY_WITHDRAWAL_PENALTY = 5; // 5% penalty
-        currentDailyRate = 1.0001304e18; // ~5% APY daily rate
+        currentDailyRate = 1000130400000000000; // 1.0001304e18 ~5% APY daily rate
         lastRateUpdateDay = block.timestamp / SECONDS_PER_DAY;
 
         // Initialize interest tiers
@@ -75,28 +116,27 @@ contract LendingManager is Ownable {
     }
 
     function depositFunds() external payable {
-        if (msg.value < MIN_DEPOSIT_AMOUNT) {
-            revert("Deposit amount too low");
-        }
-        if (msg.value + lenders[msg.sender].balance > MAX_DEPOSIT_AMOUNT) {
-            revert("Deposit would exceed maximum limit");
-        }
-
-        // Forward funds to LiquidityPoolV3
-        (bool success, ) = liquidityPool.call{value: msg.value}("");
-        require(success, "Failed to forward funds to liquidity pool");
+        require(msg.value >= MIN_DEPOSIT_AMOUNT, "Deposit too low");
+        require(
+            msg.value + lenders[msg.sender].balance <= MAX_DEPOSIT_AMOUNT,
+            "Deposit would exceed maximum limit"
+        );
 
         LenderInfo storage lender = lenders[msg.sender];
-        _creditInterest(msg.sender);
 
-        if (lender.balance == 0) {
-            lender.interestIndex = _currentInterestIndex();
+        // Initialize interest index if first deposit
+        if (lender.interestIndex == 0) {
+            lender.interestIndex = 1e18; // Initialize to 1.0
             lender.depositTimestamp = block.timestamp;
-            lender.lastInterestDistribution = block.timestamp; // Initialize for new lenders
+            lender.lastInterestUpdate = block.timestamp;
         }
 
+        _creditInterest(msg.sender);
         lender.balance += msg.value;
         totalLent += msg.value;
+
+        (bool success, ) = liquidityPool.call{value: msg.value}("");
+        require(success, "Deposit failed");
 
         emit FundsDeposited(msg.sender, msg.value);
     }
@@ -109,7 +149,10 @@ contract LendingManager is Ownable {
         if (amount > lender.balance) {
             revert("Insufficient balance");
         }
-
+        // Defensive: ensure interestIndex is set
+        if (lender.interestIndex == 0) {
+            lender.interestIndex = _currentInterestIndex();
+        }
         _creditInterest(msg.sender);
         lender.pendingPrincipalWithdrawal = amount;
         lender.withdrawalRequestTime = block.timestamp;
@@ -128,6 +171,9 @@ contract LendingManager is Ownable {
             revert("No pending withdrawal");
         }
 
+        // Credit interest before withdrawal
+        _creditInterest(msg.sender);
+
         uint256 amount = lender.pendingPrincipalWithdrawal;
         uint256 penalty = 0;
 
@@ -141,7 +187,7 @@ contract LendingManager is Ownable {
         totalLent -= amount + penalty;
         lender.pendingPrincipalWithdrawal = 0;
 
-        // Request funds from LiquidityPoolV3
+        // Request funds from LiquidityPool
         (bool success, ) = liquidityPool.call(
             abi.encodeWithSignature(
                 "withdrawForLendingManager(uint256)",
@@ -169,7 +215,7 @@ contract LendingManager is Ownable {
         lender.earnedInterest = 0;
         totalLent -= interest;
 
-        // Request funds from LiquidityPoolV3
+        // Request funds from LiquidityPool
         (bool success, ) = liquidityPool.call(
             abi.encodeWithSignature(
                 "withdrawForLendingManager(uint256)",
@@ -216,10 +262,19 @@ contract LendingManager is Ownable {
         lastDistributionTime = info.lastInterestDistribution;
 
         if (balance > 0) {
+            require(info.interestIndex != 0, "interestIndex must not be zero");
             uint256 currentIndex = _currentInterestIndex();
-            pendingInterest =
-                ((balance * currentIndex) / info.interestIndex) -
-                balance;
+            // Safe interest calculation using scaling
+            uint256 scaledBalance = balance * 1e18;
+            uint256 ratio = (currentIndex * 1e18) / info.interestIndex;
+            pendingInterest = (scaledBalance * ratio) / 1e36;
+
+            // Safely subtract balance only if pendingInterest > balance
+            if (pendingInterest > balance) {
+                pendingInterest -= balance;
+            } else {
+                pendingInterest = 0;
+            }
         }
 
         nextInterestUpdate = _nextDistributionTime(lender);
@@ -263,6 +318,7 @@ contract LendingManager is Ownable {
         }
 
         if (info.balance > 0) {
+            require(info.interestIndex != 0, "interestIndex must not be zero");
             uint256 currentIndex = _currentInterestIndex();
             availableInterest =
                 ((info.balance * currentIndex) / info.interestIndex) -
@@ -275,20 +331,21 @@ contract LendingManager is Ownable {
     ) external view returns (uint256 interest) {
         LenderInfo memory info = lenders[lender];
         if (info.balance == 0) return 0;
-
+        require(info.interestIndex != 0, "interestIndex must not be zero");
         uint256 currentIndex = _currentInterestIndex();
+        // Safe calculation
+        uint256 scaledBalance = info.balance * 1e18;
+        uint256 ratio = (currentIndex * 1e18) / info.interestIndex;
+        interest = (scaledBalance * ratio) / 1e36 - info.balance;
+
         uint256 daysElapsed = (block.timestamp - info.lastInterestUpdate) /
             SECONDS_PER_DAY;
 
         if (daysElapsed > 0) {
-            interest =
-                ((info.balance * currentIndex) / info.interestIndex) -
-                info.balance;
             for (uint256 i = 0; i < daysElapsed; i++) {
                 interest = (interest * currentIndex) / 1e18;
             }
         }
-
         return interest;
     }
 
@@ -297,6 +354,10 @@ contract LendingManager is Ownable {
         uint256 numDays
     ) external view returns (uint256) {
         uint256 currentIndex = _currentInterestIndex();
+        if (currentIndex == 0) {
+            // Defensive: treat as 1e18
+            currentIndex = 1e18;
+        }
         uint256 potentialIndex = currentIndex;
 
         for (uint256 i = 0; i < numDays; i++) {
@@ -323,10 +384,14 @@ contract LendingManager is Ownable {
     ) external view returns (uint256) {
         LenderInfo memory info = lenders[lender];
         if (info.balance == 0) return 0;
-
+        require(info.interestIndex != 0, "interestIndex must not be zero");
         uint256 currentIndex = _currentInterestIndex();
-        return
-            ((info.balance * currentIndex) / info.interestIndex) - info.balance;
+        // Safe calculation using scaling
+        uint256 scaledBalance = info.balance * 1e18;
+        uint256 ratio = (currentIndex * 1e18) / info.interestIndex;
+        uint256 interest = (scaledBalance * ratio) / 1e36;
+
+        return interest > info.balance ? interest - info.balance : 0;
     }
 
     function canCompleteWithdrawal(
@@ -342,6 +407,71 @@ contract LendingManager is Ownable {
         return _getInterestRate(amount);
     }
 
+    // --- Dynamic Supply Rate Integration ---
+    function getDynamicSupplyRate() public view returns (uint256) {
+        uint256 totalSupplied = totalLent;
+        if (totalSupplied == 0) return currentDailyRate; // Use currentDailyRate if no supply
+        uint256 totalBorrowed = ILiquidityPool(address(uint160(liquidityPool)))
+            .totalBorrowedAllTime() -
+            ILiquidityPool(address(uint160(liquidityPool)))
+                .totalRepaidAllTime();
+        if (totalBorrowed == 0) return currentDailyRate; // Use currentDailyRate if no borrows
+        uint256 utilization = (totalBorrowed * 1e18) / totalSupplied;
+        (, uint256 supplyRate) = IInterestRateModel(
+            address(
+                uint160(
+                    ILiquidityPool(address(uint160(liquidityPool)))
+                        .interestRateModel()
+                )
+            )
+        ).getCurrentRates(totalBorrowed, totalSupplied);
+        return supplyRate;
+    }
+
+    // Get dynamic lender rate based on utilization and global risk multiplier
+    function getLenderRate() public view returns (uint256) {
+        uint256 totalSupplied = totalLent;
+        uint256 totalBorrowed = ILiquidityPool(liquidityPool)
+            .totalBorrowedAllTime() -
+            ILiquidityPool(liquidityPool).totalRepaidAllTime();
+        if (totalSupplied == 0) return currentDailyRate;
+        uint256 utilization = (totalBorrowed * 1e18) / totalSupplied;
+        uint256 borrowRate = IInterestRateModel(
+            ILiquidityPool(liquidityPool).interestRateModel()
+        ).getBorrowRate(utilization);
+        uint256 supplyRate = IInterestRateModel(
+            ILiquidityPool(liquidityPool).interestRateModel()
+        ).getSupplyRate(utilization, borrowRate);
+        uint256 globalMult = ILiquidityPool(liquidityPool)
+            .getGlobalRiskMultiplier();
+        return (supplyRate * globalMult) / 1e18;
+    }
+
+    // --- Real-Time Return Rate for Lender (View) ---
+    function getRealTimeReturnRate(
+        address lender
+    ) external view returns (uint256) {
+        require(liquidityPool != address(0), "LiquidityPool not set");
+        uint256 dynamicRate = getLenderRate(); // Use dynamic rate instead of baseLenderAPR
+        return dynamicRate;
+    }
+
+    // --- Base APR for Lender (stub, replace with real logic) ---
+    function baseLenderAPR(address lender) public pure returns (uint256) {
+        // TODO: Replace with actual calculation
+        // For now, return 6% APR (0.06e18)
+        return 6e16;
+    }
+
+    // --- Borrower Rate (View, for future use) ---
+    function getBorrowerRate(uint256 tier) public view returns (uint256) {
+        require(liquidityPool != address(0), "LiquidityPool not set");
+        // Example: use base rate per tier (not implemented here), apply global multiplier
+        // uint256 baseRate = baseBorrowRateByTier[tier];
+        // return (baseRate * ILiquidityPool(liquidityPool).getGlobalRiskMultiplier()) / 1e18;
+        return 0; // Placeholder
+    }
+
     // Internal functions
     function _getInterestRate(uint256 amount) internal view returns (uint256) {
         for (uint i = interestTiers.length; i > 0; i--) {
@@ -353,39 +483,65 @@ contract LendingManager is Ownable {
     }
 
     function _currentInterestIndex() internal view returns (uint256) {
+        if (totalLent == 0) return 1e18;
+
         uint256 currentDay = block.timestamp / SECONDS_PER_DAY;
         uint256 daysElapsed = currentDay - lastRateUpdateDay;
+        uint256 supplyRate = getDynamicSupplyRate();
 
-        if (daysElapsed == 0) {
-            return
-                dailyInterestRate[currentDay] > 0
-                    ? dailyInterestRate[currentDay]
-                    : currentDailyRate;
-        }
+        if (daysElapsed == 0) return supplyRate;
 
-        uint256 index = currentDailyRate;
+        // Safe exponential calculation with bounds checking
+        uint256 index = supplyRate;
         for (uint256 i = 0; i < daysElapsed; i++) {
-            index = (index * _getInterestRate(totalLent)) / 1e18;
+            uint256 newIndex = (index * supplyRate) / 1e18;
+            if (newIndex < index) {
+                // Check for overflow
+                return type(uint256).max / 1e18; // Return maximum safe value
+            }
+            index = newIndex;
         }
         return index;
     }
 
     function _creditInterest(address lender) internal {
         LenderInfo storage info = lenders[lender];
+        // Early return if no balance
         if (info.balance == 0) return;
 
+        // Defensive: initialize interestIndex if zero
+        if (info.interestIndex == 0) {
+            info.interestIndex = 1e18;
+            info.lastInterestUpdate = block.timestamp;
+            return;
+        }
+
         uint256 currentIndex = _currentInterestIndex();
+        if (currentIndex == 0) {
+            // Defensive: do not accrue interest if index is zero
+            return;
+        }
         uint256 interest = ((info.balance * currentIndex) /
             info.interestIndex) - info.balance;
 
-        if (interest > 0) {
-            info.earnedInterest += interest;
-            info.balance += interest;
-            totalLent += interest;
-            info.lastInterestDistribution = block.timestamp;
-            emit InterestCredited(lender, interest);
+        // Only calculate interest if current index is greater than last index
+        if (currentIndex > info.interestIndex) {
+            // Safe calculation using scaling to prevent overflow
+            uint256 scaledBalance = info.balance * 1e18; // Scale up
+            uint256 ratio = (currentIndex * 1e18) / info.interestIndex; // Get ratio
+            interest = (scaledBalance * ratio) / 1e36 - info.balance; // Scale down and subtract principal
+
+            // Apply interest if positive
+            if (interest > 0) {
+                info.earnedInterest += interest;
+                info.balance += interest;
+                totalLent += interest;
+                info.lastInterestDistribution = block.timestamp;
+                emit InterestCredited(lender, interest);
+            }
         }
 
+        // Update indices
         info.interestIndex = currentIndex;
         info.lastInterestUpdate = block.timestamp;
     }
@@ -412,6 +568,19 @@ contract LendingManager is Ownable {
         return nextTime;
     }
 
+    // --- Reporting ---
+    event LenderInterestAccrued(
+        address indexed lender,
+        uint256 interest,
+        uint256 rate
+    );
+
+    function getLenderReport(
+        address lender
+    ) external view returns (LenderInfo memory) {
+        return lenders[lender];
+    }
+
     // Admin functions
     function setInterestTier(
         uint256 index,
@@ -426,6 +595,16 @@ contract LendingManager is Ownable {
         }
     }
 
+    function setFeeParameters(
+        uint256 _originationFee,
+        uint256 _lateFee
+    ) external onlyOwner {
+        require(_originationFee <= 10000 && _lateFee <= 10000, "Fee too high"); // max 100%
+        originationFee = _originationFee;
+        lateFee = _lateFee;
+        emit FeeParametersUpdated(_originationFee, _lateFee);
+    }
+
     function setEarlyWithdrawalPenalty(uint256 newPenalty) external onlyOwner {
         require(newPenalty <= 100, "Penalty too high");
         EARLY_WITHDRAWAL_PENALTY = newPenalty;
@@ -435,6 +614,40 @@ contract LendingManager is Ownable {
         require(newRate >= 1e18, "Rate must be >= 1");
         currentDailyRate = newRate;
         lastRateUpdateDay = block.timestamp / SECONDS_PER_DAY;
+    }
+
+    function setReserveAddress(address _reserve) external onlyOwner {
+        require(_reserve != address(0), "Invalid reserve address");
+        reserveAddress = _reserve;
+        emit ReserveAddressUpdated(_reserve);
+    }
+
+    function collectOriginationFee(
+        address user,
+        uint256 amount,
+        uint256 tier,
+        uint256 fee
+    ) external payable {
+        require(msg.sender == liquidityPool, "Only pool");
+        if (fee > 0) {
+            require(msg.value >= fee, "Insufficient fee payment");
+            payable(reserveAddress).transfer(fee);
+            emit FeeCollected(user, fee, "origination", tier);
+        }
+    }
+
+    function collectLateFee(
+        address user,
+        uint256 amount,
+        uint256 tier,
+        uint256 fee
+    ) external payable {
+        require(msg.sender == liquidityPool, "Only pool");
+        if (fee > 0) {
+            require(msg.value >= fee, "Insufficient fee payment");
+            payable(reserveAddress).transfer(fee);
+            emit FeeCollected(user, fee, "late", tier);
+        }
     }
 
     // Add receive function to accept ETH
