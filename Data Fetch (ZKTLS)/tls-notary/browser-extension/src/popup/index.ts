@@ -5,6 +5,7 @@ import { setupRequestCapture } from './capture';
 import { loadProofs  } from './proofs';
 import { setupSettingsManagement, loadSettings } from './settings';
 import { setupModal } from './modal';
+import { setupOpenbankingTab } from './openbankingTab';
 import { updateTunnelServiceApiBase } from 'tls-notary-shared';
 import { browserTLSNotaryService } from '../services/BrowserTLSNotaryService';
 import { tlsNotaryServiceBridge } from '../services/TLSNotaryServiceBridge';
@@ -121,6 +122,8 @@ function initializeUI() {
   setupApiTypeSelection();
 
   setupRequestCapture();
+
+  setupOpenbankingTab();
 
   setupSettingsManagement();
 

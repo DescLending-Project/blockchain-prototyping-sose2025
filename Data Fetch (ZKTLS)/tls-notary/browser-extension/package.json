@@ -21,7 +21,8 @@
     "ts-loader": "^9.4.4",
     "typescript": "^5.2.2",
     "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "webextension-polyfill-ts": "^0.26.0"
   },
   "dependencies": {
     "http-parser-js": "^0.5.10",

@@ -94,10 +94,46 @@
 
   <div id="mainContent">
     <div class="tabs">
+      <div class="tab" data-tab="openbankingapi">OpenbankingAPI</div>
       <div class="tab active" data-tab="capture">Capture</div>
       <div class="tab" data-tab="proofs">Proofs</div>
       <div class="tab" data-tab="settings">Settings</div>
     </div>
+
+  <div class="tab-content" id="openbankingapi">
+    <div id="openbanking-login-state">
+      <h3>OpenBanking API Login</h3>
+      <div class="form-group">
+        <label for="openbanking-username">Username:</label>
+        <input type="text" id="openbanking-username" placeholder="Enter your username">
+      </div>
+      <div class="form-group">
+        <label for="openbanking-password">Password:</label>
+        <input type="password" id="openbanking-password" placeholder="Enter your password">
+      </div>
+      <button id="openbanking-login-btn">Login</button>
+      <div id="openbanking-login-error" class="error-message" style="display: none;"></div>
+    </div>
+
+    <div id="openbanking-authenticated-state" style="display: none;">
+      <h3>OpenBanking User Information</h3>
+      <div id="openbanking-user-info">
+        <p>Welcome, <span id="openbanking-user-name">User</span>!</p>
+        <p>Account ID: <span id="openbanking-account-id">-</span></p>
+      </div>
+      <div class="form-group">
+<!--        <button id="openbanking-fetch-transactions-btn">Fetch Transactions</button>-->
+        <button id="openbanking-fetch-transactions-btn">Fetch Credit Score</button>
+      </div>
+      <div id="openbanking-transactions" style="display: none;">
+        <h4>Transactions</h4>
+        <div id="openbanking-transactions-list" class="transactions-list">
+          <!-- Transactions will be added here dynamically -->
+        </div>
+      </div>
+      <button id="openbanking-logout-btn">Logout</button>
+    </div>
+  </div>
 
   <!-- Capture Tab -->
   <div class="tab-content active" id="capture">
@@ -142,6 +178,7 @@
     </div>
 
     <button id="captureBtn">Capture Request</button>
+    <button id="captureCurrentPageBtn">Capture Current Page</button>
   </div>
 
   <!-- Proofs Tab -->
