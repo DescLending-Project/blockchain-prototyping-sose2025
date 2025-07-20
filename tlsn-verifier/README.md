@@ -25,7 +25,7 @@ in the parent directory `../`.
 This service verifies the authenticity of TLSNotary proofs, which are cryptographic proofs that demonstrate a TLS connection occurred with specific data exchanged. The verifier runs inside a TEE, ensuring that verification cannot be tampered with. TLSN proof verification takes approximately ±14 ms in the TEE.
 
 ## Key Derivation and Generation Process
-The verifier running inside a Trusted Execution Environment (TEE) generates a fresh **EC key pair** using a deterministic derivation process:
+The verifier running inside a Trusted Execution Environment (TEE) generates a fresh **EC key pair** using a deterministic derivation process from `:
 
 1. The verifier sends a `DeriveKey` request to the TEE's secure API:
     ```http
@@ -50,7 +50,7 @@ The verifier running inside a Trusted Execution Environment (TEE) generates a fr
     }
 
     ```
-3. On the client (host), the response is used to reconstruct the key:
+3. Inside the application, the response is used to reconstruct the key:
 ```rust
 let signing_key = SigningKey::from_pkcs8_pem(&response.key)?;
 let verifying_key = signing_key.verifying_key();
@@ -66,6 +66,20 @@ This process ensures the key is deterministically tied to the session identifier
 
 ##  API Endpoints
 
+- **GET /health**
+    
+    Returns the health status 
+
+    **Example Request**
+     **Headers**
+    ```json
+    x-api-key: <api-key> //ask @rbbozkurt
+    ```
+
+    **Example Response**
+     ```json
+    Ok
+    ```
 
 - **GET /attestation**
     
@@ -107,6 +121,7 @@ This process ensures the key is deterministically tied to the session identifier
 
     **Body**
     ```json
+    // The body can be directly retrieved by TLSNotary, copy the proof from TLSNotary and paste below.
     {
         "version": "0.1.0-alpha.10",
         "data": "0140...ffda",
