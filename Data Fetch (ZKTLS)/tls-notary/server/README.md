@@ -1,10 +1,18 @@
 # TLS Notary Local Proxy Server
 
-A WebSocket-based proxy server for TLS Notary.
+A WebSocket-based proxy server for TLS Notary that facilitates secure communication between the browser extension and target websites. This server acts as an intermediary for TLS connections, enabling the notarization process.
+
+## Overview
+
+The TLS Notary Local Proxy Server:
+- Establishes secure WebSocket connections
+- Handles TLS session management
+- Facilitates the notarization process
+- Provides an API for the browser extension to interact with
 
 ## Docker Image
 
-The server is available as a Docker image for easy deployment.
+The server is available as a Docker image for easy deployment and isolation.
 
 ### Building the Docker Image
 
