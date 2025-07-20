@@ -109,9 +109,21 @@ async function captureRequestFromUI(): Promise<string> {
   // In a real implementation, these might come from settings or additional form fields
   console.log('Extracting remote DNS from URL');
   const remoteDNS = new URL(url).hostname;
+
+  // Ensure remotePort is defined
+  if (!config.tlsRemotePort) {
+    console.error('TLS remote port is not configured');
+    throw new Error('TLS remote port is not configured');
+  }
   const remotePort = config.tlsRemotePort;
+
   // Use the configured tlsLocalPort value from settings, or fall back to the default
   const localPort = settings.tlsLocalPort || config.tlsLocalPort;
+  if (!localPort) {
+    console.error('TLS local port is not configured');
+    throw new Error('TLS local port is not configured');
+  }
+
   console.log('Connection details:', { remoteDNS, remotePort, localPort });
 
   // Collect headers from the UI
@@ -187,15 +199,33 @@ async function captureCurrentPage(): Promise<string> {
     // Extract domain information
     console.log('Extracting remote DNS from URL');
     const remoteDNS = new URL(url).hostname;
+
+    // Ensure remotePort is defined
+    if (!config.tlsRemotePort) {
+      console.error('TLS remote port is not configured');
+      throw new Error('TLS remote port is not configured');
+    }
     const remotePort = config.tlsRemotePort;
+
     // Use the configured tlsLocalPort value from settings, or fall back to the default
     const localPort = settings.tlsLocalPort || config.tlsLocalPort;
+    if (!localPort) {
+      console.error('TLS local port is not configured');
+      throw new Error('TLS local port is not configured');
+    }
+
     console.log('Connection details:', { remoteDNS, remotePort, localPort });
 
     // Execute a content script to get the page's headers
     console.log('Executing content script to get headers');
     let headers = '{}';
     try {
+      // Ensure tab ID is defined
+      if (!activeTab.id) {
+        console.error('Tab ID is not defined');
+        throw new Error('Tab ID is not defined');
+      }
+
       // Try to execute a content script to get headers from the page using chrome.scripting API
       const result = await chrome.scripting.executeScript({
         target: { tabId: activeTab.id as number },
@@ -211,7 +241,15 @@ async function captureCurrentPage(): Promise<string> {
         }
       });
 
-      if (result && result[0] && result[0].result) {
+      if (!result) {
+        console.warn('Script execution returned no result');
+      } else if (!Array.isArray(result) || result.length === 0) {
+        console.warn('Script execution returned empty result array');
+      } else if (!result[0]) {
+        console.warn('Script execution result[0] is undefined');
+      } else if (result[0].result === undefined || result[0].result === null) {
+        console.warn('Script execution result[0].result is undefined or null');
+      } else {
         headers = result[0].result as string;
         console.log('Headers collected from page:', headers);
       }

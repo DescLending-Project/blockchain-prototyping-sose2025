@@ -123,6 +123,8 @@ export async function generateProof(
     await prover.setup(sessionUrl);
 
     console.log('Sending request through prover to:', call.request.url, 'via websocket proxy:', call.websocketProxyUrl);
+    console.log('Request headers:', call.request.headers);
+    console.log('Request body:', call.request.body);
     const resp = await prover.sendRequest(call.websocketProxyUrl, {
         url: call.request.url,
         method: call.request.method,
