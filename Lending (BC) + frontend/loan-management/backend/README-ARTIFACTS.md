@@ -43,14 +43,14 @@ node scripts/copy-artifacts.js
 The following contract artifacts are copied from `backend/artifacts/contracts/` to `frontend/src/`:
 
 - `LendingManager.json`
-- `LiquidityPoolV3.json`
+- `LiquidityPool.json`
 - `StablecoinManager.json`
 
 ## What Gets Updated in App.jsx
 
 The deployment script automatically updates these addresses in `frontend/src/App.jsx`:
 
-- `CONTRACT_ADDRESS` - The main LiquidityPoolV3 contract address
+- `CONTRACT_ADDRESS` - The main LiquidityPool contract address
 - `GLINT` token address - The deployed GlintToken address
 - `USDC` token address - Network-specific USDC address
 - `USDT` token address - Network-specific USDT address
@@ -78,7 +78,7 @@ You should copy artifacts whenever:
 backend/
 ├── artifacts/contracts/
 │   ├── LendingManager.sol/LendingManager.json
-│   ├── LiquidityPoolV3.sol/LiquidityPoolV3.json
+│   ├── LiquidityPool.sol/LiquidityPool.json
 │   └── StablecoinManager.sol/StablecoinManager.json
 ├── scripts/
 │   ├── copy-artifacts.js
@@ -90,7 +90,7 @@ backend/
 frontend/
 └── src/
     ├── LendingManager.json
-    ├── LiquidityPoolV3.json
+    ├── LiquidityPool.json
     ├── StablecoinManager.json
     └── App.jsx (automatically updated)
 ```

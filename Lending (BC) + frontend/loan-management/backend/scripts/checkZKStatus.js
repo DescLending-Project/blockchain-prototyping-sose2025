@@ -21,13 +21,13 @@ async function main() {
     console.log("   • Deployment Time:", deploymentInfo.deploymentTime);
 
     // Load contracts
-    const liquidityPool = await ethers.getContractAt("LiquidityPoolV3", deploymentInfo.contracts.liquidityPoolV3);
+    const liquidityPool = await ethers.getContractAt("LiquidityPool", deploymentInfo.contracts.liquidityPool);
     const creditSystem = await ethers.getContractAt("IntegratedCreditSystem", deploymentInfo.contracts.integratedCreditSystem);
     const simpleRisc0Test = await ethers.getContractAt("SimpleRISC0Test", deploymentInfo.contracts.simpleRisc0Test);
     const verifierRouter = await ethers.getContractAt("RiscZeroVerifierRouter", deploymentInfo.contracts.riscZeroVerifierRouter);
 
     console.log("\n🏗️ Contract Addresses:");
-    console.log("   • LiquidityPoolV3:", deploymentInfo.contracts.liquidityPoolV3);
+    console.log("   • LiquidityPool:", deploymentInfo.contracts.liquidityPool);
     console.log("   • IntegratedCreditSystem:", deploymentInfo.contracts.integratedCreditSystem);
     console.log("   • SimpleRISC0Test:", deploymentInfo.contracts.simpleRisc0Test);
     console.log("   • RiscZeroVerifierRouter:", deploymentInfo.contracts.riscZeroVerifierRouter);
@@ -37,12 +37,12 @@ async function main() {
 
     // Check ZK integration status
     console.log("\n🔐 ZK Integration Status:");
-    
+
     try {
         const zkProofRequired = await liquidityPool.zkProofRequired();
         const connectedCreditSystem = await liquidityPool.creditSystem();
         const minCreditScore = await creditSystem.getMinimumCreditScore();
-        
+
         console.log("   • ZK Proof Required:", zkProofRequired);
         console.log("   • Credit System Connected:", connectedCreditSystem);
         console.log("   • Minimum Credit Score:", minCreditScore.toString());
@@ -53,7 +53,7 @@ async function main() {
 
     // Check verifier status
     console.log("\n🔍 Verifier Status:");
-    
+
     try {
         const verifierAddress = await simpleRisc0Test.getVerifierAddress();
         console.log("   • SimpleRISC0Test Verifier:", verifierAddress);
@@ -64,13 +64,13 @@ async function main() {
 
     // Check liquidity pool status
     console.log("\n💰 Liquidity Pool Status:");
-    
+
     try {
         const poolBalance = await ethers.provider.getBalance(await liquidityPool.getAddress());
         const isPaused = await liquidityPool.isPaused();
         const owner = await liquidityPool.getAdmin();
         const liquidator = await liquidityPool.liquidator();
-        
+
         console.log("   • Pool Balance:", ethers.formatEther(poolBalance), "ETH");
         console.log("   • Paused:", isPaused);
         console.log("   • Owner:", owner);
@@ -81,7 +81,7 @@ async function main() {
 
     // Check credit system configuration
     console.log("\n📊 Credit System Configuration:");
-    
+
     try {
         const userProfile = await creditSystem.getUserCreditProfile(deployer.address);
         console.log("   • Deployer Profile:", {
@@ -98,7 +98,7 @@ async function main() {
 
     // Check system health
     console.log("\n🏥 System Health Check:");
-    
+
     let healthScore = 0;
     const checks = [];
 
@@ -161,7 +161,7 @@ async function main() {
 
     // Provide recommendations
     console.log("\n💡 Recommendations:");
-    
+
     if (healthScore < 100) {
         if (healthScore < 50) {
             console.log("   🚨 System needs immediate attention");
@@ -170,7 +170,7 @@ async function main() {
         } else {
             console.log("   ✅ System is mostly healthy");
         }
-        
+
         if (healthScore < 75) {
             console.log("   📝 Suggested actions:");
             console.log("      • Run deployZKIntegratedSystem.js to redeploy");

@@ -59,200 +59,200 @@
             "offset": 0,
             "slot": "0",
             "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:15"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:15"
           },
           {
             "label": "isAllowedCollateral",
             "offset": 0,
             "slot": "1",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:16"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:16"
           },
           {
             "label": "creditScore",
             "offset": 0,
             "slot": "2",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:17"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:17"
           },
           {
             "label": "userDebt",
             "offset": 0,
             "slot": "3",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:18"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:18"
           },
           {
             "label": "borrowTimestamp",
             "offset": 0,
             "slot": "4",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:19"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:19"
           },
           {
             "label": "isLiquidatable",
             "offset": 0,
             "slot": "5",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:20"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:20"
           },
           {
             "label": "liquidationStartTime",
             "offset": 0,
             "slot": "6",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:21"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:21"
           },
           {
             "label": "liquidationThreshold",
             "offset": 0,
             "slot": "7",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:22"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:22"
           },
           {
             "label": "priceFeed",
             "offset": 0,
             "slot": "8",
             "type": "t_mapping(t_address,t_address)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:23"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:23"
           },
           {
             "label": "collateralTokenList",
             "offset": 0,
             "slot": "9",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:25"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:25"
           },
           {
             "label": "totalFunds",
             "offset": 0,
             "slot": "10",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:31"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:31"
           },
           {
             "label": "locked",
             "offset": 0,
             "slot": "11",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:32"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:32"
           },
           {
             "label": "paused",
             "offset": 1,
             "slot": "11",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:33"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:33"
           },
           {
             "label": "liquidator",
             "offset": 2,
             "slot": "11",
             "type": "t_address",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:35"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:35"
           },
           {
             "label": "maxBorrowAmount",
             "offset": 0,
             "slot": "12",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:38"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:38"
           },
           {
             "label": "maxCollateralAmount",
             "offset": 0,
             "slot": "13",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:39"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:39"
           },
           {
             "label": "maxLiquidationBonus",
             "offset": 0,
             "slot": "14",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:40"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:40"
           },
           {
             "label": "maxLiquidationPenalty",
             "offset": 0,
             "slot": "15",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:41"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:41"
           },
           {
             "label": "maxLiquidationThreshold",
             "offset": 0,
             "slot": "16",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:42"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:42"
           },
           {
             "label": "maxLiquidationTime",
             "offset": 0,
             "slot": "17",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:43"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:43"
           },
           {
             "label": "maxLiquidationAmount",
             "offset": 0,
             "slot": "18",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:44"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:44"
           },
           {
             "label": "maxLiquidationRatio",
             "offset": 0,
             "slot": "19",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:45"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:45"
           },
           {
             "label": "maxLiquidationDelay",
             "offset": 0,
             "slot": "20",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:46"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:46"
           },
           {
             "label": "maxLiquidationGracePeriod",
             "offset": 0,
             "slot": "21",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:47"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:47"
           },
           {
             "label": "interestRate",
             "offset": 0,
             "slot": "22",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:48"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:48"
           }
         ],
         "types": {
@@ -414,216 +414,216 @@
             "offset": 0,
             "slot": "0",
             "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:20"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:20"
           },
           {
             "label": "isAllowedCollateral",
             "offset": 0,
             "slot": "1",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:21"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:21"
           },
           {
             "label": "creditScore",
             "offset": 0,
             "slot": "2",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:22"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:22"
           },
           {
             "label": "userDebt",
             "offset": 0,
             "slot": "3",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:23"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:23"
           },
           {
             "label": "borrowTimestamp",
             "offset": 0,
             "slot": "4",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:24"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:24"
           },
           {
             "label": "isLiquidatable",
             "offset": 0,
             "slot": "5",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:25"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:25"
           },
           {
             "label": "liquidationStartTime",
             "offset": 0,
             "slot": "6",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:26"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:26"
           },
           {
             "label": "liquidationThreshold",
             "offset": 0,
             "slot": "7",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:27"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:27"
           },
           {
             "label": "priceFeed",
             "offset": 0,
             "slot": "8",
             "type": "t_mapping(t_address,t_address)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:28"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:28"
           },
           {
             "label": "collateralTokenList",
             "offset": 0,
             "slot": "9",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:30"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:30"
           },
           {
             "label": "users",
             "offset": 0,
             "slot": "10",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:32"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:32"
           },
           {
             "label": "isKnownUser",
             "offset": 0,
             "slot": "11",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:33"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:33"
           },
           {
             "label": "totalFunds",
             "offset": 0,
             "slot": "12",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:40"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:40"
           },
           {
             "label": "locked",
             "offset": 0,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:41"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:41"
           },
           {
             "label": "paused",
             "offset": 1,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:42"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:42"
           },
           {
             "label": "liquidator",
             "offset": 2,
             "slot": "13",
             "type": "t_address",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:44"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:44"
           },
           {
             "label": "maxBorrowAmount",
             "offset": 0,
             "slot": "14",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:47"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:47"
           },
           {
             "label": "maxCollateralAmount",
             "offset": 0,
             "slot": "15",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:48"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:48"
           },
           {
             "label": "maxLiquidationBonus",
             "offset": 0,
             "slot": "16",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:49"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:49"
           },
           {
             "label": "maxLiquidationPenalty",
             "offset": 0,
             "slot": "17",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:50"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:50"
           },
           {
             "label": "maxLiquidationThreshold",
             "offset": 0,
             "slot": "18",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:51"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:51"
           },
           {
             "label": "maxLiquidationTime",
             "offset": 0,
             "slot": "19",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:52"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:52"
           },
           {
             "label": "maxLiquidationAmount",
             "offset": 0,
             "slot": "20",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:53"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:53"
           },
           {
             "label": "maxLiquidationRatio",
             "offset": 0,
             "slot": "21",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:54"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:54"
           },
           {
             "label": "maxLiquidationDelay",
             "offset": 0,
             "slot": "22",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:55"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:55"
           },
           {
             "label": "maxLiquidationGracePeriod",
             "offset": 0,
             "slot": "23",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:56"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:56"
           },
           {
             "label": "interestRate",
             "offset": 0,
             "slot": "24",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:57"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:57"
           }
         ],
         "types": {
@@ -785,216 +785,216 @@
             "offset": 0,
             "slot": "0",
             "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:19"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:19"
           },
           {
             "label": "isAllowedCollateral",
             "offset": 0,
             "slot": "1",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:20"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:20"
           },
           {
             "label": "creditScore",
             "offset": 0,
             "slot": "2",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:21"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:21"
           },
           {
             "label": "userDebt",
             "offset": 0,
             "slot": "3",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:22"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:22"
           },
           {
             "label": "borrowTimestamp",
             "offset": 0,
             "slot": "4",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:23"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:23"
           },
           {
             "label": "isLiquidatable",
             "offset": 0,
             "slot": "5",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:24"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:24"
           },
           {
             "label": "liquidationStartTime",
             "offset": 0,
             "slot": "6",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:25"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:25"
           },
           {
             "label": "liquidationThreshold",
             "offset": 0,
             "slot": "7",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:26"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:26"
           },
           {
             "label": "priceFeed",
             "offset": 0,
             "slot": "8",
             "type": "t_mapping(t_address,t_address)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:27"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:27"
           },
           {
             "label": "collateralTokenList",
             "offset": 0,
             "slot": "9",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:29"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:29"
           },
           {
             "label": "totalFunds",
             "offset": 0,
             "slot": "10",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:35"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:35"
           },
           {
             "label": "locked",
             "offset": 0,
             "slot": "11",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:36"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:36"
           },
           {
             "label": "paused",
             "offset": 1,
             "slot": "11",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:37"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:37"
           },
           {
             "label": "liquidator",
             "offset": 2,
             "slot": "11",
             "type": "t_address",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:39"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:39"
           },
           {
             "label": "maxBorrowAmount",
             "offset": 0,
             "slot": "12",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:42"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:42"
           },
           {
             "label": "maxCollateralAmount",
             "offset": 0,
             "slot": "13",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:43"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:43"
           },
           {
             "label": "maxLiquidationBonus",
             "offset": 0,
             "slot": "14",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:44"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:44"
           },
           {
             "label": "maxLiquidationPenalty",
             "offset": 0,
             "slot": "15",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:45"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:45"
           },
           {
             "label": "maxLiquidationThreshold",
             "offset": 0,
             "slot": "16",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:46"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:46"
           },
           {
             "label": "maxLiquidationTime",
             "offset": 0,
             "slot": "17",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:47"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:47"
           },
           {
             "label": "maxLiquidationAmount",
             "offset": 0,
             "slot": "18",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:48"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:48"
           },
           {
             "label": "maxLiquidationRatio",
             "offset": 0,
             "slot": "19",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:49"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:49"
           },
           {
             "label": "maxLiquidationDelay",
             "offset": 0,
             "slot": "20",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:50"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:50"
           },
           {
             "label": "maxLiquidationGracePeriod",
             "offset": 0,
             "slot": "21",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:51"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:51"
           },
           {
             "label": "interestRate",
             "offset": 0,
             "slot": "22",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:52"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:52"
           },
           {
             "label": "users",
             "offset": 0,
             "slot": "23",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:55"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:55"
           },
           {
             "label": "isKnownUser",
             "offset": 0,
             "slot": "24",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:56"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:56"
           }
         ],
         "types": {
@@ -1156,272 +1156,272 @@
             "offset": 0,
             "slot": "0",
             "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:18"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:18"
           },
           {
             "label": "isAllowedCollateral",
             "offset": 0,
             "slot": "1",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:19"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:19"
           },
           {
             "label": "creditScore",
             "offset": 0,
             "slot": "2",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:20"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:20"
           },
           {
             "label": "userDebt",
             "offset": 0,
             "slot": "3",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:21"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:21"
           },
           {
             "label": "borrowTimestamp",
             "offset": 0,
             "slot": "4",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:22"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:22"
           },
           {
             "label": "isLiquidatable",
             "offset": 0,
             "slot": "5",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:23"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:23"
           },
           {
             "label": "liquidationStartTime",
             "offset": 0,
             "slot": "6",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:24"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:24"
           },
           {
             "label": "liquidationThreshold",
             "offset": 0,
             "slot": "7",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:25"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:25"
           },
           {
             "label": "priceFeed",
             "offset": 0,
             "slot": "8",
             "type": "t_mapping(t_address,t_address)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:26"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:26"
           },
           {
             "label": "collateralTokenList",
             "offset": 0,
             "slot": "9",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:28"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:28"
           },
           {
             "label": "totalFunds",
             "offset": 0,
             "slot": "10",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:34"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:34"
           },
           {
             "label": "locked",
             "offset": 0,
             "slot": "11",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:35"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:35"
           },
           {
             "label": "paused",
             "offset": 1,
             "slot": "11",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:36"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:36"
           },
           {
             "label": "liquidator",
             "offset": 2,
             "slot": "11",
             "type": "t_address",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:38"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:38"
           },
           {
             "label": "maxBorrowAmount",
             "offset": 0,
             "slot": "12",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:41"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:41"
           },
           {
             "label": "maxCollateralAmount",
             "offset": 0,
             "slot": "13",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:42"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:42"
           },
           {
             "label": "maxLiquidationBonus",
             "offset": 0,
             "slot": "14",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:43"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:43"
           },
           {
             "label": "maxLiquidationPenalty",
             "offset": 0,
             "slot": "15",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:44"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:44"
           },
           {
             "label": "maxLiquidationThreshold",
             "offset": 0,
             "slot": "16",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:45"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:45"
           },
           {
             "label": "maxLiquidationTime",
             "offset": 0,
             "slot": "17",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:46"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:46"
           },
           {
             "label": "maxLiquidationAmount",
             "offset": 0,
             "slot": "18",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:47"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:47"
           },
           {
             "label": "maxLiquidationRatio",
             "offset": 0,
             "slot": "19",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:48"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:48"
           },
           {
             "label": "maxLiquidationDelay",
             "offset": 0,
             "slot": "20",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:49"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:49"
           },
           {
             "label": "maxLiquidationGracePeriod",
             "offset": 0,
             "slot": "21",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:50"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:50"
           },
           {
             "label": "interestRate",
             "offset": 0,
             "slot": "22",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:51"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:51"
           },
           {
             "label": "EARLY_WITHDRAWAL_PENALTY",
             "offset": 0,
             "slot": "23",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:56"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:56"
           },
           {
             "label": "lenders",
             "offset": 0,
             "slot": "24",
             "type": "t_mapping(t_address,t_struct(LenderInfo)1318_storage)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:73"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:73"
           },
           {
             "label": "totalLent",
             "offset": 0,
             "slot": "25",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:74"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:74"
           },
           {
             "label": "currentDailyRate",
             "offset": 0,
             "slot": "26",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:75"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:75"
           },
           {
             "label": "lastRateUpdateDay",
             "offset": 0,
             "slot": "27",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:76"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:76"
           },
           {
             "label": "dailyInterestRate",
             "offset": 0,
             "slot": "28",
             "type": "t_mapping(t_uint256,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:77"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:77"
           },
           {
             "label": "interestTiers",
             "offset": 0,
             "slot": "29",
             "type": "t_array(t_struct(InterestTier)1338_storage)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:84"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:84"
           },
           {
             "label": "users",
             "offset": 0,
             "slot": "30",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:87"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:87"
           },
           {
             "label": "isKnownUser",
             "offset": 0,
             "slot": "31",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:88"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:88"
           }
         ],
         "types": {
@@ -1514,7 +1514,7 @@
             "numberOfBytes": "32"
           },
           "t_array(t_struct(InterestTier)1338_storage)dyn_storage": {
-            "label": "struct LiquidityPoolV3.InterestTier[]",
+            "label": "struct LiquidityPool.InterestTier[]",
             "numberOfBytes": "32"
           },
           "t_mapping(t_address,t_address)": {
@@ -1526,7 +1526,7 @@
             "numberOfBytes": "32"
           },
           "t_mapping(t_address,t_struct(LenderInfo)1318_storage)": {
-            "label": "mapping(address => struct LiquidityPoolV3.LenderInfo)",
+            "label": "mapping(address => struct LiquidityPool.LenderInfo)",
             "numberOfBytes": "32"
           },
           "t_mapping(t_address,t_uint256)": {
@@ -1538,7 +1538,7 @@
             "numberOfBytes": "32"
           },
           "t_struct(InterestTier)1338_storage": {
-            "label": "struct LiquidityPoolV3.InterestTier",
+            "label": "struct LiquidityPool.InterestTier",
             "members": [
               {
                 "label": "minAmount",
@@ -1556,7 +1556,7 @@
             "numberOfBytes": "64"
           },
           "t_struct(LenderInfo)1318_storage": {
-            "label": "struct LiquidityPoolV3.LenderInfo",
+            "label": "struct LiquidityPool.LenderInfo",
             "members": [
               {
                 "label": "balance",
@@ -1673,144 +1673,144 @@
             "offset": 0,
             "slot": "0",
             "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:20"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:20"
           },
           {
             "label": "isAllowedCollateral",
             "offset": 0,
             "slot": "1",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:21"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:21"
           },
           {
             "label": "creditScore",
             "offset": 0,
             "slot": "2",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:22"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:22"
           },
           {
             "label": "userDebt",
             "offset": 0,
             "slot": "3",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:23"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:23"
           },
           {
             "label": "borrowTimestamp",
             "offset": 0,
             "slot": "4",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:24"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:24"
           },
           {
             "label": "isLiquidatable",
             "offset": 0,
             "slot": "5",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:25"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:25"
           },
           {
             "label": "liquidationStartTime",
             "offset": 0,
             "slot": "6",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:26"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:26"
           },
           {
             "label": "liquidationThreshold",
             "offset": 0,
             "slot": "7",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:27"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:27"
           },
           {
             "label": "priceFeed",
             "offset": 0,
             "slot": "8",
             "type": "t_mapping(t_address,t_address)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:28"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:28"
           },
           {
             "label": "collateralTokenList",
             "offset": 0,
             "slot": "9",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:30"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:30"
           },
           {
             "label": "users",
             "offset": 0,
             "slot": "10",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:31"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:31"
           },
           {
             "label": "isKnownUser",
             "offset": 0,
             "slot": "11",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:32"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:32"
           },
           {
             "label": "totalFunds",
             "offset": 0,
             "slot": "12",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:38"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:38"
           },
           {
             "label": "locked",
             "offset": 0,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:39"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:39"
           },
           {
             "label": "paused",
             "offset": 1,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:40"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:40"
           },
           {
             "label": "liquidator",
             "offset": 2,
             "slot": "13",
             "type": "t_address",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:42"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:42"
           },
           {
             "label": "stablecoinManager",
             "offset": 0,
             "slot": "14",
             "type": "t_contract(StablecoinManager)4791",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:44"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:44"
           },
           {
             "label": "lendingManager",
             "offset": 0,
             "slot": "15",
             "type": "t_contract(LendingManager)2667",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts/LiquidityPoolV3.sol:45"
+            "contract": "LiquidityPool",
+            "src": "contracts/LiquidityPool.sol:45"
           }
         ],
         "types": {
@@ -1980,192 +1980,192 @@
             "offset": 0,
             "slot": "0",
             "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:20"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:20"
           },
           {
             "label": "isAllowedCollateral",
             "offset": 0,
             "slot": "1",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:21"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:21"
           },
           {
             "label": "creditScore",
             "offset": 0,
             "slot": "2",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:22"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:22"
           },
           {
             "label": "userDebt",
             "offset": 0,
             "slot": "3",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:23"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:23"
           },
           {
             "label": "borrowTimestamp",
             "offset": 0,
             "slot": "4",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:24"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:24"
           },
           {
             "label": "isLiquidatable",
             "offset": 0,
             "slot": "5",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:25"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:25"
           },
           {
             "label": "liquidationStartTime",
             "offset": 0,
             "slot": "6",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:26"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:26"
           },
           {
             "label": "liquidationThreshold",
             "offset": 0,
             "slot": "7",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:27"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:27"
           },
           {
             "label": "priceFeed",
             "offset": 0,
             "slot": "8",
             "type": "t_mapping(t_address,t_address)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:28"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:28"
           },
           {
             "label": "collateralTokenList",
             "offset": 0,
             "slot": "9",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:30"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:30"
           },
           {
             "label": "users",
             "offset": 0,
             "slot": "10",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:31"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:31"
           },
           {
             "label": "isKnownUser",
             "offset": 0,
             "slot": "11",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:32"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:32"
           },
           {
             "label": "totalFunds",
             "offset": 0,
             "slot": "12",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:38"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:38"
           },
           {
             "label": "locked",
             "offset": 0,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:39"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:39"
           },
           {
             "label": "paused",
             "offset": 1,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:40"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:40"
           },
           {
             "label": "liquidator",
             "offset": 2,
             "slot": "13",
             "type": "t_address",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:42"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:42"
           },
           {
             "label": "stablecoinManager",
             "offset": 0,
             "slot": "14",
             "type": "t_contract(StablecoinManager)6840",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:44"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:44"
           },
           {
             "label": "lendingManager",
             "offset": 0,
             "slot": "15",
             "type": "t_contract(LendingManager)3557",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:45"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:45"
           },
           {
             "label": "borrowTierConfigs",
             "offset": 0,
             "slot": "16",
             "type": "t_array(t_struct(BorrowTierConfig)3664_storage)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:66"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:66"
           },
           {
             "label": "borrowedAmountByRiskTier",
             "offset": 0,
             "slot": "17",
             "type": "t_mapping(t_enum(RiskTier)3653,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:69"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:69"
           },
           {
             "label": "totalBorrowedAllTime",
             "offset": 0,
             "slot": "18",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:71"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:71"
           },
           {
             "label": "totalRepaidAllTime",
             "offset": 0,
             "slot": "19",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:72"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:72"
           },
           {
             "label": "maxPriceAge",
             "offset": 0,
             "slot": "20",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:75"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:75"
           },
           {
             "label": "lastUpkeep",
             "offset": 0,
             "slot": "21",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:805"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:805"
           }
         ],
         "types": {
@@ -2258,7 +2258,7 @@
             "numberOfBytes": "32"
           },
           "t_array(t_struct(BorrowTierConfig)3664_storage)dyn_storage": {
-            "label": "struct LiquidityPoolV3.BorrowTierConfig[]",
+            "label": "struct LiquidityPool.BorrowTierConfig[]",
             "numberOfBytes": "32"
           },
           "t_contract(LendingManager)3557": {
@@ -2270,7 +2270,7 @@
             "numberOfBytes": "20"
           },
           "t_enum(RiskTier)3653": {
-            "label": "enum LiquidityPoolV3.RiskTier",
+            "label": "enum LiquidityPool.RiskTier",
             "members": [
               "TIER_1",
               "TIER_2",
@@ -2297,11 +2297,11 @@
             "numberOfBytes": "32"
           },
           "t_mapping(t_enum(RiskTier)3653,t_uint256)": {
-            "label": "mapping(enum LiquidityPoolV3.RiskTier => uint256)",
+            "label": "mapping(enum LiquidityPool.RiskTier => uint256)",
             "numberOfBytes": "32"
           },
           "t_struct(BorrowTierConfig)3664_storage": {
-            "label": "struct LiquidityPoolV3.BorrowTierConfig",
+            "label": "struct LiquidityPool.BorrowTierConfig",
             "members": [
               {
                 "label": "minScore",
@@ -2394,208 +2394,208 @@
             "offset": 0,
             "slot": "0",
             "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:21"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:21"
           },
           {
             "label": "isAllowedCollateral",
             "offset": 0,
             "slot": "1",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:22"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:22"
           },
           {
             "label": "creditScore",
             "offset": 0,
             "slot": "2",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:23"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:23"
           },
           {
             "label": "userDebt",
             "offset": 0,
             "slot": "3",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:24"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:24"
           },
           {
             "label": "borrowTimestamp",
             "offset": 0,
             "slot": "4",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:25"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:25"
           },
           {
             "label": "isLiquidatable",
             "offset": 0,
             "slot": "5",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:26"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:26"
           },
           {
             "label": "liquidationStartTime",
             "offset": 0,
             "slot": "6",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:27"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:27"
           },
           {
             "label": "liquidationThreshold",
             "offset": 0,
             "slot": "7",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:28"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:28"
           },
           {
             "label": "priceFeed",
             "offset": 0,
             "slot": "8",
             "type": "t_mapping(t_address,t_address)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:29"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:29"
           },
           {
             "label": "collateralTokenList",
             "offset": 0,
             "slot": "9",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:31"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:31"
           },
           {
             "label": "users",
             "offset": 0,
             "slot": "10",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:32"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:32"
           },
           {
             "label": "isKnownUser",
             "offset": 0,
             "slot": "11",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:33"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:33"
           },
           {
             "label": "totalFunds",
             "offset": 0,
             "slot": "12",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:39"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:39"
           },
           {
             "label": "locked",
             "offset": 0,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:40"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:40"
           },
           {
             "label": "paused",
             "offset": 1,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:41"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:41"
           },
           {
             "label": "liquidator",
             "offset": 2,
             "slot": "13",
             "type": "t_address",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:43"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:43"
           },
           {
             "label": "stablecoinManager",
             "offset": 0,
             "slot": "14",
             "type": "t_contract(StablecoinManager)7105",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:45"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:45"
           },
           {
             "label": "lendingManager",
             "offset": 0,
             "slot": "15",
             "type": "t_contract(LendingManager)3557",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:46"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:46"
           },
           {
             "label": "creditSystem",
             "offset": 0,
             "slot": "16",
             "type": "t_contract(IntegratedCreditSystem)2162",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:49"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:49"
           },
           {
             "label": "zkProofRequired",
             "offset": 20,
             "slot": "16",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:50"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:50"
           },
           {
             "label": "borrowTierConfigs",
             "offset": 0,
             "slot": "17",
             "type": "t_array(t_struct(BorrowTierConfig)3670_storage)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:71"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:71"
           },
           {
             "label": "borrowedAmountByRiskTier",
             "offset": 0,
             "slot": "18",
             "type": "t_mapping(t_enum(RiskTier)3659,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:74"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:74"
           },
           {
             "label": "totalBorrowedAllTime",
             "offset": 0,
             "slot": "19",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:76"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:76"
           },
           {
             "label": "totalRepaidAllTime",
             "offset": 0,
             "slot": "20",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:77"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:77"
           },
           {
             "label": "maxPriceAge",
             "offset": 0,
             "slot": "21",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:80"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:80"
           },
           {
             "label": "lastUpkeep",
             "offset": 0,
             "slot": "22",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:904"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:904"
           }
         ],
         "types": {
@@ -2688,7 +2688,7 @@
             "numberOfBytes": "32"
           },
           "t_array(t_struct(BorrowTierConfig)3670_storage)dyn_storage": {
-            "label": "struct LiquidityPoolV3.BorrowTierConfig[]",
+            "label": "struct LiquidityPool.BorrowTierConfig[]",
             "numberOfBytes": "32"
           },
           "t_contract(IntegratedCreditSystem)2162": {
@@ -2704,7 +2704,7 @@
             "numberOfBytes": "20"
           },
           "t_enum(RiskTier)3659": {
-            "label": "enum LiquidityPoolV3.RiskTier",
+            "label": "enum LiquidityPool.RiskTier",
             "members": [
               "TIER_1",
               "TIER_2",
@@ -2731,11 +2731,11 @@
             "numberOfBytes": "32"
           },
           "t_mapping(t_enum(RiskTier)3659,t_uint256)": {
-            "label": "mapping(enum LiquidityPoolV3.RiskTier => uint256)",
+            "label": "mapping(enum LiquidityPool.RiskTier => uint256)",
             "numberOfBytes": "32"
           },
           "t_struct(BorrowTierConfig)3670_storage": {
-            "label": "struct LiquidityPoolV3.BorrowTierConfig",
+            "label": "struct LiquidityPool.BorrowTierConfig",
             "members": [
               {
                 "label": "minScore",
@@ -2828,208 +2828,208 @@
             "offset": 0,
             "slot": "0",
             "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:20"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:20"
           },
           {
             "label": "isAllowedCollateral",
             "offset": 0,
             "slot": "1",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:21"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:21"
           },
           {
             "label": "creditScore",
             "offset": 0,
             "slot": "2",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:22"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:22"
           },
           {
             "label": "userDebt",
             "offset": 0,
             "slot": "3",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:23"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:23"
           },
           {
             "label": "borrowTimestamp",
             "offset": 0,
             "slot": "4",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:24"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:24"
           },
           {
             "label": "isLiquidatable",
             "offset": 0,
             "slot": "5",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:25"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:25"
           },
           {
             "label": "liquidationStartTime",
             "offset": 0,
             "slot": "6",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:26"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:26"
           },
           {
             "label": "liquidationThreshold",
             "offset": 0,
             "slot": "7",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:27"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:27"
           },
           {
             "label": "priceFeed",
             "offset": 0,
             "slot": "8",
             "type": "t_mapping(t_address,t_address)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:28"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:28"
           },
           {
             "label": "collateralTokenList",
             "offset": 0,
             "slot": "9",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:30"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:30"
           },
           {
             "label": "users",
             "offset": 0,
             "slot": "10",
             "type": "t_array(t_address)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:31"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:31"
           },
           {
             "label": "isKnownUser",
             "offset": 0,
             "slot": "11",
             "type": "t_mapping(t_address,t_bool)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:32"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:32"
           },
           {
             "label": "totalFunds",
             "offset": 0,
             "slot": "12",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:38"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:38"
           },
           {
             "label": "locked",
             "offset": 0,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:39"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:39"
           },
           {
             "label": "paused",
             "offset": 1,
             "slot": "13",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:40"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:40"
           },
           {
             "label": "liquidator",
             "offset": 2,
             "slot": "13",
             "type": "t_address",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:42"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:42"
           },
           {
             "label": "stablecoinManager",
             "offset": 0,
             "slot": "14",
             "type": "t_contract(StablecoinManager)8456",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:44"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:44"
           },
           {
             "label": "lendingManager",
             "offset": 0,
             "slot": "15",
             "type": "t_contract(LendingManager)4705",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:45"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:45"
           },
           {
             "label": "creditSystem",
             "offset": 0,
             "slot": "16",
             "type": "t_contract(IntegratedCreditSystem)3310",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:48"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:48"
           },
           {
             "label": "zkProofRequired",
             "offset": 20,
             "slot": "16",
             "type": "t_bool",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:49"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:49"
           },
           {
             "label": "borrowTierConfigs",
             "offset": 0,
             "slot": "17",
             "type": "t_array(t_struct(BorrowTierConfig)4818_storage)dyn_storage",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:70"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:70"
           },
           {
             "label": "borrowedAmountByRiskTier",
             "offset": 0,
             "slot": "18",
             "type": "t_mapping(t_enum(RiskTier)4807,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:73"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:73"
           },
           {
             "label": "totalBorrowedAllTime",
             "offset": 0,
             "slot": "19",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:75"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:75"
           },
           {
             "label": "totalRepaidAllTime",
             "offset": 0,
             "slot": "20",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:76"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:76"
           },
           {
             "label": "maxPriceAge",
             "offset": 0,
             "slot": "21",
             "type": "t_mapping(t_address,t_uint256)",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:79"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:79"
           },
           {
             "label": "lastUpkeep",
             "offset": 0,
             "slot": "22",
             "type": "t_uint256",
-            "contract": "LiquidityPoolV3",
-            "src": "contracts\\LiquidityPoolV3.sol:903"
+            "contract": "LiquidityPool",
+            "src": "contracts\\LiquidityPool.sol:903"
           }
         ],
         "types": {
@@ -3122,7 +3122,7 @@
             "numberOfBytes": "32"
           },
           "t_array(t_struct(BorrowTierConfig)4818_storage)dyn_storage": {
-            "label": "struct LiquidityPoolV3.BorrowTierConfig[]",
+            "label": "struct LiquidityPool.BorrowTierConfig[]",
             "numberOfBytes": "32"
           },
           "t_contract(IntegratedCreditSystem)3310": {
@@ -3138,7 +3138,7 @@
             "numberOfBytes": "20"
           },
           "t_enum(RiskTier)4807": {
-            "label": "enum LiquidityPoolV3.RiskTier",
+            "label": "enum LiquidityPool.RiskTier",
             "members": [
               "TIER_1",
               "TIER_2",
@@ -3165,11 +3165,11 @@
             "numberOfBytes": "32"
           },
           "t_mapping(t_enum(RiskTier)4807,t_uint256)": {
-            "label": "mapping(enum LiquidityPoolV3.RiskTier => uint256)",
+            "label": "mapping(enum LiquidityPool.RiskTier => uint256)",
             "numberOfBytes": "32"
           },
           "t_struct(BorrowTierConfig)4818_storage": {
-            "label": "struct LiquidityPoolV3.BorrowTierConfig",
+            "label": "struct LiquidityPool.BorrowTierConfig",
             "members": [
               {
                 "label": "minScore",

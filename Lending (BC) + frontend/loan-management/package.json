@@ -17,11 +17,11 @@
   "license": "ISC",
   "devDependencies": {
     "@chainlink/contracts": "^1.4.0",
-    "@nomiclabs/hardhat-ethers": "^2.2.2",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@openzeppelin/hardhat-upgrades": "^1.25.0",
     "@openzeppelin/test-helpers": "^0.5.16",
     "dotenv": "^17.2.0",
-    "ethers": "5.8.0",
+    "ethers": "^5.8.0",
     "hardhat": "^2.25.0",
     "hardhat-coverage": "^0.9.19",
     "solidity-coverage": "^0.8.16"

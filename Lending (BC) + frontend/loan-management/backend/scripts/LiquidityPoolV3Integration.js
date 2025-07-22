@@ -1,28 +1,28 @@
 const { ethers } = require("hardhat");
 
-// Script to integrate the existing LiquidityPoolV3 with the new credit system
+// Script to integrate the existing LiquidityPool with the new credit system
 
 async function main() {
-    console.log("🔗 Integrating Credit System with LiquidityPoolV3");
+    console.log("🔗 Integrating Credit System with LiquidityPool");
     console.log("===============================================");
 
     const [deployer] = await ethers.getSigners();
-    
+
     // Contract addresses (update these with your actual addresses)
-    const LIQUIDITY_POOL_V3_ADDRESS = "0x..."; // Your deployed LiquidityPoolV3 address
+    const LIQUIDITY_POOL_V3_ADDRESS = "0x..."; // Your deployed LiquidityPool address
     const INTEGRATED_CREDIT_SYSTEM_ADDRESS = "0x..."; // Your deployed IntegratedCreditSystem address
 
     // Get contract instances
-    const liquidityPool = await ethers.getContractAt("LiquidityPoolV3", LIQUIDITY_POOL_V3_ADDRESS);
+    const liquidityPool = await ethers.getContractAt("LiquidityPool", LIQUIDITY_POOL_V3_ADDRESS);
     const creditSystem = await ethers.getContractAt("IntegratedCreditSystem", INTEGRATED_CREDIT_SYSTEM_ADDRESS);
 
     console.log("📋 Contract Addresses:");
-    console.log("LiquidityPoolV3:", LIQUIDITY_POOL_V3_ADDRESS);
+    console.log("LiquidityPool:", LIQUIDITY_POOL_V3_ADDRESS);
     console.log("CreditSystem:", INTEGRATED_CREDIT_SYSTEM_ADDRESS);
 
     // Step 1: Create modified borrow function that checks credit verification
     console.log("\n1️⃣ Testing Credit-Aware Borrowing...");
-    
+
     try {
         // Check if user has credit verification
         const userProfile = await creditSystem.getUserCreditProfile(deployer.address);
@@ -37,7 +37,7 @@ async function main() {
         // Get current borrowing terms
         const riskTier = await liquidityPool.getRiskTier(deployer.address);
         const borrowTerms = await liquidityPool.getBorrowTerms(deployer.address);
-        
+
         console.log("Current Borrowing Terms:", {
             riskTier: riskTier.toString(),
             collateralRatio: borrowTerms.collateralRatio.toString(),
@@ -51,12 +51,12 @@ async function main() {
 
     // Step 2: Create enhanced borrowing workflow
     console.log("\n2️⃣ Creating Enhanced Borrowing Workflow...");
-    
+
     await createEnhancedBorrowingWorkflow();
 
     // Step 3: Create monitoring functions
     console.log("\n3️⃣ Setting up Credit Monitoring...");
-    
+
     await setupCreditMonitoring(INTEGRATED_CREDIT_SYSTEM_ADDRESS);
 
     console.log("\n✅ Integration Complete!");
@@ -77,7 +77,7 @@ class EnhancedBorrowingWorkflow {
     async initialize() {
         const [signer] = await ethers.getSigners();
         this.signer = signer;
-        this.liquidityPool = await ethers.getContractAt("LiquidityPoolV3", this.liquidityPoolAddress);
+        this.liquidityPool = await ethers.getContractAt("LiquidityPool", this.liquidityPoolAddress);
         this.creditSystem = await ethers.getContractAt("IntegratedCreditSystem", this.creditSystemAddress);
     }
 

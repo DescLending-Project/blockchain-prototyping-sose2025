@@ -243,7 +243,7 @@ npx hardhat run scripts/run-mockup-after-deploy.js --network localhost
 ## 🏗️ Contract Architecture
 
 ### Core Contracts:
-- **LiquidityPoolV3**: Manages deposits, withdrawals, and interest distribution
+- **LiquidityPool**: Manages deposits, withdrawals, and interest distribution
 - **LendingManager**: Handles borrowing, collateral management, and credit scoring
 - **StablecoinManager**: Manages stablecoin parameters and liquidation thresholds
 - **GlintToken**: Native platform token

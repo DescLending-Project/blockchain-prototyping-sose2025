@@ -5,23 +5,23 @@ const { ethers } = require("hardhat");
 
 async function deployContracts() {
     console.log("🚀 Deploying all contracts for ZK Proof Integration Demo");
-    
+
     const [deployer, user] = await ethers.getSigners();
     console.log("Deploying with account:", deployer.address);
     console.log("Demo user account:", user.address);
     console.log("Deployer balance:", ethers.formatEther(await deployer.provider.getBalance(deployer.address)), "ETH");
-    
+
     const contracts = {};
-    
+
     //Deploy RiscZeroVerifierRouter
     console.log("\n📋 Step 1: Deploying RISC Zero Verifier...");
-    
+
     // for demo purposes, we use a mock verifier that accepts any proof
     const MockVerifierFactory = await ethers.getContractFactory("MockRiscZeroVerifier");
     contracts.mockVerifier = await MockVerifierFactory.deploy();
     await contracts.mockVerifier.waitForDeployment();
     console.log("✅ MockRiscZeroVerifier deployed to:", await contracts.mockVerifier.getAddress());
-    
+
     /* // Deploy SimpleRISC0Test
     console.log("\n📋 Step 2: Deploying SimpleRISC0Test...");
     const SimpleRISC0TestFactory = await ethers.getContractFactory("SimpleRISC0Test");
@@ -35,7 +35,7 @@ async function deployContracts() {
     // Instead of MockRiscZeroVerifier, use the real one:
     const REAL_VERIFIER_ADDRESS = "0xD0141E899a65C95a556fE2B27e5982A6DE7fDD7A"; // real address of Risc0
     contracts.risc0Test = await SimpleRISC0TestFactory.deploy(REAL_VERIFIER_ADDRESS);
-    
+
     //GlintToken and MockPriceFeed for collateral
     console.log("\n📋 Step 3: Deploying GlintToken...");
     const GlintTokenFactory = await ethers.getContractFactory("GlintToken");
@@ -58,7 +58,7 @@ async function deployContracts() {
     contracts.stablecoinManager = await StablecoinManagerFactory.deploy(deployer.address);
     await contracts.stablecoinManager.waitForDeployment();
     console.log("✅ StablecoinManager deployed to:", await contracts.stablecoinManager.getAddress());
-    
+
     // LendingManager as required by LiquidityPool
     console.log("\n📋 Step 6: Deploying LendingManager...");
     // Note: LendingManager has a circular dependency with LiquidityPool
@@ -71,7 +71,7 @@ async function deployContracts() {
     );
     await contracts.lendingManager.waitForDeployment();
     console.log("✅ LendingManager deployed to:", await contracts.lendingManager.getAddress());
-    
+
     // Deploy IntegratedCreditSystem
     console.log("\n📋 Step 7: Deploying IntegratedCreditSystem...");
     console.log("\n📋 Step 5: Deploying IntegratedCreditSystem...");
@@ -82,14 +82,14 @@ async function deployContracts() {
     );
     await contracts.creditSystem.waitForDeployment();
     console.log("✅ IntegratedCreditSystem deployed to:", await contracts.creditSystem.getAddress());
-    
-    //LiquidityPoolV3
-    console.log("\n📋 Step 8: Deploying LiquidityPoolV3...");
-    console.log("\n📋 Step 6: Deploying LiquidityPoolV3...");
-    const LiquidityPoolV3Factory = await ethers.getContractFactory("LiquidityPoolV3");
-    contracts.liquidityPool = await LiquidityPoolV3Factory.deploy();
+
+    //LiquidityPool
+    console.log("\n📋 Step 8: Deploying LiquidityPool...");
+    console.log("\n📋 Step 6: Deploying LiquidityPool...");
+    const LiquidityPoolFactory = await ethers.getContractFactory("LiquidityPool");
+    contracts.liquidityPool = await LiquidityPoolFactory.deploy();
     await contracts.liquidityPool.waitForDeployment();
-    
+
     // Initialize the upgradeable contract with temporary addresses
     await contracts.liquidityPool.initialize(
         deployer.address, // initialOwner
@@ -97,12 +97,12 @@ async function deployContracts() {
         await contracts.lendingManager.getAddress(), // temporary, will be updated
         ethers.ZeroAddress // temporary, will be set later
     );
-    console.log("✅ LiquidityPoolV3 deployed and initialized to:", await contracts.liquidityPool.getAddress());
-    
+    console.log("✅ LiquidityPool deployed and initialized to:", await contracts.liquidityPool.getAddress());
+
     // circular dependencies will be fixed by redeploying with correct addresses
     console.log("\n📋 Step 9: Fixing circular dependencies...");
     console.log("\n📋 Step 7: Fixing circular dependencies...");
-    
+
     // re deploy LendingManager with correct LiquidityPool address
     const LendingManagerFactory2 = await ethers.getContractFactory("LendingManager");
     const newLendingManager = await LendingManagerFactory2.deploy(
@@ -112,11 +112,11 @@ async function deployContracts() {
     await newLendingManager.waitForDeployment();
     contracts.lendingManager = newLendingManager;
     console.log("✅ LendingManager redeployed with correct pool address:", await contracts.lendingManager.getAddress());
-    
+
     // update LiquidityPool to use the new lending manager
     await contracts.liquidityPool.setLendingManager(await contracts.lendingManager.getAddress());
     console.log("✅ LiquidityPool updated with new lending manager");
-    
+
     // IntegratedCreditSystem deployed again with correct LiquidityPool address
     const IntegratedCreditSystemFactory2 = await ethers.getContractFactory("IntegratedCreditSystem");
     const newCreditSystem = await IntegratedCreditSystemFactory2.deploy(
@@ -126,12 +126,12 @@ async function deployContracts() {
     await newCreditSystem.waitForDeployment();
     contracts.creditSystem = newCreditSystem;
     console.log("✅ IntegratedCreditSystem redeployed with correct pool address:", await contracts.creditSystem.getAddress());
-    
+
     // Update LiquidityPool to use the new credit system
     await contracts.liquidityPool.setCreditSystem(await contracts.creditSystem.getAddress());
     console.log("✅ LiquidityPool updated with new credit system");
-    
-// demoTester
+
+    // demoTester
     console.log("\n📋 Step 10: Deploying DemoTester...");
     console.log("\n📋 Step 8: Deploying DemoTester...");
     const DemoTesterFactory = await ethers.getContractFactory("DemoTester");
@@ -142,19 +142,19 @@ async function deployContracts() {
     );
     await contracts.demoTester.waitForDeployment();
     console.log("✅ DemoTester deployed to:", await contracts.demoTester.getAddress());
-    
+
     return contracts;
 }
 
 async function setupForDemo(contracts) {
     console.log("\n🔧 Setting up contracts for demo...");
-    
+
     const [deployer, user] = await ethers.getSigners();
-    
+
     // Enable demo mode on RISC0 verifier
     await contracts.risc0Test.setDemoMode(true);
     console.log("✅ Demo mode enabled on RISC0 verifier");
-    
+
     // Add funds to liquidity pool
     const fundAmount = ethers.parseEther("100");
     await deployer.sendTransaction({
@@ -162,24 +162,24 @@ async function setupForDemo(contracts) {
         value: fundAmount
     });
     console.log(`✅ Added ${ethers.formatEther(fundAmount)} ETH to liquidity pool`);
-    
+
     console.log("Setting up GlintToken as collateral...");
     await contracts.liquidityPool.setAllowedCollateral(await contracts.glintToken.getAddress(), true);
     console.log("✅ GlintToken set as allowed collateral");
-    
+
     await contracts.liquidityPool.setPriceFeed(
-        await contracts.glintToken.getAddress(), 
+        await contracts.glintToken.getAddress(),
         await contracts.glintPriceFeed.getAddress()
     );
     console.log("✅ GlintToken price feed set");
-    
+
     try {
         const tokenValue = await contracts.liquidityPool.getTokenValue(await contracts.glintToken.getAddress());
         console.log("✅ GlintToken price verified:", ethers.formatUnits(tokenValue, 18), "USD");
     } catch (error) {
         console.log("⚠️  Price feed verification failed:", error.message);
     }
-    
+
     // Give user some GlintTokens for collateral
     const glintAmount = ethers.parseUnits("1000", 18);
     await contracts.glintToken.transfer(user.address, glintAmount);
@@ -188,46 +188,46 @@ async function setupForDemo(contracts) {
 
 async function runDemo(contracts) {
     console.log("\n🎭 Running Complete ZK Proof Integration Demo");
-    
+
     const [deployer, user] = await ethers.getSigners();
-    
+
     console.log("Demo participant:", user.address);
     console.log("User balance:", ethers.formatEther(await user.provider.getBalance(user.address)), "ETH");
-    
+
     // Check demo mode
     const isDemoReady = await contracts.risc0Test.isDemoMode();
     console.log("Demo mode active:", isDemoReady);
-    
+
     if (!isDemoReady) {
         console.log("❌ Demo mode is not active. Enabling...");
         await contracts.risc0Test.setDemoMode(true);
     }
-    
+
     //Check initial state
     console.log("\n📊 Initial state:");
-    const [hasTradFi, hasAccount, hasNesting, finalScore, isEligible] = 
+    const [hasTradFi, hasAccount, hasNesting, finalScore, isEligible] =
         await contracts.demoTester.getUserStatus(user.address);
-    
+
     console.log("- Has TradFi verification:", hasTradFi);
     console.log("- Has Account verification:", hasAccount);
     console.log("- Has Nesting verification:", hasNesting);
     console.log("- Final credit score:", finalScore.toString());
     console.log("- Eligible to borrow:", isEligible);
-    
+
     //Run complete demo flow
     console.log("\n🚀 Running complete demo flow...");
-    
+
     const creditScore = 750; // Good credit score
     const borrowAmount = ethers.parseEther("1"); // Borrow 1 ETH
-    
+
     try {
         const tx = await contracts.demoTester.connect(user).runCompleteDemo(creditScore, borrowAmount);
         const receipt = await tx.wait();
-        
+
         console.log("✅ Demo transaction completed successfully!");
         console.log("Transaction hash:", tx.hash);
         console.log("Gas used:", receipt.gasUsed.toString());
-        
+
         // Extract events
         console.log("\n📝 Events from demo:");
         for (const log of receipt.logs) {
@@ -238,44 +238,44 @@ async function runDemo(contracts) {
                 // Ignore logs from other contracts
             }
         }
-        
+
     } catch (error) {
         console.log("❌ Demo transaction failed:", error.message);
         return false;
     }
-    
+
     //  Check final state
     console.log("\n📊 Final state:");
-    const [finalTradFi, finalAccount, finalNesting, finalFinalScore, finalEligible] = 
+    const [finalTradFi, finalAccount, finalNesting, finalFinalScore, finalEligible] =
         await contracts.demoTester.getUserStatus(user.address);
-    
+
     console.log("- Has TradFi verification:", finalTradFi);
     console.log("- Has Account verification:", finalAccount);
     console.log("- Has Nesting verification:", finalNesting);
     console.log("- Final credit score:", finalFinalScore.toString());
     console.log("- Eligible to borrow:", finalEligible);
-    
+
     // Check borrowing result
     const userDebt = await contracts.liquidityPool.userDebt(user.address);
     console.log("- Current debt:", ethers.formatEther(userDebt), "ETH");
-    
+
     //Test individual proof generation
     console.log("\n🔍 Testing individual proof generation:");
-    
+
     try {
         const [accountSeal, accountJournal] = await contracts.demoTester.generateAccountProof();
         const [tradfiSeal, tradfiJournal] = await contracts.demoTester.generateTradFiProof(750);
         const [nestingSeal, nestingJournal] = await contracts.demoTester.generateNestingProof(750);
-        
+
         console.log("✅ Successfully generated all proof types:");
         console.log("- Account proof seal length:", accountSeal.length);
         console.log("- TradFi proof seal length:", tradfiSeal.length);
         console.log("- Nesting proof seal length:", nestingSeal.length);
-        
+
     } catch (error) {
         console.log("❌ Proof generation failed:", error.message);
     }
-    
+
     return finalEligible && userDebt.gt(0);
 }
 
@@ -283,9 +283,9 @@ async function displaySummary(contracts, success) {
     console.log("\n" + "=".repeat(60));
     console.log("🎯 DEMO SUMMARY");
     console.log("=".repeat(60));
-    
+
     console.log("\n📋 Deployed Contracts:");
-    console.log("- LiquidityPoolV3:", await contracts.liquidityPool.getAddress());
+    console.log("- LiquidityPool:", await contracts.liquidityPool.getAddress());
     console.log("- IntegratedCreditSystem:", await contracts.creditSystem.getAddress());
     console.log("- SimpleRISC0Test:", await contracts.risc0Test.getAddress());
     console.log("- DemoTester:", await contracts.demoTester.getAddress());
@@ -293,7 +293,7 @@ async function displaySummary(contracts, success) {
     console.log("- LendingManager:", await contracts.lendingManager.getAddress());
     console.log("- GlintToken:", await contracts.glintToken.getAddress());
     console.log("- GlintPriceFeed:", await contracts.glintPriceFeed.getAddress());
-    
+
     if (success) {
         console.log("\n🏆 DEMO RESULT: SUCCESS!");
         console.log("✅ User successfully borrowed after ZK proof verification");
@@ -304,7 +304,7 @@ async function displaySummary(contracts, success) {
         console.log("❌ User may not have borrowed successfully");
         console.log("🔧 Check logs above for debugging information");
     }
-    
+
     console.log("\n🚀 Next Steps for Production:");
     console.log("1. Replace MockRiscZeroVerifier with real RISC Zero verifier");
     console.log("2. Integrate with Risc0 team for real proof generation");
@@ -332,21 +332,21 @@ async function main() {
     try {
         console.log("🎬 Starting Complete ZK Proof Integration Deployment and Demo");
         console.log("Timestamp:", new Date().toISOString());
-        
+
         // Step 1: Deploy all contracts
         const contracts = await deployContracts();
-        
+
         // Step 2: Setup for demo
         await setupForDemo(contracts);
-        
+
         // Step 3: Run the demo
         const success = await runDemo(contracts);
-        
+
         // Step 4: Display summary
         await displaySummary(contracts, success);
-        
+
         console.log("\n✅ Deployment and demo completed!");
-        
+
     } catch (error) {
         console.error("\n❌ Deployment/Demo failed:");
         console.error(error.message);

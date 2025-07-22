@@ -24,20 +24,20 @@ async function main() {
     );
     await creditSystem.waitForDeployment();
     const creditSystemAddress = await creditSystem.getAddress();
-    
+
     console.log("✅ IntegratedCreditSystem deployed to:", creditSystemAddress);
 
     // Test the deployment
     console.log("\n🧪 Testing integrated system...");
-    
+
     try {
         // Test basic functionality
         const minCreditScore = await creditSystem.getMinimumCreditScore();
         console.log("✅ Minimum credit score:", minCreditScore.toString());
-        
+
         const isEligible = await creditSystem.isEligibleToBorrow(deployer.address);
         console.log("✅ Deployer borrowing eligibility:", isEligible);
-        
+
         // Test profile retrieval
         const profile = await creditSystem.getUserCreditProfile(deployer.address);
         console.log("✅ User profile retrieved:", {
@@ -47,14 +47,14 @@ async function main() {
             finalScore: profile.finalScore.toString(),
             isEligible: profile.isEligible
         });
-        
+
     } catch (testError) {
         console.error("⚠️  Testing failed:", testError.message);
     }
 
     // Create a comprehensive demo flow
     console.log("\n🎭 Creating Demo Workflow...");
-    
+
     await createDemoWorkflow(creditSystemAddress);
 
     // Summary
@@ -62,13 +62,13 @@ async function main() {
     console.log("=====================");
     console.log("IntegratedCreditSystem:", creditSystemAddress);
     console.log("SimpleRISC0Test (existing):", SIMPLE_RISC0_TEST_ADDRESS);
-    console.log("LiquidityPoolV3 (existing):", LIQUIDITY_POOL_V3_ADDRESS);
+    console.log("LiquidityPool (existing):", LIQUIDITY_POOL_V3_ADDRESS);
     console.log("Deployer:", deployer.address);
 
     console.log("\n🎯 NEXT STEPS");
     console.log("=============");
     console.log("1. 📱 Create user interface for proof submission");
-    console.log("2. 🔗 Update LiquidityPoolV3 to use this credit system");
+    console.log("2. 🔗 Update LiquidityPool to use this credit system");
     console.log("3. 🧪 Test with mock proof data");
     console.log("4. 🚀 Deploy to production with real RISC Zero receipts");
 
@@ -84,7 +84,7 @@ async function main() {
 
 async function createDemoWorkflow(creditSystemAddress) {
     console.log("Creating demo workflow script...");
-    
+
     const demoScript = `
 // Demo workflow for testing the integrated credit system
 const { ethers } = require("hardhat");
@@ -124,7 +124,7 @@ async function runDemo() {
     console.log("\\n3️⃣ After Verification (simulated):");
     console.log("   - TradFi Score: 75/100");
     console.log("   - Credit Profile Updated");
-    console.log("   - LiquidityPoolV3 Notified");
+    console.log("   - LiquidityPool Notified");
     console.log("   - Borrowing Terms Improved");
     
     console.log("\\n✅ Demo complete! Ready for real proof integration.");

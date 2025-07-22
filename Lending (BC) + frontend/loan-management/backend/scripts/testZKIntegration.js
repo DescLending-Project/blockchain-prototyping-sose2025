@@ -21,7 +21,7 @@ async function main() {
     console.log("   • User 2:", user2.address);
 
     // Load contracts
-    const liquidityPool = await ethers.getContractAt("LiquidityPoolV3", deploymentInfo.contracts.liquidityPoolV3);
+    const liquidityPool = await ethers.getContractAt("LiquidityPool", deploymentInfo.contracts.liquidityPool);
     const creditSystem = await ethers.getContractAt("IntegratedCreditSystem", deploymentInfo.contracts.integratedCreditSystem);
     const simpleRisc0Test = await ethers.getContractAt("SimpleRISC0Test", deploymentInfo.contracts.simpleRisc0Test);
 
@@ -60,7 +60,7 @@ async function main() {
 
     // Test 3: Submit ZK proofs for User 1
     console.log("\n🔑 Test 3: Submitting ZK Proofs for User 1");
-    
+
     // Create mock proof data (in real scenario, these would be actual RISC Zero proofs)
     const mockTradFiSeal = ethers.randomBytes(100); // Mock seal
     const mockTradFiJournal = ethers.toUtf8Bytes(JSON.stringify({
@@ -117,7 +117,7 @@ async function main() {
     console.log("\n📊 Test 4: Updated Credit Scores");
     const user1UpdatedScore = await liquidityPool.getCreditScore(user1.address);
     const user1UpdatedZKStatus = await liquidityPool.getZKVerificationStatus(user1.address);
-    
+
     console.log("   • User 1 updated score:", user1UpdatedScore.toString());
     console.log("   • User 1 updated ZK status:", {
         hasTradFi: user1UpdatedZKStatus.hasTradFi,
@@ -129,17 +129,17 @@ async function main() {
 
     // Test 5: Test borrowing eligibility
     console.log("\n💰 Test 5: Borrowing Eligibility");
-    
+
     // Check if user is eligible to borrow
     const user1Eligible = await creditSystem.isEligibleToBorrow(user1.address);
     const user2Eligible = await creditSystem.isEligibleToBorrow(user2.address);
-    
+
     console.log("   • User 1 eligible to borrow:", user1Eligible);
     console.log("   • User 2 eligible to borrow:", user2Eligible);
 
     // Test 6: Test borrowing with ZK verification
     console.log("\n🏦 Test 6: Borrowing with ZK Verification");
-    
+
     // Fund the liquidity pool
     const fundAmount = ethers.parseEther("10");
     await deployer.sendTransaction({
@@ -160,7 +160,7 @@ async function main() {
 
     // Test 7: Test ZK proof requirement toggle
     console.log("\n🔄 Test 7: ZK Proof Requirement Toggle");
-    
+
     // Temporarily disable ZK proof requirement
     const toggleTx = await liquidityPool.setZKProofRequirement(false);
     await toggleTx.wait();
@@ -172,7 +172,7 @@ async function main() {
         // Set a manual credit score for User 2
         await liquidityPool.setCreditScore(user2.address, 70);
         console.log("   📊 Set User 2 credit score to 70");
-        
+
         const borrowTx = await liquidityPool.connect(user2).borrow(ethers.parseEther("0.5"));
         await borrowTx.wait();
         console.log("   ✅ User 2 borrowing succeeded with ZK requirement disabled");
@@ -187,11 +187,11 @@ async function main() {
 
     // Test 8: Check final system state
     console.log("\n📋 Test 8: Final System State");
-    
+
     const finalZKRequired = await liquidityPool.zkProofRequired();
     const user1FinalScore = await liquidityPool.getCreditScore(user1.address);
     const user2FinalScore = await liquidityPool.getCreditScore(user2.address);
-    
+
     console.log("   • ZK Proof Required:", finalZKRequired);
     console.log("   • User 1 Final Score:", user1FinalScore.toString());
     console.log("   • User 2 Final Score:", user2FinalScore.toString());
@@ -199,10 +199,10 @@ async function main() {
 
     // Test 9: Test credit system functions
     console.log("\n🔍 Test 9: Credit System Functions");
-    
+
     const user1Profile = await creditSystem.getUserCreditProfile(user1.address);
     const user1Details = await creditSystem.getVerificationDetails(user1.address);
-    
+
     console.log("   • User 1 Profile:", {
         hasTradFi: user1Profile.hasTradFi,
         hasAccount: user1Profile.hasAccount,
@@ -211,7 +211,7 @@ async function main() {
         isEligible: user1Profile.isEligible,
         lastUpdate: user1Profile.lastUpdate.toString()
     });
-    
+
     console.log("   • User 1 Details:", {
         tradFiScore: user1Details.tradFiScore.toString(),
         accountScore: user1Details.accountScore.toString(),
@@ -220,14 +220,14 @@ async function main() {
     });
 
     console.log("\n🎉 ZK Integration Test Complete!");
-    console.log("=" .repeat(50));
+    console.log("=".repeat(50));
     console.log("📝 Test Summary:");
     console.log("   ✅ ZK proof system integration working");
     console.log("   ✅ Credit score calculation functional");
     console.log("   ✅ Borrowing eligibility checks working");
     console.log("   ✅ ZK requirement toggle functional");
     console.log("   ✅ Credit system profile tracking working");
-    
+
     console.log("\n📋 Key Features Demonstrated:");
     console.log("   • ZK proof submission and verification");
     console.log("   • Credit score calculation from multiple sources");
