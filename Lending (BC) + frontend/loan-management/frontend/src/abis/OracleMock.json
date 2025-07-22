@@ -1,0 +1,88 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "OracleMock",
+  "sourceName": "backend/contracts/mocks/OracleMock.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "answer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "latestRoundData",
+      "outputs": [
+        {
+          "internalType": "uint80",
+          "name": "",
+          "type": "uint80"
+        },
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint80",
+          "name": "",
+          "type": "uint80"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "_answer",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_updatedAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "setLatestRoundData",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "updatedAt",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080806040523460155761010c908161001b8239f35b600080fdfe6080806040526004361015601257600080fd5b60003560e01c9081637519ab501460bd5750806385bb7d691460a1578063d191d7f11460845763feaf968c14604657600080fd5b34607f576000366003190112607f5760a06000546001546040519160008352602083015260006040830152606082015260006080820152f35b600080fd5b34607f576040366003190112607f57600435600055602435600155005b34607f576000366003190112607f576020600054604051908152f35b34607f576000366003190112607f576020906001548152f3fea264697066735822122014e6d089a9c6785285a18db48b3d08380a96debb49ab93561a9823e41acdda4764736f6c634300081c0033",
+  "deployedBytecode": "0x6080806040526004361015601257600080fd5b60003560e01c9081637519ab501460bd5750806385bb7d691460a1578063d191d7f11460845763feaf968c14604657600080fd5b34607f576000366003190112607f5760a06000546001546040519160008352602083015260006040830152606082015260006080820152f35b600080fd5b34607f576040366003190112607f57600435600055602435600155005b34607f576000366003190112607f576020600054604051908152f35b34607f576000366003190112607f576020906001548152f3fea264697066735822122014e6d089a9c6785285a18db48b3d08380a96debb49ab93561a9823e41acdda4764736f6c634300081c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

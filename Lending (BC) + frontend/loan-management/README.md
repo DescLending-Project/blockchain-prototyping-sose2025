@@ -351,3 +351,28 @@ loan-management/
 
 This project is licensed under the MIT License.
 
+## Mock Development Flow (Local Testing)
+
+To run the full mock environment for local development/testing:
+
+1. **Start a Hardhat node**
+   ```bash
+   cd backend
+   npx hardhat node
+   ```
+2. **Deploy contracts**
+   ```bash
+   cd backend
+   npx hardhat run scripts/deployAll.js --network localhost
+   ```
+3. **Run the mock transaction and frontend script**
+   ```bash
+   cd .. # project root
+   bash mock-dev.sh
+   ```
+   - This will run mock transactions (lender/borrower/proposal actions) and start the frontend dev server.
+4. **Open the frontend**
+   - Visit the URL shown in the terminal (e.g., http://localhost:5173/)
+
+This will give you a fully mocked environment with realistic protocol activity for frontend testing.
+

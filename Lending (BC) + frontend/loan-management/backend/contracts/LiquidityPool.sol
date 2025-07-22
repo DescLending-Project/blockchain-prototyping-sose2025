@@ -847,6 +847,11 @@ contract LiquidityPool is
         return allowedTokens;
     }
 
+    // Add a public function to check if a user can lend (has a nonzero credit score)
+    function canLend(address user) public view returns (bool) {
+        return creditScore[user] > 0;
+    }
+
     receive() external payable {
         totalFunds += msg.value;
     }

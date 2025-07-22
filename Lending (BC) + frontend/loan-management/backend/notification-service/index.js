@@ -3,6 +3,10 @@ const nodemailer = require('nodemailer');
 const twilio = require('twilio');
 require('dotenv').config();
 
+const express = require('express');
+const app = express();
+app.use(express.json());
+
 // Configuration
 const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
@@ -44,6 +48,9 @@ const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, wallet);
 
 // User contact information (in production, this would come from a database)
 const userContacts = new Map();
+
+// In-memory email registry for governance notifications
+const governanceEmails = new Map();
 
 // Event handlers
 async function handleLoanDisbursed(borrower, amount, rate) {
@@ -183,6 +190,24 @@ async function checkPaymentReminders() {
     }
 }
 
+// API endpoint to register email for notifications
+app.post('/api/notify', (req, res) => {
+    const { address, email } = req.body;
+    if (!address || !email) {
+        return res.status(400).json({ error: 'Missing address or email' });
+    }
+    governanceEmails.set(address.toLowerCase(), email);
+    res.json({ success: true });
+});
+
+// Example: send governance notification (to be called from event handlers)
+async function sendGovernanceEmail(address, subject, text) {
+    const email = governanceEmails.get(address.toLowerCase());
+    if (email) {
+        await sendEmail(email, subject, text);
+    }
+}
+
 // Event listeners
 contract.on('LoanDisbursed', handleLoanDisbursed);
 contract.on('LoanInstallmentPaid', handleLoanInstallmentPaid);
@@ -196,6 +221,12 @@ console.log(`Listening to contract: ${CONTRACT_ADDRESS}`);
 
 // Check for payment reminders every hour
 setInterval(checkPaymentReminders, 60 * 60 * 1000);
+
+// Start Express server
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+    console.log(`Notification API listening on port ${PORT}`);
+});
 
 // Keep the service running
 process.on('SIGINT', () => {

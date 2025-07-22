@@ -194,41 +194,38 @@ export function CollateralPanel({ contract, account }: CollateralPanelProps) {
                     </div>
                 </div>
 
-                {collaterals.length > 0 ? (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Token</TableHead>
-                                <TableHead>Balance</TableHead>
-                                <TableHead>Value (USD)</TableHead>
-                                <TableHead>LTV</TableHead>
-                                <TableHead>Liquidation Threshold</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {collaterals.map((collateral) => (
-                                <TableRow key={collateral.token}>
-                                    <TableCell>
-                                        {collateral.symbol}
-                                        {collateral.isStablecoin && (
-                                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                                Stablecoin
-                                            </span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>{collateral.balance}</TableCell>
-                                    <TableCell>${collateral.value.toFixed(2)}</TableCell>
-                                    <TableCell>{collateral.ltv}%</TableCell>
-                                    <TableCell>{collateral.liquidationThreshold}%</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                ) : (
-                    <div className="text-center text-gray-500 py-4">
-                        No collateral deposited
+                <div className="space-y-2">
+                    <p className="font-medium">Your Collateral Position:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                        <li>Current Collateral: 0.0 Token</li>
+                        <li>Collateral Value in ETH: ETH</li>
+                        <li>Required Collateral Ratio: 130% of borrow amount</li>
+                    </ul>
+                </div>
+                <div className="rounded-xl border text-card-foreground shadow bg-gradient-to-br from-background to-muted/50 mt-6">
+                    <div className="flex flex-col space-y-1.5 p-6">
+                        <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield h-5 w-5" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg>
+                            Collateral Management
+                        </h3>
                     </div>
-                )}
+                    <div className="p-6 pt-0 space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Select Token</label>
+                            <button type="button" role="combobox" className="flex h-9 items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-full">
+                                <span style={{ pointerEvents: 'none' }}>Select a token</span>
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Amount</label>
+                            <input className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-full" placeholder="Enter amount to deposit/withdraw" min="0" step="0.01" type="number" />
+                        </div>
+                        <div className="flex gap-4">
+                            <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 px-4 py-2 flex-1 h-12">Deposit</button>
+                            <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground px-4 py-2 flex-1 h-12">Withdraw</button>
+                        </div>
+                    </div>
+                </div>
             </CardContent>
         </Card>
     );

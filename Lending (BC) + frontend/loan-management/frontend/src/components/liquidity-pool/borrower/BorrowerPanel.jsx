@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
+import { formatUnits, formatEther } from 'ethers';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
 import { Alert, AlertDescription } from '../../ui/alert'
-import { formatEther, parseEther } from 'ethers'
+import { parseEther } from 'ethers'
 import { ArrowUpDown, AlertCircle, Coins } from 'lucide-react'
 import { LendingPoolStatus } from '../shared/LendingPoolStatus'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'

@@ -4,14 +4,6 @@ pragma solidity ^0.8.20;
 import "./interfaces/AggregatorV3Interface.sol";
 
 contract InterestRateModel {
-    // --- DAO reference and permissions ---
-    // bytes32 public constant SET_PARAMETERS_PERMISSION =
-    //     keccak256("SET_PARAMETERS_PERMISSION");
-    // bytes32 public constant SET_RISK_ADJUSTMENT_PERMISSION =
-    //     keccak256("SET_RISK_ADJUSTMENT_PERMISSION");
-    // bytes32 public constant SET_ORACLE_PERMISSION =
-    //     keccak256("SET_ORACLE_PERMISSION");
-
     // --- Parameters (18 decimals) ---
     uint256 public baseRate;
     uint256 public kink;

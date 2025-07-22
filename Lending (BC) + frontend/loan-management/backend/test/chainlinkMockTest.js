@@ -1,4 +1,3 @@
-require('@nomicfoundation/hardhat-chai-matchers');
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { upgrades } = require("hardhat");
@@ -86,6 +85,9 @@ describe("LiquidityPool - Chainlink Automation Simulation with Glint Token", fun
       value: ethers.utils.parseEther("10") // Send 10 ETH to ensure enough funds
     });
 
+    // Set credit score for deployer so they can lend
+    await liquidityPool.setCreditScore(deployer.address, 80);
+
     // Deposit as lender to set up totalLent
     await lendingManager.connect(deployer).depositFunds({ value: ethers.utils.parseEther("10") });
 
@@ -127,8 +129,8 @@ describe("LiquidityPool - Chainlink Automation Simulation with Glint Token", fun
 
     // Verify liquidation was executed
     expect(await liquidityPool.isLiquidatable(user1.address)).to.be.false;
-    expect(await liquidityPool.userDebt(user1.address)).to.equal(0);
-    expect(await liquidityPool.getCollateral(user1.address, glintToken.address)).to.equal(0);
+    expect((await liquidityPool.userDebt(user1.address)).eq(0)).to.be.true;
+    expect((await liquidityPool.getCollateral(user1.address, glintToken.address)).eq(0)).to.be.true;
   });
 });
 

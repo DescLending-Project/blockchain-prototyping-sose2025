@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ethers } from 'ethers'
+import { formatUnits, formatEther } from 'ethers';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
 import { Alert, AlertDescription } from '../../ui/alert'
-import { formatEther, parseEther } from 'ethers'
 import { Info, Clock, TrendingUp } from 'lucide-react'
 import {
     Tooltip,
@@ -14,7 +14,7 @@ import {
 } from "../../ui/tooltip"
 import { LendingPoolStatus } from '../shared/LendingPoolStatus'
 import { LendingRateSimulator } from '../shared/InterestRateSimulator'
-import InterestRateModelABI from '../../../InterestRateModel.json'
+import InterestRateModelABI from '../../../abis/InterestRateModel.json'
 import { INTEREST_RATE_MODEL_ADDRESS } from '../../../App.jsx'
 
 function CountdownTimer({ targetDate, label }) {
@@ -338,7 +338,7 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
     const calculatePotentialInterest = async () => {
         try {
             if (!calculatorAmount || !calculatorDays) return;
-            const amount = parseEther(calculatorAmount);
+            const amount = ethers.parseEther(calculatorAmount);
             const days = parseInt(calculatorDays);
             let interest;
             if (useSimulatedRate && simulatedSupplyRate !== null) {

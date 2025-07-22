@@ -3,7 +3,8 @@ pragma solidity ^0.8.20;
 
 import "./LiquidityPool.sol";
 import "./InterestRateModel.sol";
-import "./interfaces/IGovToken.sol";
+import "./interfaces/IVotingToken.sol";
+import "./ProtocolGovernor.sol";
 
 // Minimal interfaces for external calls
 interface ILiquidityPool {
@@ -61,6 +62,8 @@ interface ILiquidityPool {
     function SAFETY_BUFFER() external view returns (uint256);
 
     function totalFunds() external view returns (uint256); // <-- Added
+
+    function canLend(address user) external view returns (bool);
 }
 
 interface IInterestRateModel {
@@ -112,7 +115,7 @@ contract LendingManager {
     uint256 public lastRateUpdateDay;
     mapping(uint256 => uint256) public dailyInterestRate;
     InterestTier[] public interestTiers;
-    IGovToken public govToken;
+    IVotingToken public votingToken;
 
     uint256 public constant SECONDS_PER_DAY = 86400;
     uint256 public constant WITHDRAWAL_COOLDOWN = 1 days;
@@ -191,6 +194,10 @@ contract LendingManager {
     }
 
     function depositFunds() external payable {
+        require(
+            ILiquidityPool(liquidityPool).canLend(msg.sender),
+            "Credit score required to lend"
+        );
         require(msg.value >= MIN_DEPOSIT_AMOUNT, "Deposit too low");
         require(
             msg.value + lenders[msg.sender].balance <= MAX_DEPOSIT_AMOUNT,
@@ -214,8 +221,8 @@ contract LendingManager {
         require(success, "Deposit failed");
 
         uint256 reward = msg.value / 1e16; // 1 GOV per 0.01 ETH
-        if (address(govToken) != address(0) && reward > 0) {
-            govToken.mint(msg.sender, reward);
+        if (address(votingToken) != address(0) && reward > 0) {
+            votingToken.mint(msg.sender, reward);
         }
 
         emit FundsDeposited(msg.sender, msg.value);
@@ -812,8 +819,8 @@ contract LendingManager {
         emit ReserveAddressUpdated(_reserve);
     }
 
-    function setGovToken(address _govToken) external onlyTimelock {
-        govToken = IGovToken(_govToken);
+    function setVotingToken(address _votingToken) external onlyTimelock {
+        votingToken = IVotingToken(_votingToken);
     }
 
     function collectOriginationFee(
@@ -846,6 +853,22 @@ contract LendingManager {
 
     // Add receive function to accept ETH
     receive() external payable {}
+
+    // Add passthrough function to call grantTokens on ProtocolGovernor
+    function callGrantTokens(
+        address governor,
+        address user,
+        address asset,
+        uint256 amount,
+        ProtocolGovernor.ActionType action
+    ) external {
+        ProtocolGovernor(payable(governor)).grantTokens(
+            user,
+            asset,
+            amount,
+            action
+        );
+    }
 }
 
 error OnlyTimelockLendingManager();

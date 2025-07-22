@@ -44,6 +44,7 @@ contract StablecoinManager {
         uint256 newThreshold
     ) external onlyTimelock {
         if (token == address(0)) revert InvalidAddress();
+        require(ltv > 0, "LTV must be greater than zero");
         if (ltv > MAX_STABLECOIN_LTV) revert LTVTooHigh();
         if (newThreshold < DEFAULT_STABLECOIN_LIQUIDATION_THRESHOLD)
             revert ThresholdTooLow();

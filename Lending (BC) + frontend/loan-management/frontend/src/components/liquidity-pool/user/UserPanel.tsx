@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState, useEffect } from "react"
 import { ethers } from "ethers"
+import { formatUnits, formatEther } from "ethers"
 import { Alert, AlertDescription } from "../../../components/ui/alert"
 import { AlertCircle, Wallet, Coins, Shield, AlertTriangle, ArrowUpDown, ArrowDownUp, DollarSign, Percent } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -45,7 +46,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
 
             try {
                 const debt = await contract.getMyDebt()
-                setUserDebt(ethers.formatEther(debt))
+                setUserDebt(formatEther(debt))
             } catch (err) {
                 console.error("Failed to fetch debt:", err)
                 setUserDebt("0")
@@ -53,11 +54,11 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
 
             // Fetch total collateral value
             const totalCollateral = await readOnlyContract.getTotalCollateralValue(account);
-            setTotalCollateralValue(ethers.formatUnits(totalCollateral, 18));
+            setTotalCollateralValue(formatUnits(totalCollateral, 18));
 
             // Fetch total pool balance
             const poolBalance = await readOnlyContract.getBalance();
-            setTotalLent(ethers.formatEther(poolBalance));
+            setTotalLent(formatEther(poolBalance));
 
             // Fetch credit score
             const userCreditScore = await readOnlyContract.getCreditScore(account);
@@ -66,7 +67,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             // Fetch health status
             const healthCheck = await readOnlyContract.checkCollateralization(account);
             if (healthCheck && Array.isArray(healthCheck) && healthCheck.length >= 2) {
-                const ratio = Number(ethers.formatUnits(healthCheck[1], 0));
+                const ratio = Number(formatUnits(healthCheck[1], 0));
                 const percentageRatio = Math.min(ratio / 100, 100);
                 setHealthStatus({
                     isHealthy: healthCheck[0],
@@ -123,7 +124,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             const provider = new ethers.BrowserProvider(window.ethereum);
             const tokenContract = new ethers.Contract(selectedToken, ["function balanceOf(address owner) view returns (uint256)"], provider); // Basic ERC20 ABI for balanceOf
             const balance = await tokenContract.balanceOf(account);
-            setTokenBalance(ethers.formatUnits(balance, 18)); // Assuming 18 decimals
+            setTokenBalance(formatUnits(balance, 18)); // Assuming 18 decimals
 
         } catch (err) {
             setError("Failed to fetch token balance")
@@ -140,7 +141,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             const provider = new ethers.BrowserProvider(window.ethereum);
             const readOnlyContract = new ethers.Contract(contract.target, contract.interface, provider)
             const value = await readOnlyContract.getTokenValue(selectedToken);
-            setTokenValue(ethers.formatUnits(value, 18)); // Assuming value is returned in 1e18 units
+            setTokenValue(formatUnits(value, 18)); // Assuming value is returned in 1e18 units
         } catch (err) {
             console.error("Failed to fetch token value:", err);
             // setError("Failed to fetch token value")
@@ -164,7 +165,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             if (result && Array.isArray(result) && result.length >= 2) {
                 setHealthStatus({
                     isHealthy: result[0],
-                    ratio: Number(ethers.formatUnits(result[1], 0)) // Assuming ratio is returned as a big number, format to a number
+                    ratio: Number(formatUnits(result[1], 0)) // Assuming ratio is returned as a big number, format to a number
                 });
             } else {
                 setError("Failed to parse health status result");

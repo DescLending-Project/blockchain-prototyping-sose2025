@@ -5,8 +5,9 @@ import { Card } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'
 import { Button } from './components/ui/button'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
-import LiquidityPoolABI from './LiquidityPool.json'
-import LendingManagerABI from './LendingManager.json'
+import LiquidityPoolABI from './abis/LiquidityPool.json'
+import LendingManagerABI from './abis/LendingManager.json'
+import addresses from './addresses.json';
 import { LenderPanel } from './components/liquidity-pool/lender/LenderPanel'
 import BorrowerPanel from './components/liquidity-pool/borrower/BorrowerPanel'
 import { LiquidatorPanel } from './components/liquidity-pool/liquidator/LiquidatorPanel'
@@ -16,9 +17,8 @@ import { CollateralPanel } from './components/liquidity-pool/user/CollateralPane
 import { DEFAULT_NETWORK } from './config/networks'
 
 // Contract addresses
-const POOL_ADDRESS = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
+// Remove POOL_ADDRESS, LENDING_MANAGER_ADDRESS, CONTRACT_ADDRESSES
 export const INTEREST_RATE_MODEL_ADDRESS = '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318';
-const LENDING_MANAGER_ADDRESS = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
 
 // Network-specific token addresses
 const NETWORK_TOKENS = {
@@ -33,21 +33,6 @@ const NETWORK_TOKENS = {
   sonic: {
     USDC: '0xA4879Fed32Ecbef99399e5cbC247E533421C4eC6',
     USDT: '0x6047828dc181963ba44974801ff68e538da5eaf9',
-  }
-};
-
-const CONTRACT_ADDRESSES = {
-  localhost: {
-    pool: POOL_ADDRESS,
-    lending: LENDING_MANAGER_ADDRESS
-  },
-  sepolia: {
-    pool: POOL_ADDRESS,
-    lending: LENDING_MANAGER_ADDRESS
-  },
-  sonic: {
-    pool: POOL_ADDRESS,
-    lending: LENDING_MANAGER_ADDRESS
   }
 };
 
@@ -110,54 +95,54 @@ export default function App() {
   const [networkName, setNetworkName] = useState('localhost')
   const SUPPORTED_CHAINS = [31337, 11155111, 57054]; // Localhost, Sepolia, and Sonic
 
+  // Remove dynamic require() logic for ABIs
+  // LiquidityPoolABI = require('./abis/LiquidityPool.json');
+  // LendingManagerABI = require('./abis/LendingManager.json');
+
   const initializeContracts = async (provider, signer, networkName) => {
     try {
       console.log('Initializing contracts for network:', networkName);
-
-      // Get addresses for current network, fallback to localhost if not found
-      const addresses = CONTRACT_ADDRESSES[networkName] || CONTRACT_ADDRESSES.localhost;
-      if (!addresses) {
-        throw new Error(`No contract addresses configured for ${networkName}`);
+      // Debug: Check ABI presence
+      console.log('LiquidityPool ABI exists:', !!LiquidityPoolABI);
+      console.log('LendingManager ABI exists:', !!LendingManagerABI);
+      // Check if ABIs are loaded
+      if (!LiquidityPoolABI || !LendingManagerABI) {
+        throw new Error('ABIs not loaded. Check file paths.');
       }
-
-      console.log('Using contract addresses:', addresses);
-
-      // Initialize contracts with ABI from imported JSON
+      // Check if addresses exist
+      if (!addresses.LiquidityPool || !addresses.LendingManager) {
+        throw new Error('Contract addresses missing in addresses.json');
+      }
+      const poolAddress = addresses.LiquidityPool;
+      const lendingAddress = addresses.LendingManager;
+      // Initialize contracts
       const liquidityPoolContract = new ethers.Contract(
-        addresses.pool,
+        poolAddress,
         LiquidityPoolABI.abi,
         signer
       );
-
       const lendingContract = new ethers.Contract(
-        addresses.lending,
+        lendingAddress,
         LendingManagerABI.abi,
         signer
       );
-
       // Verify contracts are deployed
       const [poolCode, lendingCode] = await Promise.all([
-        provider.getCode(addresses.pool),
-        provider.getCode(addresses.lending)
+        provider.getCode(poolAddress),
+        provider.getCode(lendingAddress)
       ]);
-
       if (poolCode === '0x') {
-        throw new Error(`LiquidityPool contract not deployed at ${addresses.pool}`);
+        throw new Error(`LiquidityPool not deployed at ${poolAddress}`);
       }
       if (lendingCode === '0x') {
-        throw new Error(`LendingManager contract not deployed at ${addresses.lending}`);
+        throw new Error(`LendingManager not deployed at ${lendingAddress}`);
       }
-
       console.log('Contracts initialized successfully');
       setContract(liquidityPoolContract);
       setLendingManagerContract(lendingContract);
       setProvider(provider);
       setNetworkName(networkName);
-
-      return {
-        liquidityPoolContract,
-        lendingContract
-      };
+      return { liquidityPoolContract, lendingContract };
     } catch (err) {
       console.error('Failed to initialize contracts:', err);
       setError(`Failed to initialize contracts: ${err.message}`);
@@ -335,21 +320,31 @@ export default function App() {
 
   const checkRoles = async (contract, address) => {
     try {
-      const addressStr = String(address).toLowerCase()
-      const owner = await contract.owner()
-      const ownerStr = String(owner).toLowerCase()
-      setIsAdmin(ownerStr === addressStr)
-
+      const addressStr = String(address).toLowerCase();
+      let ownerStr = null;
       try {
-        const isLiquidator = await contract.hasRole(await contract.LIQUIDATOR_ROLE(), address)
-        setIsLiquidator(isLiquidator || ownerStr === addressStr)
+        const owner = await contract.owner();
+        ownerStr = String(owner).toLowerCase();
+        setIsAdmin(ownerStr === addressStr);
       } catch (err) {
-        setIsLiquidator(ownerStr === addressStr)
+        // If contract.owner() fails, assume not admin
+        setIsAdmin(false);
+      }
+      // Only check LIQUIDATOR_ROLE if contract.hasRole exists
+      if (typeof contract.hasRole === 'function') {
+        try {
+          const isLiquidator = await contract.hasRole(await contract.LIQUIDATOR_ROLE(), address);
+          setIsLiquidator(isLiquidator || (ownerStr && ownerStr === addressStr));
+        } catch (err) {
+          setIsLiquidator(ownerStr && ownerStr === addressStr);
+        }
+      } else {
+        setIsLiquidator(ownerStr && ownerStr === addressStr);
       }
     } catch (err) {
-      console.error("Failed to check roles:", err)
-      setIsAdmin(false)
-      setIsLiquidator(false)
+      console.error("Failed to check roles:", err);
+      setIsAdmin(false);
+      setIsLiquidator(false);
     }
   }
 
@@ -377,7 +372,7 @@ export default function App() {
       setIsLoading(true)
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
-      const contract = new ethers.Contract(POOL_ADDRESS, LiquidityPoolABI.abi, signer)
+      const contract = new ethers.Contract(addresses.LiquidityPool, LiquidityPoolABI.abi, signer)
 
       const tx = await contract.togglePause()
       await tx.wait()
@@ -405,7 +400,6 @@ export default function App() {
           const detectedNetwork = CHAIN_ID_TO_NETWORK[Number(network.chainId)] || DEFAULT_NETWORK
           setNetworkName(detectedNetwork)
           updateTokenAddresses(detectedNetwork); // Update token addresses based on network
-          const addresses = CONTRACT_ADDRESSES[detectedNetwork] || CONTRACT_ADDRESSES[DEFAULT_NETWORK]
           console.log('Detected network:', detectedNetwork, 'Selected addresses:', addresses)
 
           // Check if we have a stored connection state
@@ -422,9 +416,9 @@ export default function App() {
             if (isAccountAvailable) {
               const signer = await provider.getSigner()
               // Create LiquidityPool contract instance
-              const contract = new ethers.Contract(addresses.pool, LiquidityPoolABI.abi, signer)
+              const contract = new ethers.Contract(addresses.LiquidityPool, LiquidityPoolABI.abi, signer)
               // Create LendingManager contract instance
-              const lendingManagerContract = new ethers.Contract(addresses.lending, LendingManagerABI.abi, signer)
+              const lendingManagerContract = new ethers.Contract(addresses.LendingManager, LendingManagerABI.abi, signer)
 
               setAccount(accounts[0])
               setContract(contract)
