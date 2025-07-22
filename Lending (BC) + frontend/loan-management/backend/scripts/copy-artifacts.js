@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
+// Contract names to copy - UPDATED to include missing contracts
 const contracts = [
     'VotingToken',
     'ProtocolGovernor',
@@ -8,7 +9,10 @@ const contracts = [
     'LendingManager',
     'StablecoinManager',
     'InterestRateModel',
-    'GlintToken'
+    'GlintToken',
+    'IntegratedCreditSystem',
+    'SimpleRISC0Test',
+    'MockRiscZeroVerifier'
 ];
 const srcDir = path.join(__dirname, '../../artifacts/backend/contracts');
 const destDir = path.join(__dirname, '../../frontend/src/abis');

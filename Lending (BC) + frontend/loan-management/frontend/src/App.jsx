@@ -40,6 +40,7 @@ const NETWORK_TOKENS = {
 const COLLATERAL_TOKENS = [
   {
     address: '0x0165878A594ca255338adfa4d48449f69242Eb8F', // GLINT
+    address: '0x5AB05FdE3A6B69F1C86A1f0FE489d9099c6e385c', // GLINT
     symbol: 'GLINT',
     name: 'Glint Token',
     isStablecoin: false
@@ -51,14 +52,14 @@ const COLLATERAL_TOKENS = [
     isStablecoin: false
   },
   {
-    address: '0x0000000000000000000000000000000000000000', // USDC - unique mock address for localhost
+    address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', // USDC - unique mock address for localhost
     symbol: 'USDC',
     name: 'USD Coin',
     isStablecoin: true,
     decimals: 6
   },
   {
-    address: '0x0000000000000000000000000000000000000000', // USDT - unique mock address for localhost
+    address: '0x7169d38820dfd117c3fa1f22a697dba58d90ba06', // USDT - unique mock address for localhost
     symbol: 'USDT',
     name: 'Tether USD',
     isStablecoin: true,
