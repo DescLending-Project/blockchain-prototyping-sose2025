@@ -29,13 +29,30 @@ async function main() {
         { name: 'borrower1', signer: borrower1 },
         { name: 'borrower2', signer: borrower2 },
     ];
+    // Try to get private keys from hardhat node (works for local node with known mnemonic)
+    // Hardhat exposes private keys for local accounts via hardhat.config.js or node output
+    // If not available directly, derive from known mnemonic
+    const hardhatMnemonic = "test test test test test test test test test test test junk";
+    const hdNode = ethers.utils.HDNode.fromMnemonic(hardhatMnemonic);
+
     roles.forEach(({ name, signer }, idx) => {
-        // Try to get private key if possible (works for Hardhat local accounts)
-        let pk = signer._signingKey ? signer._signingKey().privateKey : (signer.privateKey || 'N/A');
+        // Always derive from mnemonic for local Hardhat accounts
+        let pk;
+        try {
+            pk = hdNode.derivePath(`m/44'/60'/0'/0/${idx}`).privateKey;
+        } catch {
+            pk = 'N/A';
+        }
         console.log(`${name}: ${signer.address} | Private Key: ${pk}`);
     });
     others.forEach((signer, idx) => {
-        let pk = signer._signingKey ? signer._signingKey().privateKey : (signer.privateKey || 'N/A');
+        let pk;
+        const accountIdx = idx + roles.length;
+        try {
+            pk = hdNode.derivePath(`m/44'/60'/0'/0/${accountIdx}`).privateKey;
+        } catch {
+            pk = 'N/A';
+        }
         console.log(`other${idx + 1}: ${signer.address} | Private Key: ${pk}`);
     });
 
@@ -317,4 +334,4 @@ function getStateName(state) {
 main().catch((err) => {
     console.error('Mock transaction script failed:', err);
     process.exit(1);
-}); 
+});
