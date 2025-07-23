@@ -82,7 +82,8 @@ describe("LiquidityPool - Basic Tests", function () {
             deployer.address,
             stablecoinManagerAddress,
             ethers.constants.AddressZero,
-            interestRateModelAddress
+            interestRateModelAddress,
+            ethers.constants.AddressZero // _creditSystem
         ], {
             initializer: "initialize",
         });
@@ -254,10 +255,11 @@ describe("LiquidityPool - Basic Tests", function () {
             });
         });
 
-        it("should allow owner to extract funds", async function () {
+
+        it("should allow timelock (owner) to extract funds", async function () {
             const initialOwnerBalance = await ethers.provider.getBalance(deployer.address);
             const gasPrice = await ethers.provider.getFeeData();
-            const tx = await liquidityPool.extract(sendValue);
+            const tx = await liquidityPool.extract(sendValue, deployer.address);
             const receipt = await tx.wait();
             const gasUsed = BigInt(receipt.gasUsed.toString());
             const gasCost = gasUsed * BigInt(gasPrice.gasPrice.toString());
@@ -279,7 +281,7 @@ describe("LiquidityPool - Basic Tests", function () {
         it("should revert if non-owner tries to extract", async function () {
             let reverted = false;
             try {
-                await liquidityPool.connect(user1).extract(sendValue);
+                await liquidityPool.connect(user1).extract(sendValue, user1.address);
             } catch (err) {
                 reverted = true;
                 expect(err.message).to.match(/revert/i);
@@ -290,7 +292,7 @@ describe("LiquidityPool - Basic Tests", function () {
         it("should revert if trying to extract more than balance", async function () {
             let reverted = false;
             try {
-                await liquidityPool.extract(ethers.utils.parseEther("2"));
+                await liquidityPool.extract(ethers.utils.parseEther("2"), deployer.address);
             } catch (err) {
                 reverted = true;
                 expect(err.message).to.match(/revert/i);
@@ -1638,7 +1640,8 @@ describe("transferOwnership", function () {
             deployer.address,
             stablecoinManagerAddress,
             ethers.constants.AddressZero,
-            interestRateModelAddress
+            interestRateModelAddress,
+            ethers.constants.AddressZero // _creditSystem
         ], {
             initializer: "initialize",
         });

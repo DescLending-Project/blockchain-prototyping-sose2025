@@ -156,6 +156,15 @@ describe("LendingManager - Unit", function () {
         await owner.sendTransaction({ to: mockPool.address, value: ethers.utils.parseEther("1") });
         // Fund the LendingManager contract with enough ETH to pay out
         await owner.sendTransaction({ to: manager.address, value: ethers.utils.parseEther("1") });
+        // Defensive: ensure both contracts have enough ETH
+        const poolBalance = await ethers.provider.getBalance(mockPool.address);
+        const managerBalance = await ethers.provider.getBalance(manager.address);
+        if (poolBalance.lt(ethers.utils.parseEther("0.5"))) {
+            await owner.sendTransaction({ to: mockPool.address, value: ethers.utils.parseEther("1") });
+        }
+        if (managerBalance.lt(ethers.utils.parseEther("0.5"))) {
+            await owner.sendTransaction({ to: manager.address, value: ethers.utils.parseEther("1") });
+        }
         await mockPool.setCreditScore(addr1.address, 80);
         await mockPool.debugEmitCreditScore(addr1.address);
         let tx4 = await manager.connect(addr1).completeWithdrawal();
@@ -391,6 +400,16 @@ describe("LendingManager - Coverage Expansion", function () {
         await manager.connect(addr1).requestWithdrawal(ethers.utils.parseEther("1"));
         await ethers.provider.send("evm_increaseTime", [86400]);
         await ethers.provider.send("evm_mine");
+        // Ensure mockPool has enough ETH and forward to LendingManager if needed
+        const poolBalance2 = await ethers.provider.getBalance(mockPool.address);
+        const managerBalance2 = await ethers.provider.getBalance(manager.address);
+        if (poolBalance2.lt(ethers.utils.parseEther("1"))) {
+            await owner.sendTransaction({ to: mockPool.address, value: ethers.utils.parseEther("1") });
+        }
+        // Forward ETH from mockPool to LendingManager if needed
+        if (managerBalance2.lt(ethers.utils.parseEther("1"))) {
+            await mockPool.forwardETH(manager.address, ethers.utils.parseEther("1"));
+        }
         const tx2 = await manager.connect(addr1).completeWithdrawal();
         const receipt2 = await tx2.wait();
         const foundWithdraw = receipt2.events && receipt2.events.some(e => e.event === "FundsWithdrawn");

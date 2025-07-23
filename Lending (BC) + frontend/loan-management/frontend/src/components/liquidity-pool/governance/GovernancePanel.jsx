@@ -237,6 +237,41 @@ const PROPOSAL_OPTIONS = [
                 params: [
                     { name: "_reserve", type: "address", tooltip: "Reserve address for protocol fees" }
                 ]
+            },
+            {
+                label: "Protocol Governor (Advanced)",
+                contract: addresses.ProtocolGovernor,
+                functions: [
+                    {
+                        label: "Set Contract Whitelist",
+                        selector: getSelector("setContractWhitelist(address,bool)"),
+                        params: [
+                            { name: "contractAddr", type: "address", tooltip: "Contract address to whitelist or remove" },
+                            { name: "allowed", type: "bool", tooltip: "Allow this contract? (true/false)" }
+                        ]
+                    },
+                    {
+                        label: "Set Emergency Multisig",
+                        selector: getSelector("setEmergencyMultisig(address[]"),
+                        params: [
+                            { name: "signers", type: "address[]", tooltip: "Array of multisig signer addresses (comma-separated)" }
+                        ]
+                    }
+                ]
+            },
+            {
+                label: "Set Credit System",
+                selector: getSelector("setCreditSystem(address)"),
+                params: [
+                    { name: "_creditSystem", type: "address", tooltip: "Address of the new IntegratedCreditSystem contract" }
+                ]
+            },
+            {
+                label: "Set ZK Proof Requirement",
+                selector: getSelector("setZKProofRequirement(bool)"),
+                params: [
+                    { name: "required", type: "bool", tooltip: "Require ZK proof for borrowing? (true/false)" }
+                ]
             }
         ]
     },
@@ -727,4 +762,4 @@ export function GovernancePanel({ account, provider }) {
             )}
         </div>
     );
-} 
+}

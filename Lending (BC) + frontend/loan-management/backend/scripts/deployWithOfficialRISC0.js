@@ -23,7 +23,7 @@ async function main() {
     console.log("\n=== STEP 1: Deploying RISC Zero Verifier Router ===");
     const RiscZeroVerifierRouter = await ethers.getContractFactory("RiscZeroVerifierRouter");
     const verifierRouter = await RiscZeroVerifierRouter.deploy(deployer.address);
-    await verifierRouter.waitForDeployment();
+    await verifierRouter.deployed();
     const routerAddress = await verifierRouter.getAddress();
     console.log("✅ RiscZeroVerifierRouter deployed to:", routerAddress);
 
@@ -43,7 +43,7 @@ async function main() {
             console.log("Looking for ControlID contract...");
             const ControlID = await ethers.getContractFactory("ControlID");
             const controlId = await ControlID.deploy();
-            await controlId.waitForDeployment();
+            await controlId.deployed();
             const controlIdAddress = await controlId.getAddress();
             console.log("✅ ControlID deployed to:", controlIdAddress);
 
@@ -72,7 +72,7 @@ async function main() {
 
         const RiscZeroGroth16Verifier = await ethers.getContractFactory("RiscZeroGroth16Verifier");
         groth16Verifier = await RiscZeroGroth16Verifier.deploy(controlRoot, bn254ControlId);
-        await groth16Verifier.waitForDeployment();
+        await groth16Verifier.deployed();
         groth16Address = await groth16Verifier.getAddress();
         console.log("✅ RiscZeroGroth16Verifier deployed to:", groth16Address);
 
@@ -116,7 +116,7 @@ async function main() {
     try {
         const TLSNVerifier = await ethers.getContractFactory("TLSNVerifier");
         const tlsnVerifier = await TLSNVerifier.deploy(groth16Address); // Use Groth16 directly
-        await tlsnVerifier.waitForDeployment();
+        await tlsnVerifier.deployed();
         const tlsnVerifierAddress = await tlsnVerifier.getAddress();
         console.log("✅ TLSNVerifier deployed to:", tlsnVerifierAddress);
 
@@ -138,7 +138,7 @@ async function main() {
     try {
         const SimpleRISC0Test = await ethers.getContractFactory("SimpleRISC0Test");
         const simpleTest = await SimpleRISC0Test.deploy(groth16Address); // Use Groth16 directly
-        await simpleTest.waitForDeployment();
+        await simpleTest.deployed();
         const simpleTestAddress = await simpleTest.getAddress();
         console.log("✅ SimpleRISC0Test deployed to:", simpleTestAddress);
 

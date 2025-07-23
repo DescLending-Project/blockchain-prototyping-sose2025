@@ -40,8 +40,16 @@ contract VotingToken is ERC721, AccessControl {
     }
 
     // MINTER_ROLE can mint soulbound tokens
+    function mintSingle(address to) external onlyRole(MINTER_ROLE) {
+        require(to != address(0), "Invalid address");
+        uint256 tokenId = nextTokenId++;
+        _mint(to, tokenId);
+        emit TokenMinted(to, tokenId);
+    }
+
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
         require(to != address(0), "Invalid address");
+        require(amount > 0 && amount <= 100, "Amount must be 1-100"); // Limit batch size
         console.log("VotingToken.mint called by");
         console.log(msg.sender);
         console.log("to");

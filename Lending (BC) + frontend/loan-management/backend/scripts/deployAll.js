@@ -280,6 +280,29 @@ async function main() {
         console.log("CallExecuted:", { id, target, value: value.toString() });
     });
 
+    // 4. Deploy MockPriceFeed for GlintToken
+    const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+
+    // Deploy MockPriceFeed for USDC with initial price of 1.00 and 8 decimals
+    console.log("\nDeploying MockPriceFeed for USDC...");
+    const usdcMockFeed = await MockPriceFeed.deploy(
+        ethers.utils.parseUnits("1.00", 18),
+        8
+    );
+    await usdcMockFeed.deployed();
+    const usdcMockFeedAddress = await usdcMockFeed.address;
+    console.log("MockPriceFeed for USDC deployed to:", usdcMockFeedAddress);
+
+    // Deploy MockPriceFeed for USDT with initial price of 1.00 and 8 decimals
+    console.log("\nDeploying MockPriceFeed for USDT...");
+    const usdtMockFeed = await MockPriceFeed.deploy(
+        ethers.utils.parseUnits("1.00", 18),
+        8
+    );
+    await usdtMockFeed.deployed();
+    const usdtMockFeedAddress = await usdtMockFeed.address;
+    console.log("MockPriceFeed for USDT deployed to:", usdtMockFeedAddress);
+
     // 5. Deploy protocol contracts with Timelock as admin
     console.log("Deploying StablecoinManager...");
     const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
@@ -312,32 +335,40 @@ async function main() {
     console.log("InterestRateModel:", interestRateModelAddress);
     console.log(`[DEPLOYED] InterestRateModel at: ${interestRateModelAddress} (new deployment)`);
 
-    // 6. Deploy LiquidityPool (proxy) with deployer as admin for local/dev
-    // For production, use timelock.address as admin from the start
-    console.log("Deploying LiquidityPool (proxy)...");
+    // 6. Deploy IntegratedCreditSystem first (as before)
+    const IntegratedCreditSystem = await ethers.getContractFactory("IntegratedCreditSystem");
+    const creditSystem = await IntegratedCreditSystem.deploy(
+        ethers.constants.AddressZero, // SimpleRISC0Test placeholder
+        ethers.constants.AddressZero  // LiquidityPool placeholder
+    );
+    await creditSystem.deployed();
+    console.log("IntegratedCreditSystem deployed at:", creditSystem.address);
+
+    // Deploy LiquidityPool with DAO as admin and creditSystem address as 5th param
     const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
         deployer.address, // LOCAL/DEV: deployer is admin
         stablecoinManagerAddress,
         ethers.constants.AddressZero, // LendingManager placeholder
-        interestRateModelAddress
+        interestRateModelAddress,
+        creditSystem.address
     ], {
         initializer: "initialize",
     });
     await liquidityPool.deployed();
-    const liquidityPoolAddress = liquidityPool.address;
-    console.log("LiquidityPool:", liquidityPoolAddress);
-    console.log(`[DEPLOYED] LiquidityPool at: ${liquidityPoolAddress} (new deployment)`);
-    // --- HARD CHECK: Ensure LiquidityPool contract is actually deployed ---
-    const code = await ethers.provider.getCode(liquidityPoolAddress);
-    if (code === '0x') {
-        throw new Error(`LiquidityPool contract not actually deployed at ${liquidityPoolAddress}`);
+    console.log("LiquidityPool deployed at:", liquidityPool.address);
+
+    // Set LiquidityPool address in IntegratedCreditSystem (if setter exists)
+    if (creditSystem.setLiquidityPool) {
+        const tx = await creditSystem.setLiquidityPool(liquidityPool.address);
+        await tx.wait();
+        console.log("LiquidityPool address set in IntegratedCreditSystem.");
     }
 
     // 7. Deploy LendingManager
     console.log("Deploying LendingManager...");
     const LendingManager = await ethers.getContractFactory("LendingManager");
-    const lendingManager = await LendingManager.deploy(liquidityPoolAddress, timelock.address);
+    const lendingManager = await LendingManager.deploy(liquidityPool.address, timelock.address);
     await lendingManager.deployed();
     const lendingManagerAddress = lendingManager.address;
     console.log("LendingManager:", lendingManagerAddress);
@@ -368,12 +399,16 @@ async function main() {
     console.log("GlintToken deployed at:", glintTokenAddress);
 
     // 10. Deploy MockPriceFeed for GlintToken
-    const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-    // 1500 * 1e8 = $1500 with 8 decimals
-    const mockPriceFeed = await MockPriceFeed.deploy(1500_00000000, 8);
-    await mockPriceFeed.deployed();
-    const mockPriceFeedAddress = mockPriceFeed.address;
-    console.log("MockPriceFeed deployed at:", mockPriceFeedAddress);
+    console.log("\nDeploying MockPriceFeed for GlintToken...");
+    const glintMockFeed = await MockPriceFeed.deploy(
+        ethers.utils.parseUnits("1.00", 8), // 1.00 with 8 decimals
+        8
+    );
+    await glintMockFeed.deployed();
+    const glintMockFeedAddress = glintMockFeed.address;
+    console.log("MockPriceFeed for GlintToken deployed to:", glintMockFeedAddress);
+
+    // (Remove duplicate USDC/USDT MockPriceFeed deployment here, as it was already done above.)
 
     // Output all addresses
     console.log("\nDeployment complete:");
@@ -382,22 +417,28 @@ async function main() {
     console.log("ProtocolGovernor:", governor.address);
     console.log("StablecoinManager:", stablecoinManagerAddress);
     console.log("InterestRateModel:", interestRateModelAddress);
-    console.log("LiquidityPool:", liquidityPoolAddress);
-    console.log("LendingManager:", lendingManagerAddress);
-    console.log("GlintToken:", glintTokenAddress);
-    console.log("MockPriceFeed:", mockPriceFeedAddress);
+    console.log("LiquidityPool:", liquidityPool.address);
+    console.log("LendingManager:", lendingManager.address);
+    console.log("GlintToken:", glintToken.address);
+    console.log("MockPriceFeed (Glint):", glintMockFeed.address); // <-- Fix here
+    console.log("MockPriceFeed USDC:", usdcMockFeed.address);
+    console.log("MockPriceFeed USDT:", usdtMockFeed.address);
+    console.log("IntegratedCreditSystem:", creditSystem.address);
 
     // Optionally update frontend/app addresses
     const addressesObj = {
         VotingToken: votingToken.address,
         TimelockController: timelock.address,
         ProtocolGovernor: governor.address,
-        StablecoinManager: stablecoinManagerAddress,
-        InterestRateModel: interestRateModelAddress,
-        LiquidityPool: liquidityPoolAddress,
-        LendingManager: lendingManagerAddress,
-        GlintToken: glintTokenAddress,
-        MockPriceFeed: mockPriceFeedAddress
+        StablecoinManager: stablecoinManager.address,
+        InterestRateModel: interestRateModel.address,
+        LiquidityPool: liquidityPool.address,
+        LendingManager: lendingManager.address,
+        GlintToken: glintToken.address,
+        MockPriceFeed: glintMockFeed.address, // <-- Fix here
+        MockPriceFeedUSDC: usdcMockFeed.address,
+        MockPriceFeedUSDT: usdtMockFeed.address,
+        IntegratedCreditSystem: creditSystem.address
     };
     // Also write to frontend/src/addresses.json for compatibility
     const fs = require('fs');

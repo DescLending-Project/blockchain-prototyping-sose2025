@@ -19,15 +19,15 @@ async function deployContracts() {
     // for demo purposes, we use a mock verifier that accepts any proof
     const MockVerifierFactory = await ethers.getContractFactory("MockRiscZeroVerifier");
     contracts.mockVerifier = await MockVerifierFactory.deploy();
-    await contracts.mockVerifier.waitForDeployment();
-    console.log("✅ MockRiscZeroVerifier deployed to:", await contracts.mockVerifier.getAddress());
+    await contracts.mockVerifier.deployed();
+    console.log("✅ MockRiscZeroVerifier deployed to:", await contracts.mockVerifier..address);
 
     /* // Deploy SimpleRISC0Test
     console.log("\n📋 Step 2: Deploying SimpleRISC0Test...");
     const SimpleRISC0TestFactory = await ethers.getContractFactory("SimpleRISC0Test");
-    contracts.risc0Test = await SimpleRISC0TestFactory.deploy(await contracts.mockVerifier.getAddress());
-    await contracts.risc0Test.waitForDeployment();
-    console.log("✅ SimpleRISC0Test deployed to:", await contracts.risc0Test.getAddress());*/
+    contracts.risc0Test = await SimpleRISC0TestFactory.deploy(await contracts.mockVerifier..address);
+    await contracts.risc0Test.deployed();
+    console.log("✅ SimpleRISC0Test deployed to:", await contracts.risc0Test..address);*/
 
     // Replace this section in deploy-and-demo.js:
     console.log("\n📋 Step 2: Deploying SimpleRISC0Test...");
@@ -39,25 +39,25 @@ async function deployContracts() {
     //GlintToken and MockPriceFeed for collateral
     console.log("\n📋 Step 3: Deploying GlintToken...");
     const GlintTokenFactory = await ethers.getContractFactory("GlintToken");
-    const initialSupply = ethers.parseUnits("1000000", 18);
+    const initialSupply = ethers.utils.parseUnits("1000000", 18);
     contracts.glintToken = await GlintTokenFactory.deploy(initialSupply);
-    await contracts.glintToken.waitForDeployment();
-    console.log("✅ GlintToken deployed to:", await contracts.glintToken.getAddress());
+    await contracts.glintToken.deployed();
+    console.log("✅ GlintToken deployed to:", await contracts.glintToken.address);
 
     console.log("\n📋 Step 4: Deploying MockPriceFeed for GlintToken...");
     const MockPriceFeedFactory = await ethers.getContractFactory("MockPriceFeed");
     contracts.glintPriceFeed = await MockPriceFeedFactory.deploy(
-        ethers.parseUnits("1.50", 8), // 1.50 dolar price
+        ethers.utils.parseUnits("1.50", 8), // 1.50 dolar price
         8 // 8 decimals is chainlink standard
     );
-    await contracts.glintPriceFeed.waitForDeployment();
-    console.log("✅ MockPriceFeed deployed to:", await contracts.glintPriceFeed.getAddress());
+    await contracts.glintPriceFeed.deployed();
+    console.log("✅ MockPriceFeed deployed to:", await contracts.glintPriceFeed..address);
 
     console.log("\n📋 Step 5: Deploying StablecoinManager...");
     const StablecoinManagerFactory = await ethers.getContractFactory("StablecoinManager");
     contracts.stablecoinManager = await StablecoinManagerFactory.deploy(deployer.address);
-    await contracts.stablecoinManager.waitForDeployment();
-    console.log("✅ StablecoinManager deployed to:", await contracts.stablecoinManager.getAddress());
+    await contracts.stablecoinManager.deployed();
+    console.log("✅ StablecoinManager deployed to:", await contracts.stablecoinManager..address);
 
     // LendingManager as required by LiquidityPool
     console.log("\n📋 Step 6: Deploying LendingManager...");
@@ -69,35 +69,35 @@ async function deployContracts() {
         deployer.address, // initialOwner
         ethers.ZeroAddress // temporary liquidityPool address, will be updated later
     );
-    await contracts.lendingManager.waitForDeployment();
-    console.log("✅ LendingManager deployed to:", await contracts.lendingManager.getAddress());
+    await contracts.lendingManager.deployed();
+    console.log("✅ LendingManager deployed to:", await contracts.lendingManager..address);
 
     // Deploy IntegratedCreditSystem
     console.log("\n📋 Step 7: Deploying IntegratedCreditSystem...");
     console.log("\n📋 Step 5: Deploying IntegratedCreditSystem...");
     const IntegratedCreditSystemFactory = await ethers.getContractFactory("IntegratedCreditSystem");
     contracts.creditSystem = await IntegratedCreditSystemFactory.deploy(
-        await contracts.risc0Test.getAddress(),
+        await contracts.risc0Test..address,
         ethers.ZeroAddress // Will be set after LiquidityPool deployment
     );
-    await contracts.creditSystem.waitForDeployment();
-    console.log("✅ IntegratedCreditSystem deployed to:", await contracts.creditSystem.getAddress());
+    await contracts.creditSystem.deployed();
+    console.log("✅ IntegratedCreditSystem deployed to:", await contracts.creditSystem..address);
 
     //LiquidityPool
     console.log("\n📋 Step 8: Deploying LiquidityPool...");
     console.log("\n📋 Step 6: Deploying LiquidityPool...");
     const LiquidityPoolFactory = await ethers.getContractFactory("LiquidityPool");
     contracts.liquidityPool = await LiquidityPoolFactory.deploy();
-    await contracts.liquidityPool.waitForDeployment();
+    await contracts.liquidityPool.deployed();
 
     // Initialize the upgradeable contract with temporary addresses
     await contracts.liquidityPool.initialize(
         deployer.address, // initialOwner
-        await contracts.stablecoinManager.getAddress(),
-        await contracts.lendingManager.getAddress(), // temporary, will be updated
+        await contracts.stablecoinManager..address,
+        await contracts.lendingManager..address, // temporary, will be updated
         ethers.ZeroAddress // temporary, will be set later
     );
-    console.log("✅ LiquidityPool deployed and initialized to:", await contracts.liquidityPool.getAddress());
+    console.log("✅ LiquidityPool deployed and initialized to:", await contracts.liquidityPool..address);
 
     // circular dependencies will be fixed by redeploying with correct addresses
     console.log("\n📋 Step 9: Fixing circular dependencies...");
@@ -107,28 +107,28 @@ async function deployContracts() {
     const LendingManagerFactory2 = await ethers.getContractFactory("LendingManager");
     const newLendingManager = await LendingManagerFactory2.deploy(
         deployer.address, // initialOwner
-        await contracts.liquidityPool.getAddress() // correct liquidityPool address
+        await contracts.liquidityPool..address // correct liquidityPool address
     );
-    await newLendingManager.waitForDeployment();
+    await newLendingManager.deployed();
     contracts.lendingManager = newLendingManager;
-    console.log("✅ LendingManager redeployed with correct pool address:", await contracts.lendingManager.getAddress());
+    console.log("✅ LendingManager redeployed with correct pool address:", await contracts.lendingManager..address);
 
     // update LiquidityPool to use the new lending manager
-    await contracts.liquidityPool.setLendingManager(await contracts.lendingManager.getAddress());
+    await contracts.liquidityPool.setLendingManager(await contracts.lendingManager..address);
     console.log("✅ LiquidityPool updated with new lending manager");
 
     // IntegratedCreditSystem deployed again with correct LiquidityPool address
     const IntegratedCreditSystemFactory2 = await ethers.getContractFactory("IntegratedCreditSystem");
     const newCreditSystem = await IntegratedCreditSystemFactory2.deploy(
-        await contracts.risc0Test.getAddress(),
-        await contracts.liquidityPool.getAddress()
+        await contracts.risc0Test..address,
+        await contracts.liquidityPool..address
     );
-    await newCreditSystem.waitForDeployment();
+    await newCreditSystem.deployed();
     contracts.creditSystem = newCreditSystem;
-    console.log("✅ IntegratedCreditSystem redeployed with correct pool address:", await contracts.creditSystem.getAddress());
+    console.log("✅ IntegratedCreditSystem redeployed with correct pool address:", await contracts.creditSystem..address);
 
     // Update LiquidityPool to use the new credit system
-    await contracts.liquidityPool.setCreditSystem(await contracts.creditSystem.getAddress());
+    await contracts.liquidityPool.setCreditSystem(await contracts.creditSystem..address);
     console.log("✅ LiquidityPool updated with new credit system");
 
     // demoTester
@@ -136,12 +136,12 @@ async function deployContracts() {
     console.log("\n📋 Step 8: Deploying DemoTester...");
     const DemoTesterFactory = await ethers.getContractFactory("DemoTester");
     contracts.demoTester = await DemoTesterFactory.deploy(
-        await contracts.creditSystem.getAddress(),
-        await contracts.risc0Test.getAddress(),
-        await contracts.liquidityPool.getAddress()
+        await contracts.creditSystem..address,
+        await contracts.risc0Test..address,
+        await contracts.liquidityPool..address
     );
-    await contracts.demoTester.waitForDeployment();
-    console.log("✅ DemoTester deployed to:", await contracts.demoTester.getAddress());
+    await contracts.demoTester.deployed();
+    console.log("✅ DemoTester deployed to:", await contracts.demoTester..address);
 
     return contracts;
 }
@@ -158,30 +158,30 @@ async function setupForDemo(contracts) {
     // Add funds to liquidity pool
     const fundAmount = ethers.parseEther("100");
     await deployer.sendTransaction({
-        to: await contracts.liquidityPool.getAddress(),
+        to: await contracts.liquidityPool..address,
         value: fundAmount
     });
     console.log(`✅ Added ${ethers.formatEther(fundAmount)} ETH to liquidity pool`);
 
     console.log("Setting up GlintToken as collateral...");
-    await contracts.liquidityPool.setAllowedCollateral(await contracts.glintToken.getAddress(), true);
+    await contracts.liquidityPool.setAllowedCollateral(await contracts.glintToken.address, true);
     console.log("✅ GlintToken set as allowed collateral");
 
     await contracts.liquidityPool.setPriceFeed(
-        await contracts.glintToken.getAddress(),
-        await contracts.glintPriceFeed.getAddress()
+        await contracts.glintToken.address,
+        await contracts.glintPriceFeed..address
     );
     console.log("✅ GlintToken price feed set");
 
     try {
-        const tokenValue = await contracts.liquidityPool.getTokenValue(await contracts.glintToken.getAddress());
+        const tokenValue = await contracts.liquidityPool.getTokenValue(await contracts.glintToken.address);
         console.log("✅ GlintToken price verified:", ethers.formatUnits(tokenValue, 18), "USD");
     } catch (error) {
         console.log("⚠️  Price feed verification failed:", error.message);
     }
 
     // Give user some GlintTokens for collateral
-    const glintAmount = ethers.parseUnits("1000", 18);
+    const glintAmount = ethers.utils.parseUnits("1000", 18);
     await contracts.glintToken.transfer(user.address, glintAmount);
     console.log(`✅ Transferred ${ethers.formatUnits(glintAmount, 18)} GLINT to demo user`);
 }
@@ -285,14 +285,14 @@ async function displaySummary(contracts, success) {
     console.log("=".repeat(60));
 
     console.log("\n📋 Deployed Contracts:");
-    console.log("- LiquidityPool:", await contracts.liquidityPool.getAddress());
-    console.log("- IntegratedCreditSystem:", await contracts.creditSystem.getAddress());
-    console.log("- SimpleRISC0Test:", await contracts.risc0Test.getAddress());
-    console.log("- DemoTester:", await contracts.demoTester.getAddress());
-    console.log("- StablecoinManager:", await contracts.stablecoinManager.getAddress());
-    console.log("- LendingManager:", await contracts.lendingManager.getAddress());
-    console.log("- GlintToken:", await contracts.glintToken.getAddress());
-    console.log("- GlintPriceFeed:", await contracts.glintPriceFeed.getAddress());
+    console.log("- LiquidityPool:", await contracts.liquidityPool..address);
+    console.log("- IntegratedCreditSystem:", await contracts.creditSystem..address);
+    console.log("- SimpleRISC0Test:", await contracts.risc0Test..address);
+    console.log("- DemoTester:", await contracts.demoTester..address);
+    console.log("- StablecoinManager:", await contracts.stablecoinManager..address);
+    console.log("- LendingManager:", await contracts.lendingManager..address);
+    console.log("- GlintToken:", await contracts.glintToken.address);
+    console.log("- GlintPriceFeed:", await contracts.glintPriceFeed..address);
 
     if (success) {
         console.log("\n🏆 DEMO RESULT: SUCCESS!");

@@ -26,7 +26,7 @@ async function deployAndDemo() {
                 "0xce52bf56033842021af3cf6db8a50d1b7535c125a34f1a22c6fdcf002c5a1529", // CONTROL_ROOT from ControlID.sol
                 "0x04446e66d300eb7fb45c9726bb53c793dda407a62e9601618bb43c5c14657ac0"  // BN254_CONTROL_ID from ControlID.sol
             );
-            await realVerifier.waitForDeployment();
+            await realVerifier.deployed();
             verifierAddress = await realVerifier.getAddress();
             console.log("✅ Real RISC Zero verifier deployed locally:", verifierAddress);
         } catch (error) {
@@ -34,7 +34,7 @@ async function deployAndDemo() {
             console.log("💡 Falling back to mock verifier...");
             const MockVerifierFactory = await ethers.getContractFactory("MockRiscZeroVerifier");
             const mockVerifier = await MockVerifierFactory.deploy();
-            await mockVerifier.waitForDeployment();
+            await mockVerifier.deployed();
             verifierAddress = await mockVerifier.getAddress();
             console.log("✅ Mock verifier deployed as fallback:", verifierAddress);
         }
@@ -42,39 +42,39 @@ async function deployAndDemo() {
         console.log("🎭 Deploying Mock Verifier for Demo");
         const MockVerifierFactory = await ethers.getContractFactory("MockRiscZeroVerifier");
         const mockVerifier = await MockVerifierFactory.deploy();
-        await mockVerifier.waitForDeployment();
+        await mockVerifier.deployed();
         verifierAddress = await mockVerifier.getAddress();
         console.log("✅ Mock verifier deployed:", verifierAddress);
     }
 
     const SimpleRISC0TestFactory = await ethers.getContractFactory("SimpleRISC0Test");
     const risc0Test = await SimpleRISC0TestFactory.deploy(verifierAddress);
-    await risc0Test.waitForDeployment();
+    await risc0Test.deployed();
     console.log("✅ SimpleRISC0Test deployed:", await risc0Test.getAddress());
 
     const GlintTokenFactory = await ethers.getContractFactory("GlintToken");
-    const glintToken = await GlintTokenFactory.deploy(ethers.parseUnits("1000000", 18));
-    await glintToken.waitForDeployment();
-    console.log("✅ GlintToken deployed:", await glintToken.getAddress());
+    const glintToken = await GlintTokenFactory.deploy(ethers.utils.parseUnits("1000000", 18));
+    await glintToken.deployed();
+    console.log("✅ GlintToken deployed:", await glintToken.address);
 
     const MockPriceFeedFactory = await ethers.getContractFactory("MockPriceFeed");
-    const glintPriceFeed = await MockPriceFeedFactory.deploy(ethers.parseUnits("1.50", 8), 8);
-    await glintPriceFeed.waitForDeployment();
+    const glintPriceFeed = await MockPriceFeedFactory.deploy(ethers.utils.parseUnits("1.50", 8), 8);
+    await glintPriceFeed.deployed();
     console.log("✅ GlintPriceFeed deployed:", await glintPriceFeed.getAddress());
 
     const StablecoinManagerFactory = await ethers.getContractFactory("StablecoinManager");
     const stablecoinManager = await StablecoinManagerFactory.deploy(deployer.address);
-    await stablecoinManager.waitForDeployment();
+    await stablecoinManager.deployed();
     console.log("✅ StablecoinManager deployed:", await stablecoinManager.getAddress());
 
     const LendingManagerFactory = await ethers.getContractFactory("LendingManager");
     const lendingManager = await LendingManagerFactory.deploy(deployer.address, ethers.ZeroAddress);
-    await lendingManager.waitForDeployment();
+    await lendingManager.deployed();
     console.log("✅ LendingManager deployed:", await lendingManager.getAddress());
 
     const LiquidityPoolFactory = await ethers.getContractFactory("LiquidityPool");
     const liquidityPool = await LiquidityPoolFactory.deploy();
-    await liquidityPool.waitForDeployment();
+    await liquidityPool.deployed();
     console.log("✅ LiquidityPool deployed:", await liquidityPool.getAddress());
 
     await liquidityPool.initialize(
@@ -90,7 +90,7 @@ async function deployAndDemo() {
         await risc0Test.getAddress(),
         await liquidityPool.getAddress()
     );
-    await creditSystem.waitForDeployment();
+    await creditSystem.deployed();
     console.log("✅ IntegratedCreditSystem deployed:", await creditSystem.getAddress());
 
     // Connect contracts
@@ -118,12 +118,12 @@ async function deployAndDemo() {
     console.log(`✅ Funded liquidity pool with ${ethers.formatEther(fundAmount)} ETH`);
 
     // Setup collateral
-    await liquidityPool.setAllowedCollateral(await glintToken.getAddress(), true);
-    await liquidityPool.setPriceFeed(await glintToken.getAddress(), await glintPriceFeed.getAddress());
+    await liquidityPool.setAllowedCollateral(await glintToken.address, true);
+    await liquidityPool.setPriceFeed(await glintToken.address, await glintPriceFeed.getAddress());
     console.log("✅ Collateral configured");
 
     // Give user tokens
-    const userTokenAmount = ethers.parseUnits("10000", 18);
+    const userTokenAmount = ethers.utils.parseUnits("10000", 18);
     await glintToken.transfer(user.address, userTokenAmount);
     console.log(`✅ Transferred ${ethers.formatUnits(userTokenAmount, 18)} GLINT to user`);
 
@@ -139,7 +139,7 @@ async function deployAndDemo() {
             risc0Test: await risc0Test.getAddress(),
             liquidityPool: await liquidityPool.getAddress(),
             creditSystem: await creditSystem.getAddress(),
-            glintToken: await glintToken.getAddress(),
+            glintToken: await glintToken.address,
             stablecoinManager: await stablecoinManager.getAddress(),
             lendingManager: await lendingManager.getAddress()
         }
@@ -170,9 +170,9 @@ async function runDemo(user, liquidityPool, creditSystem, glintToken) {
     console.log("🎭 Starting mock proof demo...");
 
     // Deposit collateral
-    const collateralAmount = ethers.parseUnits("2000", 18);
+    const collateralAmount = ethers.utils.parseUnits("2000", 18);
     await glintToken.connect(user).approve(await liquidityPool.getAddress(), collateralAmount);
-    await liquidityPool.connect(user).depositCollateral(await glintToken.getAddress(), collateralAmount);
+    await liquidityPool.connect(user).depositCollateral(await glintToken.address, collateralAmount);
     console.log("✅ Deposited collateral");
 
     // Generate mock proof data

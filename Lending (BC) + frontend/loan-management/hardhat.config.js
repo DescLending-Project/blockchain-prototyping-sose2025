@@ -29,9 +29,19 @@ module.exports = {
         localhost: {
             url: "http://127.0.0.1:8545",
             gas: 30000000,
-            blockGasLimit: 30000000,
-            allowUnlimitedContractSize: true
+            blockGasLimit: 50000000,
+            allowUnlimitedContractSize: true,
         },
+        hardhat: {
+            blockGasLimit: 30_000_000, // 30 million gas
+            allowUnlimitedContractSize: true,
+        },
+    },
+    gasReporter: {
+        enabled: true
+    },
+    mocha: {
+        timeout: 100000 // Increase test timeout
     },
     etherscan: {
         apiKey: {

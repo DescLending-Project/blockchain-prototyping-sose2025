@@ -16,6 +16,13 @@ contract LiquidityPool is
     AccessControlUpgradeable,
     AutomationCompatibleInterface
 {
+    /// @notice Allows the timelock (owner) to extract ETH from the pool
+    function extract(uint256 amount, address payable to) external onlyTimelock {
+        require(address(this).balance >= amount, "Insufficient balance");
+        (bool sent, ) = to.call{value: amount}("");
+        require(sent, "ETH transfer failed");
+    }
+
     mapping(address => mapping(address => uint256)) public collateralBalance;
     mapping(address => bool) public isAllowedCollateral;
     mapping(address => uint256) public creditScore;
@@ -47,7 +54,7 @@ contract LiquidityPool is
     InterestRateModel public interestRateModel;
 
     address public timelock;
-    
+
     // ZK-Proof Integration
     IntegratedCreditSystem public creditSystem;
     bool public zkProofRequired; // Whether ZK proofs are required for borrowing
@@ -104,7 +111,6 @@ contract LiquidityPool is
     event CollateralTokenStatusChanged(address indexed token, bool isAllowed);
     event Borrowed(address indexed user, uint256 amount);
     event Repaid(address indexed user, uint256 amount);
-    event Extracted(address indexed owner, uint256 amount);
     event EmergencyPaused(bool isPaused);
     event CreditScoreAssigned(address indexed user, uint256 score);
     event LiquidationStarted(address indexed user);
@@ -115,9 +121,12 @@ contract LiquidityPool is
     );
     event GracePeriodExtended(address indexed user, uint256 newDeadline);
     event UserError(address indexed user, string message);
-    
+
     // ZK-Proof Integration Events
-    event CreditSystemUpdated(address indexed oldSystem, address indexed newSystem);
+    event CreditSystemUpdated(
+        address indexed oldSystem,
+        address indexed newSystem
+    );
     event ZKProofRequirementToggled(bool required);
     event ZKProofValidationFailed(address indexed user, string reason);
 
@@ -198,10 +207,13 @@ contract LiquidityPool is
         require(!paused, "Contract is paused");
         _;
     }
-    
+
     modifier requiresZKProof() {
         if (zkProofRequired && address(creditSystem) != address(0)) {
-            require(creditSystem.isEligibleToBorrow(msg.sender), "ZK proof verification required");
+            require(
+                creditSystem.isEligibleToBorrow(msg.sender),
+                "ZK proof verification required"
+            );
         }
         _;
     }
@@ -215,7 +227,7 @@ contract LiquidityPool is
         address _timelock,
         address _stablecoinManager,
         address _lendingManager,
-        address _interestRateModel
+        address _interestRateModel,
         address _creditSystem
     ) public initializer {
         __AccessControl_init();
@@ -223,7 +235,7 @@ contract LiquidityPool is
         stablecoinManager = StablecoinManager(_stablecoinManager);
         lendingManager = LendingManager(payable(_lendingManager));
         interestRateModel = InterestRateModel(_interestRateModel);
-        
+
         // Initialize ZK-proof system
         if (_creditSystem != address(0)) {
             creditSystem = IntegratedCreditSystem(_creditSystem);
@@ -324,8 +336,6 @@ contract LiquidityPool is
         keccak256("ALLOW_COLLATERAL_PERMISSION");
     bytes32 public constant UPDATE_BORROW_TIER_PERMISSION =
         keccak256("UPDATE_BORROW_TIER_PERMISSION");
-    bytes32 public constant EXTRACT_FUNDS_PERMISSION =
-        keccak256("EXTRACT_FUNDS_PERMISSION");
     bytes32 public constant SET_CREDIT_SCORE_PERMISSION =
         keccak256("SET_CREDIT_SCORE_PERMISSION");
     bytes32 public constant SET_PRICE_FEED_PERMISSION =
@@ -515,11 +525,6 @@ contract LiquidityPool is
             adjustedRate = (baseRate * (10000 - uint256(-modifierBps))) / 10000;
         } else if (modifierBps > 0) {
             adjustedRate = (baseRate * (10000 + uint256(modifierBps))) / 10000;
-    //function borrow(uint256 amount) external whenNotPaused noReentrancy {
-    function borrow(uint256 amount) external whenNotPaused noReentrancy requiresZKProof {
-        if (amount == 0) {
-            emit UserError(msg.sender, "Amount must be greater than 0");
-            revert("Amount must be greater than 0");
         }
         return adjustedRate;
     }
@@ -562,9 +567,10 @@ contract LiquidityPool is
         });
     }
 
+    //  TODO: uncomment the modifier when ZK-proof integration is ready
     function borrow(
         uint256 amount
-    ) external payable whenNotPaused noReentrancy {
+    ) external payable whenNotPaused noReentrancy /*requiresZKProof*/ {
         // 1. Check for existing debt
         require(userDebt[msg.sender] == 0, "Repay your existing debt first");
 
@@ -732,15 +738,6 @@ contract LiquidityPool is
         emit Repaid(msg.sender, msg.value);
     }
 
-    function extract(uint256 amount) external onlyTimelock noReentrancy {
-        require(
-            amount <= address(this).balance,
-            "Insufficient contract balance"
-        );
-        payable(msg.sender).transfer(amount);
-        emit Extracted(msg.sender, amount);
-    }
-
     function withdrawForLendingManager(uint256 amount) external noReentrancy {
         require(
             msg.sender == address(lendingManager),
@@ -782,46 +779,47 @@ contract LiquidityPool is
         }
         return creditScore[user];
     }
-    
-    function updateCreditScoreFromZK(
-        address user,
-        uint256 score
-    ) external {
-        require(msg.sender == address(creditSystem), "Only credit system can update");
+
+    function updateCreditScoreFromZK(address user, uint256 score) external {
+        require(
+            msg.sender == address(creditSystem),
+            "Only credit system can update"
+        );
         require(score <= 100, "Score out of range");
-        
+
         uint256 oldScore = creditScore[user];
         creditScore[user] = score;
-        
+
         emit CreditScoreAssigned(user, score);
     }
-    
+
     /// @notice Set the integrated credit system
     /// @param _creditSystem Address of the credit system contract
-    function setCreditSystem(address _creditSystem) external onlyOwner {
+    function setCreditSystem(address _creditSystem) external onlyTimelock {
         address oldSystem = address(creditSystem);
         creditSystem = IntegratedCreditSystem(_creditSystem);
         emit CreditSystemUpdated(oldSystem, _creditSystem);
     }
-    
+
     /// @notice Toggle ZK proof requirement for borrowing
     /// @param required Whether ZK proofs are required
-    function setZKProofRequirement(bool required) external onlyOwner {
+    function setZKProofRequirement(bool required) external onlyTimelock {
         zkProofRequired = required;
         emit ZKProofRequirementToggled(required);
     }
-    
 
-    function getZKVerificationStatus(address user) 
-        external 
-        view 
+    function getZKVerificationStatus(
+        address user
+    )
+        external
+        view
         returns (
             bool hasTradFi,
             bool hasAccount,
             bool hasNesting,
             uint256 finalScore,
             bool isEligible
-        ) 
+        )
     {
         if (address(creditSystem) != address(0)) {
             try creditSystem.getUserCreditProfile(user) returns (

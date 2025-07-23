@@ -164,7 +164,7 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
 
         try {
             setIsLoading(true);
-            const parsedThreshold = ethers.parseUnits(liquidationThreshold, 18);
+            const parsedThreshold = ethers.utils.parseUnits(liquidationThreshold, 18);
             const tx = await contract.setLiquidationThreshold(selectedToken, parsedThreshold);
             await tx.wait();
             setLiquidationThreshold("");
@@ -289,7 +289,7 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
 
         try {
             setIsLoading(true);
-            const tx = await lendingManagerContract.setCurrentDailyRate(ethers.parseUnits(interestRate, 18));
+            const tx = await lendingManagerContract.setCurrentDailyRate(ethers.utils.parseUnits(interestRate, 18));
             await tx.wait();
             setInterestRate("");
             await fetchInitialData(); // Refresh the data
@@ -307,7 +307,7 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
         }
         try {
             setIsLoading(true);
-            const tx = await contract.setMaxBorrowAmount(ethers.parseUnits(maxBorrowAmount, 18));
+            const tx = await contract.setMaxBorrowAmount(ethers.utils.parseUnits(maxBorrowAmount, 18));
             await tx.wait();
             setMaxBorrowAmount("");
         } catch (err) {
@@ -324,7 +324,7 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
         }
         try {
             setIsLoading(true);
-            const tx = await contract.setMaxCollateralAmount(ethers.parseUnits(maxCollateralAmount, 18));
+            const tx = await contract.setMaxCollateralAmount(ethers.utils.parseUnits(maxCollateralAmount, 18));
             await tx.wait();
             setMaxCollateralAmount("");
         } catch (err) {
@@ -341,7 +341,7 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
         }
         try {
             setIsLoading(true);
-            const tx = await contract.setMaxLiquidationBonus(ethers.parseUnits(maxLiquidationBonus, 18));
+            const tx = await contract.setMaxLiquidationBonus(ethers.utils.parseUnits(maxLiquidationBonus, 18));
             await tx.wait();
             setMaxLiquidationBonus("");
         } catch (err) {
@@ -358,7 +358,7 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
         }
         try {
             setIsLoading(true);
-            const tx = await contract.setMaxLiquidationPenalty(ethers.parseUnits(maxLiquidationPenalty, 18));
+            const tx = await contract.setMaxLiquidationPenalty(ethers.utils.parseUnits(maxLiquidationPenalty, 18));
             await tx.wait();
             setMaxLiquidationPenalty("");
         } catch (err) {
@@ -375,7 +375,7 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
         }
         try {
             setIsLoading(true);
-            const tx = await contract.setMaxLiquidationThreshold(ethers.parseUnits(maxLiquidationThreshold, 18));
+            const tx = await contract.setMaxLiquidationThreshold(ethers.utils.parseUnits(maxLiquidationThreshold, 18));
             await tx.wait();
             setMaxLiquidationThreshold("");
         } catch (err) {
@@ -409,7 +409,7 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
         }
         try {
             setIsLoading(true);
-            const tx = await contract.setMaxLiquidationAmount(ethers.parseUnits(maxLiquidationAmount, 18));
+            const tx = await contract.setMaxLiquidationAmount(ethers.utils.parseUnits(maxLiquidationAmount, 18));
             await tx.wait();
             setMaxLiquidationAmount("");
         } catch (err) {
@@ -426,7 +426,7 @@ export function AdminPanel({ contract, lendingManagerContract, account }: AdminP
         }
         try {
             setIsLoading(true);
-            const tx = await contract.setMaxLiquidationRatio(ethers.parseUnits(maxLiquidationRatio, 18));
+            const tx = await contract.setMaxLiquidationRatio(ethers.utils.parseUnits(maxLiquidationRatio, 18));
             await tx.wait();
             setMaxLiquidationRatio("");
         } catch (err) {

@@ -530,7 +530,8 @@ contract IntegratedCreditSystem {
         uint256 _accountWeight,
         uint256 _nestingWeight
     ) external {
-        require(liquidityPool.owner() == msg.sender, "Only pool owner");
+        address timelock = liquidityPool.timelock();
+        require(msg.sender == timelock, "Only DAO/Timelock");
         require(
             _tradFiWeight + _accountWeight + _nestingWeight == 100,
             "Weights must sum to 100"

@@ -25,7 +25,7 @@ async function finalWorkingDemo() {
     console.log("💰 User GLINT balance:", ethers.formatUnits(await glintToken.balanceOf(user.address), 18), "GLINT");
 
     console.log("\n💳 Step 1: Setup collateral");
-    const collateralAmount = ethers.parseUnits("2000", 18);
+    const collateralAmount = ethers.utils.parseUnits("2000", 18);
 
     const userGlintBalance = await glintToken.balanceOf(user.address);
     if (userGlintBalance < collateralAmount) {

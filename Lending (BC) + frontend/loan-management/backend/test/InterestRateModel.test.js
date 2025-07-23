@@ -211,18 +211,35 @@ describe("InterestRateModel", function () {
 
     describe("Oracle integration", () => {
         it("returns ETH price and updatedAt", async () => {
-            // Set price to 2000e8, updatedAt to now
-            const price = 2000e8; // 2000 * 1e8 = 200000000000 (reasonable price)
-            const now = Math.floor(Date.now() / 1000);
+            const price = 2000e8; // 2000 * 1e8 = 200000000000
+            
+            // First set a large staleness window
+            const largeStalenessWindow = 86400; // 24 hours
+            await model.setParameters(
+                "10000000000000000",    // 1% baseRate
+                "800000000000000000",   // 80% kink  
+                "20000000000000000",    // 2% slope1
+                "750000000000000000",   // 75% slope2
+                "100000000000000000",   // 10% reserveFactor
+                "500000000000000000",   // 50% maxBorrowRate
+                "10000000000000000",    // 1% maxRateChange
+                "5000000000000000",     // 0.5% ethPriceRiskPremium
+                "200000000000000000",   // 20% ethVolatilityThreshold
+                largeStalenessWindow.toString()
+            );
+
+            // Mine a block to get current timestamp
+            await ethers.provider.send("evm_mine");
+            const currentBlock = await ethers.provider.getBlock("latest");
+            const now = currentBlock.timestamp;
+
+            // Set the mock data with current timestamp
             await oracleMock.setLatestRoundData(price, now);
+
             const [ethPrice, updatedAt] = await model.getEthPrice();
+
             expect(ethPrice.eq(price)).to.be.true;
-            // If updatedAt is a BigNumber, use .eq(), else .to.equal()
-            if (typeof updatedAt.eq === 'function') {
-                expect(updatedAt.eq(now)).to.be.true;
-            } else {
-                expect(updatedAt).to.equal(now);
-            }
+            expect(updatedAt.eq(now)).to.be.true;
         });
         it("reverts if oracle is stale", async () => {
             const price = 2000e8;

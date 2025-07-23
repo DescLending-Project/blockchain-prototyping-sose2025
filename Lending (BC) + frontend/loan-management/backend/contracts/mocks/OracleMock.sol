@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 contract OracleMock {
     int256 public answer;
     uint256 public updatedAt;
+    uint8 public decimals = 8;
 
     function setLatestRoundData(int256 _answer, uint256 _updatedAt) external {
         answer = _answer;

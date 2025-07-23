@@ -40,7 +40,8 @@ describe("LiquidityPool - Chainlink Automation Simulation with Glint Token", fun
       deployer.address,
       stablecoinManagerAddress,
       ethers.constants.AddressZero, // Use correct zero address
-      interestRateModelAddress
+      interestRateModelAddress,
+      ethers.constants.AddressZero // _creditSystem
     ], {
       initializer: "initialize",
     });

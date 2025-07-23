@@ -201,7 +201,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             // For ERC20 tokens, first approve the contract to spend the tokens
             const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
             const tokenContract = new ethers.Contract(selectedToken, ["function approve(address spender, uint256 amount) returns (bool)"], signer); // Basic ERC20 ABI for approve
-            const amountParsed = ethers.parseUnits(collateralAmount, 18); // Assuming 18 decimals for collateral tokens
+            const amountParsed = ethers.utils.parseUnits(collateralAmount, 18); // Assuming 18 decimals for collateral tokens
             let tx = await tokenContract.approve(contract.target, amountParsed);
             await tx.wait();
 
@@ -236,7 +236,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         try {
             setIsLoading(true)
             setError("") // Clear previous errors
-            const tx = await contract.withdrawCollateral(selectedToken, ethers.parseUnits(collateralAmount, 18))
+            const tx = await contract.withdrawCollateral(selectedToken, ethers.utils.parseUnits(collateralAmount, 18))
             await tx.wait()
             setError("Collateral withdrawn successfully!"); // Success message
             await fetchTokenBalance()
@@ -474,94 +474,10 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             </Card>
 
             <Tabs defaultValue="collateral" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="collateral">Collateral</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="borrow">Borrow</TabsTrigger>
                     <TabsTrigger value="repay">Repay</TabsTrigger>
                 </TabsList>
-
-                <TabsContent value="collateral">
-                    <Card className="bg-gradient-to-br from-background to-muted/50">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Shield className="h-5 w-5" />
-                                Collateral Management
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Select Token</label>
-                                <Select
-                                    value={selectedToken}
-                                    onValueChange={(value) => {
-                                        setSelectedToken(value)
-                                        setError("")
-                                    }}
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select a token" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {COLLATERAL_TOKENS.map((token) => (
-                                            <SelectItem key={token.address} value={token.address}>
-                                                {token.name} ({token.symbol})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {selectedToken && ( // Only show token info if a token is selected
-                                <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-background/50 border">
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Token Balance</p>
-                                        {/* TODO: Fetch and display actual token balance */}
-                                        <p className="text-lg font-medium">{tokenBalance} {COLLATERAL_TOKENS.find(t => t.address === selectedToken)?.symbol}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Current Value</p>
-                                        {/* TODO: Fetch and display actual token value */}
-                                        <p className="text-lg font-medium">${tokenValue}</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Amount</label>
-                                <Input
-                                    type="number"
-                                    placeholder="Enter amount to deposit/withdraw"
-                                    value={collateralAmount}
-                                    onChange={(e) => {
-                                        setCollateralAmount(e.target.value)
-                                        setError("")
-                                    }}
-                                    min="0"
-                                    step="0.01"
-                                    className="w-full"
-                                />
-                            </div>
-
-                            <div className="flex gap-4">
-                                <Button
-                                    onClick={handleDepositCollateral}
-                                    className="flex-1 h-12"
-                                    disabled={isLoading}
-                                >
-                                    {isLoading ? "Processing..." : "Deposit"}
-                                </Button>
-                                <Button
-                                    onClick={handleWithdrawCollateral}
-                                    className="flex-1 h-12"
-                                    disabled={isLoading}
-                                    variant="outline"
-                                >
-                                    {isLoading ? "Processing..." : "Withdraw"}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
 
                 <TabsContent value="borrow">
                     <Card className="bg-gradient-to-br from-background to-muted/50">

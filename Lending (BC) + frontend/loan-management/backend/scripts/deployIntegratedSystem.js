@@ -22,7 +22,7 @@ async function main() {
         SIMPLE_RISC0_TEST_ADDRESS,
         LIQUIDITY_POOL_V3_ADDRESS
     );
-    await creditSystem.waitForDeployment();
+    await creditSystem.deployed();
     const creditSystemAddress = await creditSystem.getAddress();
 
     console.log("✅ IntegratedCreditSystem deployed to:", creditSystemAddress);

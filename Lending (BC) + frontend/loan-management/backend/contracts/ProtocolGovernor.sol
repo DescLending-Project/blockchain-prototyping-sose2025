@@ -95,6 +95,85 @@ contract ProtocolGovernor is
         return super._executor();
     }
 
+    function queueAdvancedProposal(uint256 proposalId) public {
+        Proposal storage p = proposals[proposalId];
+        require(block.timestamp > p.endTime, "Voting not ended");
+        require(p.yesVotes > p.noVotes, "Proposal failed");
+        require(!p.queued, "Already queued");
+
+        console.log("Queueing proposal:", proposalId);
+        console.log("Yes votes:", p.yesVotes);
+        console.log("No votes:", p.noVotes);
+
+        p.queued = true;
+
+        // Schedule through timelock
+        bytes32 salt = keccak256(abi.encode(proposalId));
+        bytes memory callData = abi.encodePacked(
+            p.functionSelector,
+            p.encodedParams
+        );
+
+        console.log("Scheduling through timelock...");
+        TimelockController(payable(_executor())).schedule(
+            p.targetContract,
+            0, // value
+            callData,
+            bytes32(0), // predecessor
+            salt,
+            TimelockController(payable(_executor())).getMinDelay()
+        );
+
+        p.executeAfter =
+            block.timestamp +
+            TimelockController(payable(_executor())).getMinDelay();
+        console.log("Scheduled for execution at:", p.executeAfter);
+    }
+
+    function executeAdvancedProposal(uint256 proposalId) public {
+        Proposal storage p = proposals[proposalId];
+        require(p.queued, "Proposal not queued");
+        require(block.timestamp >= p.executeAfter, "Timelock not expired");
+        require(!p.executed, "Already executed");
+        require(vetoSignatures[proposalId] < 3, "Vetoed by multisig");
+
+        console.log("Executing proposal:", proposalId);
+        console.log("Target contract:", p.targetContract);
+        console.log("Function selector:", uint32(p.functionSelector));
+
+        // Execute through timelock instead of direct call
+        bytes32 salt = keccak256(abi.encode(proposalId));
+        bytes memory callData = abi.encodePacked(
+            p.functionSelector,
+            p.encodedParams
+        );
+
+        console.log("Executing through timelock...");
+
+        // Check if operation is ready
+        TimelockController timelock = TimelockController(payable(_executor()));
+        bytes32 operationId = timelock.hashOperation(
+            p.targetContract,
+            0,
+            callData,
+            bytes32(0),
+            salt
+        );
+
+        require(timelock.isOperationReady(operationId), "Operation not ready");
+
+        timelock.execute(
+            p.targetContract,
+            0, // value
+            callData,
+            bytes32(0), // predecessor
+            salt
+        );
+
+        p.executed = true;
+        emit AdvancedProposalExecuted(proposalId);
+    }
+
     // Remove unnecessary overrides unless custom logic is needed
     // Add debug logs to propose and _queueOperations
     function propose(
@@ -206,7 +285,7 @@ contract ProtocolGovernor is
 
     // --- Voting Token Reward System Additions ---
     // Configurable quorum percentage in basis points (default 2000 = 20.00%)
-    uint256 public quorumPercentage = 1; // 1 = 0.01% (for minimal test)
+    uint256 public quorumPercentage = 1; // 1 = 0.01% (for tests)
     event QuorumPercentageChanged(uint256 newBasisPoints);
     event SetQuorumAttempt(uint256 newBasisPoints, address sender);
     // Bootstrap mode for initial governance
@@ -223,7 +302,8 @@ contract ProtocolGovernor is
     /// @notice Set the quorum percentage in basis points (1 = 0.01%, 100 = 1%, 2000 = 20%)
     function setQuorumPercentage(
         uint256 newBasisPoints
-    ) external onlyGovernance {
+    ) external onlyDAOProposal {
+        // This should be the modifier, not onlyGovernance
         console.log("setQuorumPercentage called by", msg.sender);
         emit SetQuorumAttempt(newBasisPoints, msg.sender);
         require(newBasisPoints > 0, "Quorum must be > 0");
@@ -273,7 +353,10 @@ contract ProtocolGovernor is
 
     // Custom modifier for DAO proposal execution (not to conflict with OpenZeppelin's onlyGovernance)
     modifier onlyDAOProposal() {
-        require(_msgSender() == address(this), "Only DAO via proposal");
+        require(
+            _msgSender() == address(this) || _msgSender() == _executor(),
+            "Only DAO via proposal or timelock"
+        );
         _;
     }
     modifier onlyAllowedContracts() {
@@ -380,6 +463,7 @@ contract ProtocolGovernor is
         bool executed;
         uint256 yesVotes;
         uint256 noVotes;
+        bool queued;
         mapping(address => bool) hasVoted;
     }
 
@@ -480,47 +564,6 @@ contract ProtocolGovernor is
         // Reputation adjustment deferred until proposal outcome
     }
 
-    // After executeAdvancedProposal, update reputation for voters
-    function executeAdvancedProposal(uint256 proposalId) external {
-        Proposal storage p = proposals[proposalId];
-        require(block.timestamp >= p.executeAfter, "Delay not passed");
-        require(!p.executed, "Already executed");
-        uint256 totalVotes = p.yesVotes + p.noVotes;
-        // Use the same quorum logic as the main system (bootstrapMode/quorumPercentage)
-        require(totalVotes >= quorum(0), "Quorum not met");
-        require(
-            (p.yesVotes * 100) / totalVotes >= APPROVAL_THRESHOLD,
-            "Not enough yes votes"
-        );
-        require(vetoSignatures[proposalId] < 3, "Vetoed by multisig");
-        (bool success, ) = p.targetContract.call(
-            abi.encodePacked(p.functionSelector, p.encodedParams)
-        );
-        require(success, "Execution failed");
-        p.executed = true;
-        emit AdvancedProposalExecuted(proposalId);
-        // Update reputation for voters
-        // For simplicity, reward those who voted with the majority
-        bool passed = (p.yesVotes * 100) / totalVotes >= APPROVAL_THRESHOLD;
-        for (uint256 i = 0; i < 100; i++) {
-            // NOTE: Only works for small testnets; for production, use offchain index or event logs
-            address voter = address(uint160(i));
-            if (p.hasVoted[voter]) {
-                int256 delta = 0;
-                if (
-                    (passed && p.yesVotes > p.noVotes && p.hasVoted[voter]) ||
-                    (!passed && p.noVotes > p.yesVotes && p.hasVoted[voter])
-                ) {
-                    delta = 2;
-                } else {
-                    delta = -2;
-                }
-                reputation[voter] += delta;
-                emit ReputationChanged(voter, reputation[voter], delta);
-            }
-        }
-    }
-
     function vetoAdvanced(uint256 proposalId) external {
         require(isMultisig(msg.sender), "Not a multisig signer");
         vetoSignatures[proposalId]++;
@@ -561,4 +604,16 @@ contract ProtocolGovernor is
     }
 
     // --- Disable legacy Governor proposals ---
+    // Helper function for debugging
+    function bytes4ToHex(bytes4 data) internal pure returns (string memory) {
+        bytes memory hexChars = "0123456789abcdef";
+        bytes memory result = new bytes(10);
+        result[0] = "0";
+        result[1] = "x";
+        for (uint i = 0; i < 4; i++) {
+            result[2 + i * 2] = hexChars[uint8(data[i]) >> 4];
+            result[3 + i * 2] = hexChars[uint8(data[i]) & 0x0f];
+        }
+        return string(result);
+    }
 }

@@ -47,8 +47,8 @@ async function deployZKComponents(deployer, config, liquidityPoolAddress) {
             console.log("🎭 Deploying Mock RISC Zero Verifier...");
             const MockRiscZeroVerifier = await ethers.getContractFactory("MockRiscZeroVerifier");
             const mockVerifier = await MockRiscZeroVerifier.deploy();
-            await mockVerifier.waitForDeployment();
-            verifierAddress = await mockVerifier.getAddress();
+            await mockVerifier.deployed();
+            verifierAddress = await mockVerifier.address;
             console.log("✅ Mock verifier deployed:", verifierAddress);
         }
 
@@ -56,8 +56,8 @@ async function deployZKComponents(deployer, config, liquidityPoolAddress) {
         console.log("\n📋 Deploying SimpleRISC0Test...");
         const SimpleRISC0Test = await ethers.getContractFactory("SimpleRISC0Test");
         const simpleRisc0Test = await SimpleRISC0Test.deploy(verifierAddress);
-        await simpleRisc0Test.waitForDeployment();
-        simpleRisc0TestAddress = await simpleRisc0Test.getAddress();
+        await simpleRisc0Test.deployed();
+        simpleRisc0TestAddress = await simpleRisc0Test.address;
         console.log("✅ SimpleRISC0Test deployed:", simpleRisc0TestAddress);
 
         // Enable demo mode for mock verifier
@@ -73,8 +73,8 @@ async function deployZKComponents(deployer, config, liquidityPoolAddress) {
             simpleRisc0TestAddress,
             liquidityPoolAddress
         );
-        await creditSystem.waitForDeployment();
-        creditSystemAddress = await creditSystem.getAddress();
+        await creditSystem.deployed();
+        creditSystemAddress = await creditSystem.address;
         console.log("✅ IntegratedCreditSystem deployed:", creditSystemAddress);
 
         console.log("\n✅ ZK Proof System deployed successfully!");
@@ -178,59 +178,59 @@ async function main() {
     // Deploy GlintToken first with initial supply of 1,000,000 tokens
     console.log("\nDeploying GlintToken...");
     const GlintToken = await ethers.getContractFactory("GlintToken");
-    const initialSupply = ethers.parseUnits("1000000", 18); // 1 million tokens with 18 decimals
+    const initialSupply = ethers.utils.parseUnits("1000000", 18); // 1 million tokens with 18 decimals
     const glintToken = await GlintToken.deploy(initialSupply);
-    await glintToken.waitForDeployment();
-    const glintTokenAddress = await glintToken.getAddress();
+    await glintToken.deployed();
+    const glintTokenAddress = await glintToken.address;
     console.log("GlintToken deployed to:", glintTokenAddress);
 
     // Deploy MockPriceFeed for GlintToken with initial price of 1.50 and 8 decimals
     console.log("\nDeploying MockPriceFeed for GlintToken...");
     const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
     const glintFeed = await MockPriceFeed.deploy(
-        ethers.parseUnits("1.50", 8),
+        ethers.utils.parseUnits("1.50", 18),
         8
     );
-    await glintFeed.waitForDeployment();
-    const glintFeedAddress = await glintFeed.getAddress();
+    await glintFeed.deployed();
+    const glintFeedAddress = await glintFeed.address;
     console.log("MockPriceFeed for GlintToken deployed to:", glintFeedAddress);
 
     // Deploy MockPriceFeed for CORAL with initial price of 1.00 and 8 decimals (before deploying LiquidityPool)
     console.log("\nDeploying MockPriceFeed for CORAL...");
     const coralFeed = await MockPriceFeed.deploy(
-        ethers.parseUnits("1.00", 8),
+        ethers.utils.parseUnits("1.00", 18),
         8
     );
-    await coralFeed.waitForDeployment();
-    const coralFeedAddress = await coralFeed.getAddress();
+    await coralFeed.deployed();
+    const coralFeedAddress = await coralFeed.address;
     console.log("MockPriceFeed for CORAL deployed to:", coralFeedAddress);
 
     // Deploy MockPriceFeed for USDC with initial price of 1.00 and 8 decimals
     console.log("\nDeploying MockPriceFeed for USDC...");
     const usdcMockFeed = await MockPriceFeed.deploy(
-        ethers.parseUnits("1.00", 8),
+        ethers.utils.parseUnits("1.00", 18),
         8
     );
-    await usdcMockFeed.waitForDeployment();
-    const usdcMockFeedAddress = await usdcMockFeed.getAddress();
+    await usdcMockFeed.deployed();
+    const usdcMockFeedAddress = await usdcMockFeed.address;
     console.log("MockPriceFeed for USDC deployed to:", usdcMockFeedAddress);
 
     // Deploy MockPriceFeed for USDT with initial price of 1.00 and 8 decimals
     console.log("\nDeploying MockPriceFeed for USDT...");
     const usdtMockFeed = await MockPriceFeed.deploy(
-        ethers.parseUnits("1.00", 8),
+        ethers.utils.parseUnits("1.00", 18),
         8
     );
-    await usdtMockFeed.waitForDeployment();
-    const usdtMockFeedAddress = await usdtMockFeed.getAddress();
+    await usdtMockFeed.deployed();
+    const usdtMockFeedAddress = await usdtMockFeed.address;
     console.log("MockPriceFeed for USDT deployed to:", usdtMockFeedAddress);
 
     // Deploy StablecoinManager first
     console.log("\nDeploying StablecoinManager...");
     const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
     const stablecoinManager = await StablecoinManager.deploy(deployer.address);
-    await stablecoinManager.waitForDeployment();
-    const stablecoinManagerAddress = await stablecoinManager.getAddress();
+    await stablecoinManager.deployed();
+    const stablecoinManagerAddress = await stablecoinManager.address;
     console.log("StablecoinManager deployed to:", stablecoinManagerAddress);
 
     // Deploy LiquidityPool first (without LendingManager for now)
@@ -240,20 +240,21 @@ async function main() {
         deployer.address,
         stablecoinManagerAddress,
         ethers.ZeroAddress, // Temporary placeholder for LendingManager
-        ethers.ZeroAddress // Temporary placeholder for CreditSystem
+        ethers.ZeroAddress, // Temporary placeholder for CreditSystem
+        ethers.ZeroAddress
     ], {
         initializer: "initialize",
     });
-    await liquidityPool.waitForDeployment();
-    const liquidityPoolAddress = await liquidityPool.getAddress();
+    await liquidityPool.deployed();
+    const liquidityPoolAddress = await liquidityPool.address;
     console.log("LiquidityPool deployed to:", liquidityPoolAddress);
 
     // Deploy LendingManager with LiquidityPool address
     console.log("\nDeploying LendingManager...");
     const LendingManager = await ethers.getContractFactory("LendingManager");
     const lendingManager = await LendingManager.deploy(deployer.address, liquidityPoolAddress);
-    await lendingManager.waitForDeployment();
-    const lendingManagerAddress = await lendingManager.getAddress();
+    await lendingManager.deployed();
+    const lendingManagerAddress = await lendingManager.address;
     console.log("LendingManager deployed to:", lendingManagerAddress);
 
     // Update LiquidityPool with the correct LendingManager address
@@ -404,29 +405,29 @@ async function main() {
     const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
     // Example parameters, adjust as needed
     const irmParams = [
-        ethers.parseUnits("0.02", 18), // baseRate
-        ethers.parseUnits("0.8", 18),  // kink
-        ethers.parseUnits("0.20", 18), // slope1
-        ethers.parseUnits("1.00", 18), // slope2
-        ethers.parseUnits("0.10", 18), // reserveFactor
-        ethers.parseUnits("2.00", 18), // maxBorrowRate
-        ethers.parseUnits("0.05", 18), // maxRateChange
-        ethers.parseUnits("0.02", 18), // ethPriceRiskPremium
-        ethers.parseUnits("0.05", 18), // ethVolatilityThreshold
+        ethers.utils.parseUnits("0.02", 18), // baseRate
+        ethers.utils.parseUnits("0.8", 18),  // kink
+        ethers.utils.parseUnits("0.20", 18), // slope1
+        ethers.utils.parseUnits("1.00", 18), // slope2
+        ethers.utils.parseUnits("0.10", 18), // reserveFactor
+        ethers.utils.parseUnits("2.00", 18), // maxBorrowRate
+        ethers.utils.parseUnits("0.05", 18), // maxRateChange
+        ethers.utils.parseUnits("0.02", 18), // ethPriceRiskPremium
+        ethers.utils.parseUnits("0.05", 18), // ethVolatilityThreshold
         3600 // oracleStalenessWindow
     ];
     // Use deployer.address and a mock oracle for now
     const OracleMock = await ethers.getContractFactory("OracleMock");
     const oracleMock = await OracleMock.deploy();
-    await oracleMock.waitForDeployment();
-    const oracleAddress = await oracleMock.getAddress();
+    await oracleMock.deployed();
+    const oracleAddress = await oracleMock.address;
     const irm = await InterestRateModel.deploy(
         deployer.address,
         oracleAddress,
         irmParams
     );
-    await irm.waitForDeployment();
-    const irmAddress = await irm.getAddress();
+    await irm.deployed();
+    const irmAddress = await irm.address;
     console.log("InterestRateModel deployed to:", irmAddress);
 
     // Deployment summary with ZK components

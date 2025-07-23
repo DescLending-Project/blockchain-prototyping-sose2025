@@ -13,7 +13,7 @@ async function main() {
     console.log("1️⃣ Deploying RISC Zero Verifier Router...");
     const RiscZeroVerifierRouter = await ethers.getContractFactory("RiscZeroVerifierRouter");
     const verifierRouter = await RiscZeroVerifierRouter.deploy(deployer.address);
-    await verifierRouter.waitForDeployment();
+    await verifierRouter.deployed();
     const routerAddress = await verifierRouter.getAddress();
     console.log("✅ RiscZeroVerifierRouter deployed to:", routerAddress);
 
@@ -22,7 +22,7 @@ async function main() {
     console.log("\n2️⃣ Deploying Mock RISC Zero Verifier...");
     const MockRiscZeroVerifier = await ethers.getContractFactory("MockRiscZeroVerifier");
     const mockVerifier = await MockRiscZeroVerifier.deploy(routerAddress);
-    await mockVerifier.waitForDeployment();
+    await mockVerifier.deployed();
     const mockVerifierAddress = await mockVerifier.getAddress();
     console.log("✅ MockRiscZeroVerifier deployed to:", mockVerifierAddress);
     */
@@ -31,7 +31,7 @@ async function main() {
     console.log("\n3️⃣ Deploying Simple RISC0 Test Contract...");
     const SimpleRISC0Test = await ethers.getContractFactory("SimpleRISC0Test");
     const simpleRisc0Test = await SimpleRISC0Test.deploy(routerAddress);
-    await simpleRisc0Test.waitForDeployment();
+    await simpleRisc0Test.deployed();
     const simpleRisc0Address = await simpleRisc0Test.getAddress();
     console.log("✅ SimpleRISC0Test deployed to:", simpleRisc0Address);
 
@@ -39,7 +39,7 @@ async function main() {
     console.log("\n4️⃣ Deploying Stablecoin Manager...");
     const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
     const stablecoinManager = await StablecoinManager.deploy(deployer.address);
-    await stablecoinManager.waitForDeployment();
+    await stablecoinManager.deployed();
     const stablecoinManagerAddress = await stablecoinManager.getAddress();
     console.log("✅ StablecoinManager deployed to:", stablecoinManagerAddress);
 
@@ -48,7 +48,7 @@ async function main() {
     console.log("\n6️⃣ Deploying LiquidityPool (initial deployment)...");
     const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const liquidityPool = await LiquidityPool.deploy();
-    await liquidityPool.waitForDeployment();
+    await liquidityPool.deployed();
     const liquidityPoolAddress = await liquidityPool.getAddress();
     console.log("✅ LiquidityPool deployed to:", liquidityPoolAddress);
 
@@ -56,7 +56,7 @@ async function main() {
     console.log("\n5️⃣ Deploying Lending Manager...");
     const LendingManager = await ethers.getContractFactory("LendingManager");
     const lendingManager = await LendingManager.deploy(deployer.address, liquidityPoolAddress);
-    await lendingManager.waitForDeployment();
+    await lendingManager.deployed();
     const lendingManagerAddress = await lendingManager.getAddress();
     console.log("✅ LendingManager deployed to:", lendingManagerAddress);
 
@@ -70,7 +70,7 @@ async function main() {
         simpleRisc0Address,
         liquidityPoolAddress
     );
-    await creditSystem.waitForDeployment();
+    await creditSystem.deployed();
     const creditSystemAddress = await creditSystem.getAddress();
     console.log("✅ IntegratedCreditSystem deployed to:", creditSystemAddress);
 
