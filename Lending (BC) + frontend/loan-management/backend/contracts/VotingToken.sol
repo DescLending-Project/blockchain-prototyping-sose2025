@@ -50,12 +50,6 @@ contract VotingToken is ERC721, AccessControl {
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
         require(to != address(0), "Invalid address");
         require(amount > 0 && amount <= 100, "Amount must be 1-100"); // Limit batch size
-        console.log("VotingToken.mint called by");
-        console.log(msg.sender);
-        console.log("to");
-        console.log(to);
-        console.log("amount");
-        console.log(amount);
         for (uint256 i = 0; i < amount; i++) {
             uint256 tokenId = nextTokenId++;
             _mint(to, tokenId);

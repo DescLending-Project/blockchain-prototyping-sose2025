@@ -63,36 +63,33 @@ async function main() {
     const VotingToken = await ethers.getContractAt('VotingToken', addresses.VotingToken);
 
     // --- Mint voting tokens to as many accounts as possible (up to 10 for dev/test) ---
+    // --- Modified Minting Section ---
+    // --- Mint voting tokens with guaranteed voting power ---
     const accounts = await ethers.getSigners();
-    const maxAccounts = Math.min(accounts.length, 10);
-    const lenderIdx = 1;
-    const borrowerIdx = 2;
-    const tokenDistribution = [];
-    for (let i = 0; i < maxAccounts; i++) {
-        if (i === lenderIdx) {
-            tokenDistribution.push(150); // Lender gets 150
-        } else if (i === borrowerIdx) {
-            tokenDistribution.push(90); // Borrower gets 90
-        } else {
-            // Random between 100 and 200, but not 150 or 90
-            let rand;
-            do {
-                rand = Math.floor(Math.random() * 101) + 100;
-            } while (rand === 150 || rand === 90);
-            tokenDistribution.push(rand);
+    const VOTERS = [deployer, lender1, lender2, borrower1, borrower2]; // Explicit voters
+
+    // Mint sufficient tokens to ensure quorum (500 total)
+    async function safeMint(to, amount) {
+        const batches = Math.ceil(amount / 100);
+        for (let i = 0; i < batches; i++) {
+            const batchAmount = Math.min(amount - (i * 100), 100);
+            await VotingToken.mint(to, batchAmount);
         }
-        await VotingToken.mint(accounts[i].address, tokenDistribution[i], { gasLimit: 12000000 });
-        console.log(`Minted ${tokenDistribution[i]} voting tokens to ${accounts[i].address}`);
-    }
-    // Mint extra tokens to first 3 accounts BEFORE proposal creation to ensure voting power is snapshotted
-    const premintVoters = Math.min(3, maxAccounts);
-    for (let j = 0; j < premintVoters; j++) {
-        for (let k = 0; k < 10; k++) {
-            await VotingToken.mint(accounts[j].address, 100, { gasLimit: 12000000 });
-        }
-        console.log(`Pre-minted 1000 tokens (in batches) to account ${j} (${accounts[j].address})`);
+        console.log(`Minted ${amount} tokens to ${to}`);
     }
 
+    // Assign voting power (enough to meet quorum)
+    await safeMint(deployer.address, 200);   // Deployer gets 200 tokens
+    await safeMint(lender1.address, 180);    // Lender1 gets 150
+    await safeMint(lender2.address, 100);    // Lender2 gets 100
+    await safeMint(borrower1.address, 80);   // Borrower1 gets 80
+    await safeMint(borrower2.address, 100);   // Borrower2 gets 100
+
+    // Verify voting power
+    for (const voter of VOTERS) {
+        const votes = await VotingToken.getVotes(voter.address);
+        console.log(`${voter.address} voting power: ${votes}`);
+    }
     // Fund the timelock address with ETH so it can pay for gas
     await network.provider.send("hardhat_setBalance", [
         addresses.TimelockController,
@@ -235,19 +232,40 @@ async function main() {
         throw new Error(`Proposal is not Active. State is ${getStateName(state)}`);
     }
 
-    for (let signer of [deployer, lender1, lender2, borrower1, borrower2]) {
-        await ProtocolGovernor.connect(signer).castVote(proposalId, 1);
+    // --- Enhanced Voting Section with Debugging ---
+
+    // 1. Check quorum requirements
+    const quorum = await ProtocolGovernor.quorum(await provider.getBlockNumber());
+    console.log(`Quorum required: ${quorum.toString()}`);
+
+    // 2. Cast votes (1 = For)
+    console.log("Casting votes...");
+    for (const voter of VOTERS) {
+        const tx = await ProtocolGovernor.connect(voter).castVote(proposalId, 1);
+        await tx.wait(); // Wait for each vote to confirm
+        console.log(`${voter.address} voted FOR`);
     }
 
-    // Advance time for voting period
-    console.log('Advancing time for voting period...');
+    // 3. Verify votes
+    const proposalVotes = await ProtocolGovernor.proposalVotes(proposalId);
+    console.log(`Vote tally:
+  - FOR: ${proposalVotes.forVotes.toString()}
+  - AGAINST: ${proposalVotes.againstVotes.toString()}
+  - ABSTAIN: ${proposalVotes.abstainVotes.toString()}`);
+
+    // 4. Advance time and verify state
     await network.provider.send("evm_increaseTime", [VOTING_PERIOD]);
     await network.provider.send("evm_mine");
 
     state = await ProtocolGovernor.state(proposalId);
-    console.log('Proposal state after voting period:', state, getStateName(state)); // 4 = Succeeded
-    if (state !== 4) throw new Error('Proposal not in Succeeded state before queue');
+    console.log('Proposal state:', getStateName(state));
 
+    if (state !== 4) { // 4 = Succeeded
+        console.error("Proposal failed! Debug info:");
+        console.error("- Quorum:", quorum.toString());
+        console.error("- Total FOR votes:", proposalVotes.forVotes.toString());
+        throw new Error(`Proposal state is ${getStateName(state)} (expected Succeeded)`);
+    }
     console.log('Queueing proposal...');
     const timelockInterface = new ethers.utils.Interface([
         "event CallScheduled(bytes32 indexed id, uint256 indexed index, address target, uint256 value, bytes data, bytes32 predecessor, uint256 delay)"

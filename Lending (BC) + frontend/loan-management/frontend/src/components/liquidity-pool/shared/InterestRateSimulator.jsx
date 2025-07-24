@@ -218,15 +218,54 @@ export const LendingRateSimulator = ({ initialUtilization = 0.67, showChart = tr
             </div>
             {showChart && chartData && Array.isArray(chartData) && chartData.length > 0 && (
                 <div className="h-56 min-h-[224px] min-w-[350px] w-full" style={{ background: '#fff' }}>
-                    {/* Removed console.log from render for performance and stability */}
+                    <style>
+                        {`
+                      .recharts-line-curve {
+                        stroke-dasharray: none !important;
+                        animation: none !important;
+                      }
+                    `}
+                    </style>
                     <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 10, right: 40, left: 40, bottom: 40 }}>
-                            <XAxis dataKey="utilization" tickFormatter={v => v + '%'} domain={[0, 100]} label={{ value: 'Utilization (%)', position: 'insideBottom', offset: 30, dy: 30, fill: '#334155', fontSize: 14 }} />
-                            <YAxis tickFormatter={v => v + '%'} domain={[0, 'auto']} label={{ value: 'Rate (%)', angle: -90, position: 'insideLeft', dx: -40, fill: '#334155', fontSize: 14 }} />
+                        <LineChart
+                            data={chartData}
+                            margin={{ top: 10, right: 40, left: 40, bottom: 40 }}
+                        >
+                            <XAxis
+                                dataKey="utilization"
+                                tickFormatter={v => v + '%'}
+                                domain={[0, 100]}
+                                type="number"
+                                scale="linear"
+                                label={{ value: 'Utilization (%)', position: 'insideBottom', offset: 30, dy: 30, fill: '#334155', fontSize: 14 }}
+                            />
+                            <YAxis
+                                tickFormatter={v => v + '%'}
+                                domain={[0, 'dataMax']}
+                                label={{ value: 'Rate (%)', angle: -90, position: 'insideLeft', dx: -40, fill: '#334155', fontSize: 14 }}
+                            />
                             <RechartsTooltip formatter={v => v.toFixed(2) + '%'} labelFormatter={v => `Utilization: ${v.toFixed(0)}%`} />
                             <Legend verticalAlign="top" height={36} />
-                            <Line type="monotone" dataKey="borrowRate" stroke="#2563eb" strokeWidth={2} name="Borrow Rate" dot={false} />
-                            <Line type="monotone" dataKey="supplyRate" stroke="#16a34a" strokeWidth={2} name="Supply Rate" dot={CustomDot} />
+                            <Line
+                                type="monotone"
+                                dataKey="borrowRate"
+                                stroke="#2563eb"
+                                strokeWidth={4}
+                                name="Borrow Rate"
+                                dot={false}
+                                activeDot={{ r: 6, fill: '#2563eb' }}
+                                isAnimationActive={false}
+                            />
+                            <Line
+                                type="monotone"
+                                dataKey="supplyRate"
+                                stroke="#16a34a"
+                                strokeWidth={4}
+                                name="Supply Rate"
+                                dot={CustomDot}
+                                activeDot={{ r: 6, fill: '#16a34a' }}
+                                isAnimationActive={false}
+                            />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
