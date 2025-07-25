@@ -1637,7 +1637,7 @@ describe("transferOwnership", function () {
         // Deploy LiquidityPool
         const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
         liquidityPool = await upgrades.deployProxy(LiquidityPool, [
-            deployer.address,
+            deployer.address,// TODO DAO here
             stablecoinManagerAddress,
             ethers.constants.AddressZero,
             interestRateModelAddress,

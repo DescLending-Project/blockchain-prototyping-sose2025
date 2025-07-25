@@ -10,6 +10,7 @@ import "./StablecoinManager.sol";
 import "./LendingManager.sol";
 import "./InterestRateModel.sol";
 import "./IntegratedCreditSystem.sol";
+import "./VotingToken.sol";
 
 contract LiquidityPool is
     Initializable,
@@ -52,6 +53,7 @@ contract LiquidityPool is
     StablecoinManager public stablecoinManager;
     LendingManager public lendingManager;
     InterestRateModel public interestRateModel;
+    VotingToken public votingToken;
 
     address public timelock;
 
@@ -676,66 +678,33 @@ contract LiquidityPool is
         }
     }
 
-    function repay() external payable whenNotPaused {
-        if (userDebt[msg.sender] == 0) {
-            emit UserError(msg.sender, "No outstanding debt");
-            revert("No outstanding debt");
-        }
-        if (msg.value == 0) {
-            emit UserError(msg.sender, "Must send funds to repay");
-            revert("Must send funds to repay");
-        }
+    function repay() external payable whenNotPaused noReentrancy {
+        uint256 debt = userDebt[msg.sender];
+        require(debt > 0, "No debt to repay");
+        require(msg.value > 0, "Must send ETH");
 
-        if (msg.value > userDebt[msg.sender]) {
-            emit UserError(msg.sender, "Repayment exceeds total debt");
-            revert("Repayment exceeds total debt");
-        }
+        // State changes BEFORE external calls
+        uint256 repayAmount = msg.value > debt ? debt : msg.value;
+        userDebt[msg.sender] -= repayAmount;
+        totalRepaidAllTime += repayAmount;
 
-        RiskTier tier = getRiskTier(msg.sender);
-        // Remove from borrowedAmountByRiskTier
-        borrowedAmountByRiskTier[tier] -= msg.value;
-        userDebt[msg.sender] -= msg.value;
-        // Track protocol-wide repayment
-        totalRepaidAllTime += msg.value;
-
-        if (userDebt[msg.sender] == 0) {
-            borrowTimestamp[msg.sender] = 0;
-        }
-
+        // Clear liquidation status
         if (isLiquidatable[msg.sender]) {
             isLiquidatable[msg.sender] = false;
             liquidationStartTime[msg.sender] = 0;
         }
 
-        // --- Late Fee ---
-        uint256 lateFee = 0;
-        if (reserveAddress != address(0) && borrowTimestamp[msg.sender] > 0) {
-            uint256 daysLate = 0;
-            if (block.timestamp > borrowTimestamp[msg.sender] + 7 days) {
-                daysLate =
-                    (block.timestamp - (borrowTimestamp[msg.sender] + 7 days)) /
-                    1 days;
-            }
-            if (daysLate > 0) {
-                lateFee =
-                    (userDebt[msg.sender] *
-                        tierFees[uint256(tier)].lateFeeAPR *
-                        daysLate) /
-                    365 /
-                    10000;
-                if (lateFee > 0) {
-                    lendingManager.collectLateFee{value: lateFee}(
-                        msg.sender,
-                        userDebt[msg.sender],
-                        uint256(tier),
-                        lateFee
-                    );
-                }
-            }
+        // External call after state changes
+        if (address(votingToken) != address(0)) {
+            votingToken.mint(msg.sender, repayAmount / 1e16);
         }
-        // --- End Late Fee ---
 
-        emit Repaid(msg.sender, msg.value);
+        // Refund excess
+        if (msg.value > debt) {
+            payable(msg.sender).transfer(msg.value - debt);
+        }
+
+        emit Repaid(msg.sender, repayAmount);
     }
 
     function withdrawForLendingManager(uint256 amount) external noReentrancy {
@@ -759,7 +728,7 @@ contract LiquidityPool is
         emit CreditScoreAssigned(user, score);
     }
 
-    function getCreditScore(address user) external view returns (uint256) {
+    function _getCreditScore(address user) internal view returns (uint256) {
         // If ZK-proof system is active, try to get score from there first
         if (address(creditSystem) != address(0)) {
             try creditSystem.getUserCreditProfile(user) returns (
@@ -1049,6 +1018,10 @@ contract LiquidityPool is
         minPartialLiquidationAmount = amount;
     }
 
+    function setVotingToken(address _votingToken) external onlyTimelock {
+        votingToken = VotingToken(_votingToken);
+    }
+
     function setTierFee(
         uint256 tier,
         uint256 originationFee,
@@ -1184,6 +1157,174 @@ contract LiquidityPool is
         // Remove all debt from borrowedAmountByRiskTier
         borrowedAmountByRiskTier[getRiskTier(user)] -= amount;
         totalRepaidAllTime += amount;
+    }
+
+    function withdrawPartialCollateral(
+        address token,
+        uint256 amount
+    ) external whenNotPaused noReentrancy {
+        require(amount > 0, "Amount must be > 0");
+        require(
+            collateralBalance[token][msg.sender] >= amount,
+            "Insufficient collateral"
+        );
+
+        // Check if user has debt
+        uint256 debt = userDebt[msg.sender];
+        if (debt > 0) {
+            // Calculate remaining collateral value after withdrawal
+            uint256 remainingBalance = collateralBalance[token][msg.sender] -
+                amount;
+            uint256 remainingCollateralValue = (remainingBalance *
+                getTokenValue(token)) / 1e18;
+
+            // Get user's current risk tier and corresponding collateral requirements
+            RiskTier tier = getRiskTier(msg.sender);
+            (uint256 requiredRatio, , ) = getBorrowTerms(msg.sender);
+
+            // Calculate minimum collateral needed based on tier
+            uint256 minCollateralValue = (debt * requiredRatio) / 100;
+
+            // Apply dynamic collateral reduction based on risk tier
+            uint256 adjustedMinCollateral = _getAdjustedCollateralRequirement(
+                minCollateralValue,
+                tier,
+                msg.sender
+            );
+
+            require(
+                remainingCollateralValue >= adjustedMinCollateral,
+                "Withdrawal would violate tier-based collateral requirements"
+            );
+        }
+
+        collateralBalance[token][msg.sender] -= amount;
+        IERC20(token).transfer(msg.sender, amount);
+
+        emit CollateralWithdrawn(msg.sender, token, amount);
+    }
+
+    function getCreditScore(address user) external view returns (uint256) {
+        return _getCreditScore(user);
+    }
+
+    // Dynamic collateral requirement adjustment based on risk tier and credit improvements
+    function _getAdjustedCollateralRequirement(
+        uint256 baseRequirement,
+        RiskTier tier,
+        address user
+    ) internal view returns (uint256) {
+        uint256 creditScore = _getCreditScore(user);
+
+        // Base tier collateral ratios (from borrowTierConfigs)
+        uint256 tierCollateralRatio = borrowTierConfigs[uint256(tier)]
+            .collateralRatio;
+
+        // Apply credit score bonuses based on tier
+        if (tier == RiskTier.TIER_1) {
+            // Tier 1 (90-100 score): Already lowest ratio, minimal additional reduction
+            if (creditScore >= 95) {
+                return (baseRequirement * 95) / 100; // 5% reduction
+            }
+        } else if (tier == RiskTier.TIER_2) {
+            // Tier 2 (80-89 score): More significant reductions possible
+            if (creditScore >= 85) {
+                return (baseRequirement * 90) / 100; // 10% reduction
+            } else if (creditScore >= 82) {
+                return (baseRequirement * 95) / 100; // 5% reduction
+            }
+        } else if (tier == RiskTier.TIER_3) {
+            // Tier 3 (70-79 score): Substantial reductions for improvement
+            if (creditScore >= 75) {
+                return (baseRequirement * 85) / 100; // 15% reduction
+            } else if (creditScore >= 72) {
+                return (baseRequirement * 92) / 100; // 8% reduction
+            }
+        } else if (tier == RiskTier.TIER_4) {
+            // Tier 4 (60-69 score): Largest potential reductions
+            if (creditScore >= 65) {
+                return (baseRequirement * 80) / 100; // 20% reduction
+            } else if (creditScore >= 62) {
+                return (baseRequirement * 90) / 100; // 10% reduction
+            }
+        }
+        // TIER_5 users can't borrow, so no adjustment needed
+
+        return baseRequirement; // No reduction if criteria not met
+    }
+
+    // View function to check potential collateral reduction for a user
+    function getCollateralReductionInfo(
+        address user
+    )
+        external
+        view
+        returns (
+            RiskTier currentTier,
+            uint256 currentCollateralRatio,
+            uint256 adjustedCollateralRatio,
+            uint256 potentialReductionPercent
+        )
+    {
+        currentTier = getRiskTier(user);
+        (currentCollateralRatio, , ) = getBorrowTerms(user);
+
+        uint256 debt = userDebt[user];
+        if (debt > 0) {
+            uint256 baseRequirement = (debt * currentCollateralRatio) / 100;
+            uint256 adjustedRequirement = _getAdjustedCollateralRequirement(
+                baseRequirement,
+                currentTier,
+                user
+            );
+
+            adjustedCollateralRatio = (adjustedRequirement * 100) / debt;
+            potentialReductionPercent = currentCollateralRatio >
+                adjustedCollateralRatio
+                ? currentCollateralRatio - adjustedCollateralRatio
+                : 0;
+        } else {
+            adjustedCollateralRatio = currentCollateralRatio;
+            potentialReductionPercent = 0;
+        }
+    }
+
+    // Enhanced function to check maximum withdrawable collateral
+    function getMaxWithdrawableCollateral(
+        address user,
+        address token
+    ) external view returns (uint256 maxWithdrawable) {
+        uint256 currentBalance = collateralBalance[token][user];
+        uint256 debt = userDebt[user];
+
+        if (debt == 0) {
+            return currentBalance; // Can withdraw all if no debt
+        }
+
+        uint256 tokenValue = getTokenValue(token);
+        uint256 currentCollateralValue = (currentBalance * tokenValue) / 1e18;
+
+        // Get adjusted minimum collateral requirement
+        RiskTier tier = getRiskTier(user);
+        (uint256 requiredRatio, , ) = getBorrowTerms(user);
+        uint256 baseRequirement = (debt * requiredRatio) / 100;
+        uint256 adjustedMinCollateral = _getAdjustedCollateralRequirement(
+            baseRequirement,
+            tier,
+            user
+        );
+
+        if (currentCollateralValue <= adjustedMinCollateral) {
+            return 0; // Cannot withdraw anything
+        }
+
+        uint256 excessValue = currentCollateralValue - adjustedMinCollateral;
+        maxWithdrawable = (excessValue * 1e18) / tokenValue;
+
+        // Ensure we don't exceed actual balance
+        if (maxWithdrawable > currentBalance) {
+            maxWithdrawable = currentBalance;
+        }
     }
 }
 

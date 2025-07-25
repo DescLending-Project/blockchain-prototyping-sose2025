@@ -1,21 +1,45 @@
 require('solidity-coverage');
 require("@nomiclabs/hardhat-ethers");
-require("@nomiclabs/hardhat-waffle");
+require("@nomicfoundation/hardhat-verify");
 require("@openzeppelin/hardhat-upgrades");
 require("dotenv").config();
 
 module.exports = {
     solidity: {
-        version: "0.8.28",
-        settings: {
-            viaIR: true,
-            optimizer: {
-                enabled: true,
-                runs: 200
+        compilers: [
+            {
+                version: "0.8.24",
+                settings: {
+                    viaIR: true,
+                    optimizer: {
+                        enabled: true,
+                        runs: 200
+                    },
+                    evmVersion: "cancun"
+                }
+            },
+            {
+                version: "0.8.20",
+                settings: {
+                    viaIR: true,
+                    optimizer: {
+                        enabled: true,
+                        runs: 200
+                    },
+                    evmVersion: "cancun"
+                }
             }
-        }
+        ]
     },
     networks: {
+        coverage: {
+            url: "http://127.0.0.1:8545",
+            gas: 0xfffffffffff,
+            gasPrice: 0x01,
+            blockGasLimit: 0xfffffffffff,
+            allowUnlimitedContractSize: false,
+            timeout: 300000
+        },
         sonicTestnet: {
             url: process.env.SONIC_RPC_URL || "",
             accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
@@ -30,18 +54,19 @@ module.exports = {
             url: "http://127.0.0.1:8545",
             gas: 30000000,
             blockGasLimit: 50000000,
-            allowUnlimitedContractSize: true,
+            allowUnlimitedContractSize: false,
         },
         hardhat: {
-            blockGasLimit: 30_000_000, // 30 million gas
-            allowUnlimitedContractSize: true,
+            blockGasLimit: 30_000_000,
+            allowUnlimitedContractSize: false,
+            hardfork: "cancun"
         },
     },
     gasReporter: {
         enabled: true
     },
     mocha: {
-        timeout: 100000 // Increase test timeout
+        timeout: 600000
     },
     etherscan: {
         apiKey: {
@@ -60,8 +85,8 @@ module.exports = {
         ],
     },
     paths: {
-        sources: "./backend/contracts",
-        tests: "./backend/test",
+        sources: "./contracts",
+        tests: "./test",
         cache: "./cache",
         artifacts: "./artifacts"
     }

@@ -28,14 +28,15 @@ contract ProtocolGovernor is
         GovernorTimelockControl(_timelock)
     {
         votingToken = VotingToken(_votingToken);
-        // Whitelist self for proposals
         contractWhitelist[address(this)] = true;
     }
+
+    // The following functions are overrides required by Solidity.
 
     function votingDelay()
         public
         view
-        override(Governor, GovernorSettings)
+        override(IGovernor, GovernorSettings)
         returns (uint256)
     {
         return super.votingDelay();
@@ -44,7 +45,7 @@ contract ProtocolGovernor is
     function votingPeriod()
         public
         view
-        override(Governor, GovernorSettings)
+        override(IGovernor, GovernorSettings)
         returns (uint256)
     {
         return super.votingPeriod();
@@ -59,31 +60,53 @@ contract ProtocolGovernor is
         return super.proposalThreshold();
     }
 
-    // Quadratic voting: sqrt of NFT count
-    function _getVotes(
-        address account,
-        uint256 /*timepoint*/,
-        bytes memory /*params*/
-    ) internal view override returns (uint256) {
-        uint256 rawVotes = votingToken.balanceOf(account);
-        uint256 baseVotes = Math.sqrt(rawVotes);
-        int256 rep = reputation[account];
-        if (rep < -10) {
-            return baseVotes / 2; // 0.5x for very negative rep
-        } else if (rep > 20) {
-            return (baseVotes * 3) / 2; // 1.5x for high positive rep
-        } else {
-            return baseVotes;
-        }
-    }
-
-    // Quorum: 20% of total supply at the snapshot block
     function quorum(
-        uint256 /*blockNumber*/
-    ) public view override returns (uint256) {
-        // VotingToken is ERC721, total supply is nextTokenId - 1
+        uint256 blockNumber
+    ) public view override(IGovernor) returns (uint256) {
         if (bootstrapMode) return bootstrapQuorum;
         return ((votingToken.nextTokenId() - 1) * quorumPercentage) / 10000;
+    }
+
+    function state(
+        uint256 proposalId
+    )
+        public
+        view
+        override(Governor, GovernorTimelockControl)
+        returns (ProposalState)
+    {
+        return super.state(proposalId);
+    }
+
+    function propose(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        string memory description
+    ) public override(Governor, IGovernor) returns (uint256) {
+        console.log("Proposing with target:", targets[0]);
+        console.log("Value:", values[0]);
+        console.log("Calldata length:", calldatas[0].length);
+        return super.propose(targets, values, calldatas, description);
+    }
+
+    function _execute(
+        uint256 proposalId,
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(Governor, GovernorTimelockControl) {
+        super._execute(proposalId, targets, values, calldatas, descriptionHash);
+    }
+
+    function _cancel(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(Governor, GovernorTimelockControl) returns (uint256) {
+        return super._cancel(targets, values, calldatas, descriptionHash);
     }
 
     function _executor()
@@ -93,6 +116,29 @@ contract ProtocolGovernor is
         returns (address)
     {
         return super._executor();
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(Governor, GovernorTimelockControl) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
+
+    function _getVotes(
+        address account,
+        uint256 /*timepoint*/,
+        bytes memory /*params*/
+    ) internal view override returns (uint256) {
+        uint256 rawVotes = votingToken.balanceOf(account);
+        uint256 baseVotes = Math.sqrt(rawVotes);
+        int256 rep = reputation[account];
+        if (rep < -10) {
+            return baseVotes / 2;
+        } else if (rep > 20) {
+            return (baseVotes * 3) / 2;
+        } else {
+            return baseVotes;
+        }
     }
 
     function queueAdvancedProposal(uint256 proposalId) public {
@@ -106,8 +152,6 @@ contract ProtocolGovernor is
         console.log("No votes:", p.noVotes);
 
         p.queued = true;
-
-        // Schedule through timelock
         bytes32 salt = keccak256(abi.encode(proposalId));
         bytes memory callData = abi.encodePacked(
             p.functionSelector,
@@ -117,9 +161,9 @@ contract ProtocolGovernor is
         console.log("Scheduling through timelock...");
         TimelockController(payable(_executor())).schedule(
             p.targetContract,
-            0, // value
+            0,
             callData,
-            bytes32(0), // predecessor
+            bytes32(0),
             salt,
             TimelockController(payable(_executor())).getMinDelay()
         );
@@ -141,7 +185,6 @@ contract ProtocolGovernor is
         console.log("Target contract:", p.targetContract);
         console.log("Function selector:", uint32(p.functionSelector));
 
-        // Execute through timelock instead of direct call
         bytes32 salt = keccak256(abi.encode(proposalId));
         bytes memory callData = abi.encodePacked(
             p.functionSelector,
@@ -149,8 +192,6 @@ contract ProtocolGovernor is
         );
 
         console.log("Executing through timelock...");
-
-        // Check if operation is ready
         TimelockController timelock = TimelockController(payable(_executor()));
         bytes32 operationId = timelock.hashOperation(
             p.targetContract,
@@ -161,149 +202,46 @@ contract ProtocolGovernor is
         );
 
         require(timelock.isOperationReady(operationId), "Operation not ready");
-
-        timelock.execute(
-            p.targetContract,
-            0, // value
-            callData,
-            bytes32(0), // predecessor
-            salt
-        );
+        timelock.execute(p.targetContract, 0, callData, bytes32(0), salt);
 
         p.executed = true;
         emit AdvancedProposalExecuted(proposalId);
     }
 
-    // Remove unnecessary overrides unless custom logic is needed
-    // Add debug logs to propose and _queueOperations
-    function propose(
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory calldatas,
-        string memory description
-    ) public override returns (uint256) {
-        console.log("Proposing with target:", targets[0]);
-        console.log("Value:", values[0]);
-        console.log("Calldata length:", calldatas[0].length);
-        return super.propose(targets, values, calldatas, description);
-    }
-
-    function _queueOperations(
-        uint256 proposalId,
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory calldatas,
-        bytes32 descriptionHash
-    ) internal override(Governor, GovernorTimelockControl) returns (uint48) {
-        console.log("Queueing operations with TimelockController");
-        uint48 eta = GovernorTimelockControl._queueOperations(
-            proposalId,
-            targets,
-            values,
-            calldatas,
-            descriptionHash
-        );
-        console.log("Scheduled with eta:", eta);
-        return eta;
-    }
-
-    function _executeOperations(
-        uint256 proposalId,
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory calldatas,
-        bytes32 descriptionHash
-    ) internal override(Governor, GovernorTimelockControl) {
-        super._executeOperations(
-            proposalId,
-            targets,
-            values,
-            calldatas,
-            descriptionHash
-        );
-    }
-
-    function _cancel(
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory calldatas,
-        bytes32 descriptionHash
-    ) internal override(Governor, GovernorTimelockControl) returns (uint256) {
-        return super._cancel(targets, values, calldatas, descriptionHash);
-    }
-
-    function state(
-        uint256 proposalId
-    )
-        public
-        view
-        override(Governor, GovernorTimelockControl)
-        returns (ProposalState)
-    {
-        return super.state(proposalId);
-    }
-
-    function proposalNeedsQueuing(
-        uint256 proposalId
-    ) public view override(Governor, GovernorTimelockControl) returns (bool) {
-        return super.proposalNeedsQueuing(proposalId);
-    }
-
-    // Required overrides for Governor abstract functions
     function proposalSnapshot(
         uint256 proposalId
-    ) public view override returns (uint256) {
-        return Governor.proposalSnapshot(proposalId);
+    ) public view override(IGovernor, Governor) returns (uint256) {
+        return super.proposalSnapshot(proposalId);
     }
 
     function proposalDeadline(
         uint256 proposalId
-    ) public view override returns (uint256) {
-        return Governor.proposalDeadline(proposalId);
-    }
-
-    function proposalProposer(
-        uint256 proposalId
-    ) public view override returns (address) {
-        return Governor.proposalProposer(proposalId);
+    ) public view override(IGovernor, Governor) returns (uint256) {
+        return super.proposalDeadline(proposalId);
     }
 
     function proposalEta(
         uint256 proposalId
     ) public view override returns (uint256) {
-        return Governor.proposalEta(proposalId);
-    }
-
-    // Required by IERC6372 (Governor) for timepoint tracking
-    function clock() public view override returns (uint48) {
-        return uint48(block.timestamp);
-    }
-
-    function CLOCK_MODE() public view override returns (string memory) {
-        return "mode=timestamp";
+        return super.proposalEta(proposalId);
     }
 
     // --- Voting Token Reward System Additions ---
-    // Configurable quorum percentage in basis points (default 2000 = 20.00%)
     uint256 public quorumPercentage = 1; // 1 = 0.01% (for tests)
     event QuorumPercentageChanged(uint256 newBasisPoints);
     event SetQuorumAttempt(uint256 newBasisPoints, address sender);
-    // Bootstrap mode for initial governance
     bool public bootstrapMode = true;
     uint256 public bootstrapQuorum = 100; // Fixed quorum for first proposal
     event BootstrapModeDisabled();
 
-    /// @notice Disable bootstrap mode (reverts to normal quorum logic)
     function disableBootstrapMode() external onlyGovernance {
         bootstrapMode = false;
         emit BootstrapModeDisabled();
     }
 
-    /// @notice Set the quorum percentage in basis points (1 = 0.01%, 100 = 1%, 2000 = 20%)
     function setQuorumPercentage(
         uint256 newBasisPoints
     ) external onlyDAOProposal {
-        // This should be the modifier, not onlyGovernance
         console.log("setQuorumPercentage called by", msg.sender);
         emit SetQuorumAttempt(newBasisPoints, msg.sender);
         require(newBasisPoints > 0, "Quorum must be > 0");
@@ -351,7 +289,6 @@ contract ProtocolGovernor is
     event PriceFeedSet(address indexed asset, address indexed feed);
     event FallbackPriceFeedSet(address indexed asset, address indexed feed);
 
-    // Custom modifier for DAO proposal execution (not to conflict with OpenZeppelin's onlyGovernance)
     modifier onlyDAOProposal() {
         require(
             _msgSender() == address(this) || _msgSender() == _executor(),
@@ -420,7 +357,6 @@ contract ProtocolGovernor is
         }
         require(price > 0, "Invalid price");
         uint8 decimals = AggregatorV3Interface(feed).decimals();
-        // USD value = amount * price / 10**decimals
         uint256 usdValue = (amount * uint256(price)) / (10 ** decimals);
         uint256 multiplier = action == ActionType.LEND
             ? lendMultiplier
@@ -504,16 +440,12 @@ contract ProtocolGovernor is
     event ContractWhitelisted(address indexed contractAddr, bool allowed);
     event EmergencyMultisigSet(address[] signers);
 
-    // --- Advanced Proposal Functions ---
-
-    // Only allow new-style proposals
     function proposeAdvanced(
         address targetContract,
         bytes4 functionSelector,
         bytes calldata encodedParams,
         uint256 minVotesNeeded
     ) external {
-        // Use nextTokenId - 1 as total supply for ERC721
         require(
             getVotingPower(msg.sender) >=
                 (votingToken.nextTokenId() - 1) / 1000,
@@ -548,7 +480,6 @@ contract ProtocolGovernor is
         );
     }
 
-    // In voteAdvanced, update reputation after voting outcome
     function voteAdvanced(uint256 proposalId, bool support) external {
         Proposal storage p = proposals[proposalId];
         require(
@@ -561,7 +492,6 @@ contract ProtocolGovernor is
         else p.noVotes += votes;
         p.hasVoted[msg.sender] = true;
         emit AdvancedVoteCast(proposalId, msg.sender, support, votes);
-        // Reputation adjustment deferred until proposal outcome
     }
 
     function vetoAdvanced(uint256 proposalId) external {
@@ -596,15 +526,12 @@ contract ProtocolGovernor is
         return false;
     }
 
-    // Add a function to decrease reputation for slashing
     function penalizeReputation(address user, int256 amount) external {
         require(msg.sender == address(votingToken), "Only VotingToken");
         reputation[user] -= amount;
         emit ReputationChanged(user, reputation[user], -amount);
     }
 
-    // --- Disable legacy Governor proposals ---
-    // Helper function for debugging
     function bytes4ToHex(bytes4 data) internal pure returns (string memory) {
         bytes memory hexChars = "0123456789abcdef";
         bytes memory result = new bytes(10);

@@ -4,8 +4,14 @@ pragma solidity ^0.8.20;
 contract MockPool {
     uint256 public totalLiquidity;
     address public interestRateModel;
+    uint256 public totalBorrowedAllTime;
+    uint256 public totalRepaidAllTime;
 
     mapping(address => uint256) public creditScores;
+    mapping(address => uint256) public userDebt;
+    mapping(address => mapping(address => uint256)) public userCollateral;
+    mapping(address => bool) public collateralizationStatus;
+    mapping(address => uint256) public collateralizationRatio;
 
     // Add a payable receive function to accept ETH
     receive() external payable {}
@@ -25,7 +31,38 @@ contract MockPool {
         creditScores[user] = score;
     }
 
-    function debugEmitCreditScore(address) external {}
+    function setTotalBorrowedAllTime(uint256 amount) external {
+        totalBorrowedAllTime = amount;
+    }
+
+    function setTotalRepaidAllTime(uint256 amount) external {
+        totalRepaidAllTime = amount;
+    }
+
+    function setUserDebt(address user, uint256 debt) external {
+        userDebt[user] = debt;
+    }
+
+    function setUserCollateral(
+        address user,
+        address token,
+        uint256 amount
+    ) external {
+        userCollateral[user][token] = amount;
+    }
+
+    function setCollateralizationStatus(
+        address user,
+        bool status,
+        uint256 ratio
+    ) external {
+        collateralizationStatus[user] = status;
+        collateralizationRatio[user] = ratio;
+    }
+
+    function debugEmitCreditScore(address user) external {
+        // Mock function for compatibility
+    }
 
     function canLend(address user) external view returns (bool) {
         return creditScores[user] >= 70;
@@ -43,14 +80,6 @@ contract MockPool {
     // --- Stubs for LendingManager compatibility ---
     function totalFunds() external view returns (uint256) {
         return totalLiquidity;
-    }
-
-    function totalBorrowedAllTime() external pure returns (uint256) {
-        return 0;
-    }
-
-    function totalRepaidAllTime() external pure returns (uint256) {
-        return 0;
     }
 
     function getGlobalRiskMultiplier() external pure returns (uint256) {

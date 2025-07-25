@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./LiquidityPool.sol";
 import "./InterestRateModel.sol";
 import "./interfaces/IVotingToken.sol";
@@ -80,7 +81,7 @@ interface IInterestRateModel {
     ) external view returns (uint256);
 }
 
-contract LendingManager {
+contract LendingManager is ReentrancyGuard {
     bytes32 public constant SET_INTEREST_TIER_PERMISSION =
         keccak256("SET_INTEREST_TIER_PERMISSION");
     bytes32 public constant SET_FEE_PARAMETERS_PERMISSION =
@@ -92,6 +93,10 @@ contract LendingManager {
     bytes32 public constant SET_RESERVE_ADDRESS_PERMISSION =
         keccak256("SET_RESERVE_ADDRESS_PERMISSION");
 
+    error OnlyTimelockLendingManager();
+    error ZeroAddress();
+    error InvalidAmount();
+
     struct LenderInfo {
         uint256 balance; // Principal balance
         uint256 depositTimestamp;
@@ -102,6 +107,9 @@ contract LendingManager {
         uint256 withdrawalRequestTime;
         uint256 lastInterestDistribution;
         uint256 lastWithdrawalTime;
+        uint256 amountDeposited;
+        uint256 lastDepositTime;
+        bool isActive;
     }
 
     struct InterestTier {
@@ -110,6 +118,7 @@ contract LendingManager {
     }
 
     mapping(address => LenderInfo) public lenders;
+    address[] public lenderAddresses;
     uint256 public totalLent;
     uint256 public currentDailyRate;
     uint256 public lastRateUpdateDay;
@@ -142,6 +151,7 @@ contract LendingManager {
     event FeeParametersUpdated(uint256 originationFee, uint256 lateFee);
 
     event FundsDeposited(address indexed lender, uint256 amount);
+    event MintFailed(address indexed recipient, uint256 amount);
     event InterestCredited(address indexed lender, uint256 interest);
     event FundsWithdrawn(
         address indexed lender,
@@ -186,6 +196,21 @@ contract LendingManager {
         interestTiers.push(InterestTier(10 ether, 1.0001500e18)); // 10+ ETH: 5.5% APY
         interestTiers.push(InterestTier(5 ether, 1.0001400e18)); // 5+ ETH: 5.2% APY
         interestTiers.push(InterestTier(1 ether, 1.0001304e18)); // 1+ ETH: 5% APY
+
+        lenders[msg.sender] = LenderInfo({
+            balance: 0,
+            depositTimestamp: 0,
+            lastInterestUpdate: 0,
+            interestIndex: 1e18,
+            earnedInterest: 0,
+            pendingPrincipalWithdrawal: 0,
+            withdrawalRequestTime: 0,
+            lastInterestDistribution: 0,
+            lastWithdrawalTime: 0,
+            amountDeposited: 0,
+            lastDepositTime: 0,
+            isActive: false
+        });
     }
 
     modifier onlyTimelock() {
@@ -193,12 +218,33 @@ contract LendingManager {
         _;
     }
 
-    function depositFunds() external payable {
+    bool public paused;
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract paused");
+        _;
+    }
+
+    function setPaused(bool _paused) external onlyTimelock {
+        paused = _paused;
+    }
+
+    function cleanupInactiveLenders(
+        address[] calldata lendersToCheck
+    ) external onlyTimelock {
+        _cleanupInactiveLenders(lendersToCheck);
+    }
+
+    function isLender(address lender) public view returns (bool) {
+        return lenders[lender].isActive;
+    }
+
+    function depositFunds() external payable whenNotPaused {
+        if (msg.value < MIN_DEPOSIT_AMOUNT) revert InvalidAmount();
         require(
             ILiquidityPool(liquidityPool).canLend(msg.sender),
             "Credit score required to lend"
         );
-        require(msg.value >= MIN_DEPOSIT_AMOUNT, "Deposit too low");
         require(
             msg.value + lenders[msg.sender].balance <= MAX_DEPOSIT_AMOUNT,
             "Deposit would exceed maximum limit"
@@ -211,24 +257,65 @@ contract LendingManager {
             lender.interestIndex = 1e18; // Initialize to 1.0
             lender.depositTimestamp = block.timestamp;
             lender.lastInterestUpdate = block.timestamp;
+            lender.lastDepositTime = block.timestamp;
+            lenderAddresses.push(msg.sender);
+        } else if (!lender.isActive && lender.balance == 0) {
+            // Reactivate if previously inactive with zero balance
+            lender.isActive = true;
         }
 
         _creditInterest(msg.sender);
         lender.balance += msg.value;
+        lender.amountDeposited += msg.value;
+        lender.lastDepositTime = block.timestamp;
         totalLent += msg.value;
 
         (bool success, ) = liquidityPool.call{value: msg.value}("");
         require(success, "Deposit failed");
 
-        uint256 reward = msg.value / 1e16; // 1 GOV per 0.01 ETH
+        uint256 reward = msg.value / 1e16; // 1 VotingToken per 0.01 ETH
         if (address(votingToken) != address(0) && reward > 0) {
-            votingToken.mint(msg.sender, reward);
+            try votingToken.mint(msg.sender, reward) {
+                // Success - do nothing
+            } catch {
+                emit MintFailed(msg.sender, reward);
+            }
         }
 
         emit FundsDeposited(msg.sender, msg.value);
     }
 
+    function addLenders(address[] calldata newLenders) external onlyTimelock {
+        require(newLenders.length > 0, "Empty lender list");
+
+        for (uint256 i = 0; i < newLenders.length; i++) {
+            address lender = newLenders[i];
+            require(lender != address(0), "Zero address");
+            require(lenders[lender].balance == 0, "Already a lender");
+
+            // Initialize lender info
+            lenders[lender] = LenderInfo({
+                balance: 0,
+                depositTimestamp: 0,
+                lastInterestUpdate: 0,
+                interestIndex: 1e18, // Initialize to 1.0
+                earnedInterest: 0,
+                pendingPrincipalWithdrawal: 0,
+                withdrawalRequestTime: 0,
+                lastInterestDistribution: 0,
+                lastWithdrawalTime: 0,
+                amountDeposited: 0,
+                lastDepositTime: 0,
+                isActive: false
+            });
+
+            lenderAddresses.push(lender);
+        }
+    }
+
     function requestWithdrawal(uint256 amount) external {
+        require(isLender(msg.sender), "Not a lender");
+        require(lenders[msg.sender].isActive, "Not an active lender");
         LenderInfo storage lender = lenders[msg.sender];
         if (block.timestamp < lender.lastWithdrawalTime + WITHDRAWAL_COOLDOWN) {
             revert("Must wait for cooldown period");
@@ -252,13 +339,11 @@ contract LendingManager {
         );
     }
 
-    function completeWithdrawal() external {
+    function completeWithdrawal() external nonReentrant {
         LenderInfo storage lender = lenders[msg.sender];
-        if (lender.pendingPrincipalWithdrawal == 0) {
-            revert("No pending withdrawal");
-        }
+        require(lender.isActive, "Not an active lender");
+        require(lender.pendingPrincipalWithdrawal > 0, "No pending withdrawal");
 
-        // Credit interest before withdrawal
         _creditInterest(msg.sender);
 
         uint256 amount = lender.pendingPrincipalWithdrawal;
@@ -270,24 +355,69 @@ contract LendingManager {
             emit EarlyWithdrawalPenalty(msg.sender, penalty);
         }
 
-        lender.balance -= amount + penalty;
-        totalLent -= amount + penalty;
+        lender.balance -= (amount + penalty);
+        totalLent -= (amount + penalty);
         lender.pendingPrincipalWithdrawal = 0;
 
-        // Request funds from LiquidityPool
+        // Deactivate if balance reaches zero
+        if (lender.balance == 0) {
+            lender.isActive = false;
+            // Clean up immediately for this lender
+            address[] memory lendersToClean = new address[](1);
+            lendersToClean[0] = msg.sender;
+            _cleanupInactiveLenders(lendersToClean);
+        }
+
         (bool success, ) = liquidityPool.call(
             abi.encodeWithSignature(
                 "withdrawForLendingManager(uint256)",
                 amount
             )
         );
-        require(success, "Failed to extract funds from liquidity pool");
+        require(success, "Failed to extract funds");
 
         payable(msg.sender).transfer(amount);
         emit FundsWithdrawn(msg.sender, amount, penalty);
     }
 
-    function claimInterest() external {
+    function getAllLenders() external view returns (address[] memory) {
+        return lenderAddresses;
+    }
+
+    function getLenderCount() external view returns (uint256) {
+        return lenderAddresses.length;
+    }
+
+    function _cleanupInactiveLenders(address[] memory lendersToCheck) internal {
+        require(lendersToCheck.length > 0, "No lenders to check");
+
+        for (uint i = 0; i < lendersToCheck.length; i++) {
+            address lender = lendersToCheck[i];
+            if (!lenders[lender].isActive && lenders[lender].balance == 0) {
+                // Remove from lenderAddresses array efficiently
+                for (uint j = 0; j < lenderAddresses.length; j++) {
+                    if (lenderAddresses[j] == lender) {
+                        // Move last element to current position and pop
+                        lenderAddresses[j] = lenderAddresses[
+                            lenderAddresses.length - 1
+                        ];
+                        lenderAddresses.pop();
+
+                        // Reset lender info to save gas
+                        delete lenders[lender];
+                        break;
+                    }
+                }
+                emit LenderCleaned(lender);
+            }
+        }
+    }
+
+    event LenderCleaned(address indexed lender);
+
+    function claimInterest() external nonReentrant {
+        require(isLender(msg.sender), "Not a lender");
+        require(lenders[msg.sender].isActive, "Not an active lender");
         LenderInfo storage lender = lenders[msg.sender];
         if (lender.balance == 0) {
             revert("No funds deposited");
@@ -410,6 +540,33 @@ contract LendingManager {
             availableInterest =
                 ((info.balance * currentIndex) / info.interestIndex) -
                 info.balance;
+        }
+    }
+
+    function performMonthlyMaintenance() external {
+        require(msg.sender == timelock, "Only timelock");
+
+        // Clean up all inactive lenders
+        address[] memory inactiveLenders = new address[](
+            lenderAddresses.length
+        );
+        uint256 count = 0;
+
+        for (uint256 i = 0; i < lenderAddresses.length; i++) {
+            address lender = lenderAddresses[i];
+            if (!lenders[lender].isActive && lenders[lender].balance == 0) {
+                inactiveLenders[count] = lender;
+                count++;
+            }
+        }
+
+        if (count > 0) {
+            // Resize array
+            address[] memory toClean = new address[](count);
+            for (uint256 i = 0; i < count; i++) {
+                toClean[i] = inactiveLenders[i];
+            }
+            _cleanupInactiveLenders(toClean);
         }
     }
 
@@ -684,6 +841,8 @@ contract LendingManager {
         uint256 daysElapsed = currentDay - lastRateUpdateDay;
         uint256 supplyRate = getDynamicSupplyRate();
 
+        require(supplyRate >= 1e18, "Invalid interest rate"); // Ensure rate >= 1.0
+
         if (daysElapsed == 0) return supplyRate;
 
         // Safe exponential calculation with bounds checking
@@ -733,6 +892,7 @@ contract LendingManager {
                 totalLent += interest;
                 info.lastInterestDistribution = block.timestamp;
                 emit InterestCredited(lender, interest);
+                emit LenderInterestAccrued(lender, interest, currentIndex);
             }
         }
 
@@ -808,7 +968,7 @@ contract LendingManager {
     }
 
     function setCurrentDailyRate(uint256 newRate) external onlyTimelock {
-        require(newRate >= 1e18, "Rate must be >= 1");
+        require(newRate >= 1e18 && newRate <= 1.005e18, "Invalid rate"); // Max 0.5% daily
         currentDailyRate = newRate;
         lastRateUpdateDay = block.timestamp / SECONDS_PER_DAY;
     }
@@ -820,6 +980,7 @@ contract LendingManager {
     }
 
     function setVotingToken(address _votingToken) external onlyTimelock {
+        if (_votingToken == address(0)) revert ZeroAddress();
         votingToken = IVotingToken(_votingToken);
     }
 
@@ -869,6 +1030,66 @@ contract LendingManager {
             action
         );
     }
-}
 
-error OnlyTimelockLendingManager();
+    // Batch operations for gas efficiency
+    function batchCreditInterest(address[] calldata lenderAddresses) external {
+        require(lenderAddresses.length <= 50, "Too many addresses"); // Prevent gas limit issues
+        require(lenderAddresses.length > 0, "No addresses provided");
+
+        for (uint256 i = 0; i < lenderAddresses.length; i++) {
+            if (
+                lenders[lenderAddresses[i]].balance > 0 &&
+                lenders[lenderAddresses[i]].isActive
+            ) {
+                _creditInterest(lenderAddresses[i]);
+            }
+        }
+
+        emit BatchInterestCredited(lenderAddresses.length);
+    }
+
+    function batchProcessWithdrawals(
+        address[] calldata lenderAddresses
+    ) external {
+        require(lenderAddresses.length <= 20, "Too many addresses");
+        require(lenderAddresses.length > 0, "No addresses provided");
+
+        uint256 totalWithdrawn = 0;
+        for (uint256 i = 0; i < lenderAddresses.length; i++) {
+            LenderInfo storage lender = lenders[lenderAddresses[i]];
+            if (
+                lender.pendingPrincipalWithdrawal > 0 &&
+                block.timestamp >=
+                lender.withdrawalRequestTime + WITHDRAWAL_COOLDOWN
+            ) {
+                uint256 amount = lender.pendingPrincipalWithdrawal;
+                lender.balance -= amount;
+                totalLent -= amount;
+                lender.pendingPrincipalWithdrawal = 0;
+                totalWithdrawn += amount;
+
+                payable(lenderAddresses[i]).transfer(amount);
+                emit WithdrawalCompleted(lenderAddresses[i], amount);
+            }
+        }
+
+        if (totalWithdrawn > 0) {
+            (bool success, ) = liquidityPool.call(
+                abi.encodeWithSignature(
+                    "withdrawForLendingManager(uint256)",
+                    totalWithdrawn
+                )
+            );
+            require(success, "Failed to extract funds from pool");
+            emit BatchWithdrawalsProcessed(
+                lenderAddresses.length,
+                totalWithdrawn
+            );
+        }
+    }
+
+    event BatchInterestCredited(uint256 count);
+    event BatchWithdrawalsProcessed(uint256 count, uint256 totalAmount);
+    event WithdrawalCompleted(address indexed lender, uint256 amount);
+    event TimelockUpdated(address indexed newTimelock);
+}

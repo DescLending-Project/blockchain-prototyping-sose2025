@@ -6,26 +6,26 @@
     "test": "npx hardhat test",
     "clean": "npx hardhat clean",
     "copy-artifacts": "node scripts/copy-artifacts.js",
-    "coverage": "hardhat coverage && node scripts/clean-coverage.js"
+    "coverage": "hardhat coverage",
+    "coverage-with-cleanup": "hardhat coverage && node scripts/clean-coverage.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@nomicfoundation/hardhat-verify": "1.0.1",
+    "@nomiclabs/hardhat-ethers": "2.2.3",
     "@openzeppelin/contracts-upgradeable": "4.8.3",
-    "@openzeppelin/hardhat-upgrades": "^3.9.0",
-    "ethers": "^6.11.1",
-    "hardhat": "^2.19.5",
-    "hardhat-coverage": "^0.9.19",
-    "solidity-coverage": "^0.8.16"
+    "@openzeppelin/hardhat-upgrades": "1.22.1",
+    "chai": "4.3.7",
+    "chai-as-promised": "7.1.1",
+    "ethers": "5.8.0",
+    "hardhat": "2.22.2",
+    "solidity-coverage": "^0.8.12"
   },
   "dependencies": {
     "@chainlink/contracts": "^0.8.0",
     "@openzeppelin/contracts": "4.8.3",
-    "chai": "^4.2.0",
     "dotenv": "^16.5.0"
-  },
-  "resolutions": {
-    "cbor": "9.0.2"
   }
 }

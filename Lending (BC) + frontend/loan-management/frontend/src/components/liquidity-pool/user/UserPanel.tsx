@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Contract } from "ethers"
 import { COLLATERAL_TOKENS } from "../../../App"
+import { CollateralPanel } from './CollateralPanel';
 
 interface UserPanelProps {
     contract: Contract;
@@ -201,7 +202,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             // For ERC20 tokens, first approve the contract to spend the tokens
             const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
             const tokenContract = new ethers.Contract(selectedToken, ["function approve(address spender, uint256 amount) returns (bool)"], signer); // Basic ERC20 ABI for approve
-            const amountParsed = ethers.utils.parseUnits(collateralAmount, 18); // Assuming 18 decimals for collateral tokens
+            const amountParsed = ethers.parseUnits(collateralAmount, 18); // Assuming 18 decimals for collateral tokens
             let tx = await tokenContract.approve(contract.target, amountParsed);
             await tx.wait();
 
@@ -236,7 +237,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         try {
             setIsLoading(true)
             setError("") // Clear previous errors
-            const tx = await contract.withdrawCollateral(selectedToken, ethers.utils.parseUnits(collateralAmount, 18))
+            const tx = await contract.withdrawCollateral(selectedToken, ethers.parseUnits(collateralAmount, 18))
             await tx.wait()
             setError("Collateral withdrawn successfully!"); // Success message
             await fetchTokenBalance()

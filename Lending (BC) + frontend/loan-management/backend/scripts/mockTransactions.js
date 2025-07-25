@@ -80,8 +80,8 @@ async function main() {
 
     // Assign voting power (enough to meet quorum)
     await safeMint(deployer.address, 200);   // Deployer gets 200 tokens
-    await safeMint(lender1.address, 180);    // Lender1 gets 150
-    await safeMint(lender2.address, 100);    // Lender2 gets 100
+    await safeMint(lender1.address, 480);    // Lender1 gets 150
+    await safeMint(lender2.address, 300);    // Lender2 gets 100
     await safeMint(borrower1.address, 80);   // Borrower1 gets 80
     await safeMint(borrower2.address, 100);   // Borrower2 gets 100
 
@@ -175,7 +175,7 @@ async function main() {
 
     // --- All setup is done, now create and vote on proposal ---
     // --- Mock Proposal Creation and Execution ---
-    const newQuorum = 5; // 5%
+    const newQuorum = 1; // 1%
     const calldata = ProtocolGovernor.interface.encodeFunctionData('setQuorumPercentage', [newQuorum]);
     const description = `Set quorum to ${newQuorum}% [mock proposal ${Date.now()}]`;
     const descriptionHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(description));
@@ -207,6 +207,7 @@ async function main() {
             description
         );
         const proposeReceipt = await proposeTx.wait();
+        await network.provider.send("evm_mine");
         proposalId = proposeReceipt.events.find(e => e.event === 'ProposalCreated').args.proposalId;
         console.log('Proposal created with ID:', proposalId);
     } catch (err) {
@@ -223,9 +224,9 @@ async function main() {
     console.log('Advancing time to activate proposal...');
     const votingDelay = await ProtocolGovernor.votingDelay();
     console.log(`Contract votingDelay is ${votingDelay.toNumber()} seconds`);
-    await network.provider.send("evm_increaseTime", [votingDelay.toNumber() + 1]);
-    await network.provider.send("evm_mine");
-
+    for (let i = 0; i <= votingDelay.toNumber(); i++) {
+        await network.provider.send("evm_mine");
+    }
     state = await ProtocolGovernor.state(proposalId);
     console.log('Proposal state after activation:', state, getStateName(state)); // 1 = Active
     if (state !== 1) {
@@ -246,6 +247,20 @@ async function main() {
         console.log(`${voter.address} voted FOR`);
     }
 
+    // Get current block number and deadline
+    const currentBlock = await provider.getBlockNumber();
+    const deadlineBlock = await ProtocolGovernor.proposalDeadline(proposalId);
+    const blocksToAdvance = deadlineBlock.sub(currentBlock).add(1).toNumber();
+
+    for (let i = 0; i < blocksToAdvance; i++) {
+        await network.provider.send("evm_mine");
+    }
+
+    // Now check state
+    state = await ProtocolGovernor.state(proposalId);
+    console.log('Proposal state after voting ended:', state, getStateName(state));
+
+
     // 3. Verify votes
     const proposalVotes = await ProtocolGovernor.proposalVotes(proposalId);
     console.log(`Vote tally:
@@ -254,16 +269,23 @@ async function main() {
   - ABSTAIN: ${proposalVotes.abstainVotes.toString()}`);
 
     // 4. Advance time and verify state
-    await network.provider.send("evm_increaseTime", [VOTING_PERIOD]);
+    const votingPeriod = await ProtocolGovernor.votingPeriod();
+    await network.provider.send("evm_increaseTime", [votingPeriod.toNumber() + 5]);
     await network.provider.send("evm_mine");
 
     state = await ProtocolGovernor.state(proposalId);
-    console.log('Proposal state:', getStateName(state));
+    console.log('Proposal state after voting ended:', state, getStateName(state));
 
     if (state !== 4) { // 4 = Succeeded
         console.error("Proposal failed! Debug info:");
-        console.error("- Quorum:", quorum.toString());
-        console.error("- Total FOR votes:", proposalVotes.forVotes.toString());
+        const proposalVotes = await ProtocolGovernor.proposalVotes(proposalId);
+        console.error("- FOR votes:", proposalVotes.forVotes.toString());
+        console.error("- AGAINST votes:", proposalVotes.againstVotes.toString());
+        console.error("- ABSTAIN votes:", proposalVotes.abstainVotes.toString());
+        console.error("- Current block number:", await provider.getBlockNumber());
+        console.error("- Current block timestamp:", (await provider.getBlock('latest')).timestamp);
+        console.error("- Snapshot block:", await ProtocolGovernor.proposalSnapshot(proposalId));
+        console.error("- Deadline block:", await ProtocolGovernor.proposalDeadline(proposalId));
         throw new Error(`Proposal state is ${getStateName(state)} (expected Succeeded)`);
     }
     console.log('Queueing proposal...');

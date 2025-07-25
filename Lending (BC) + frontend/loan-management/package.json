@@ -10,32 +10,20 @@
     "dev": "cd frontend && npm run dev",
     "start": "./start-dev.sh",
     "stop": "./stop-dev.sh",
-    "setup": "chmod +x start-dev.sh stop-dev.sh && ./start-dev.sh"
+    "setup": "chmod +x start-dev.sh stop-dev.sh && ./start-dev.sh",
+    "coverage": "cd backend && hardhat coverage && node scripts/clean-coverage.js",
+    "coverage:fast": "cd backend && SKIP_SLOW_TESTS=1 hardhat coverage",
+    "coverage:core": "cd backend && hardhat test --grep 'LendingManager|LiquidityPool|StablecoinManager' && hardhat coverage --testfiles 'backend/test/LendingManager.test.js'",
+    "test:fast": "cd backend && hardhat test backend/test/fast.test.js",
+    "test:core": "cd backend && hardhat test --grep 'LendingManager|LiquidityPool|StablecoinManager'"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@chainlink/contracts": "^1.4.0",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
-    "@openzeppelin/hardhat-upgrades": "^1.25.0",
-    "@openzeppelin/test-helpers": "^0.5.16",
-    "dotenv": "^17.2.0",
     "ethers": "^5.8.0",
-    "hardhat": "^2.25.0",
-    "hardhat-coverage": "^0.9.19",
+    "hardhat": "^2.26.1",
     "solidity-coverage": "^0.8.16"
-  },
-  "dependencies": {
-    "@aragon/osx": "^1.4.0",
-    "@aragon/osx-ethers": "^1.4.0",
-    "@nomiclabs/hardhat-waffle": "^2.0.3",
-    "@openzeppelin/contracts": "^5.3.0",
-    "@openzeppelin/contracts-upgradeable": "^5.3.0",
-    "@radix-ui/react-select": "^2.2.4",
-    "@radix-ui/react-tabs": "^1.1.11",
-    "chai": "^4.2.0",
-    "react-is": "^19.1.0",
-    "recharts": "^3.0.2"
   }
 }

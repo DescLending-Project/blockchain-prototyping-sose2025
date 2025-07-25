@@ -125,411 +125,394 @@ async function main() {
     // Compile contracts first
     console.log("Compiling contracts...");
     try {
-        await hre.run("compile");
+        const { execSync } = require('child_process');
+        execSync('npx hardhat compile', { stdio: 'inherit' });
         console.log("✅ Contracts compiled successfully");
     } catch (error) {
         console.error("❌ Contract compilation failed:", error.message);
         process.exit(1);
     }
 
-    // Copy artifacts to frontend after compilation
-    try {
-        console.log("Copying artifacts to frontend...");
-        require('./copy-artifacts.js');
-        console.log("✅ Artifacts copied successfully");
-    } catch (error) {
-        console.error("❌ Failed to copy artifacts:", error.message);
-        // Don't exit here, continue with deployment
-    }
-
-    // Get the deployer address first
     const [deployer] = await ethers.getSigners();
-    const chainIdRaw = (await ethers.provider.getNetwork()).chainId;
-    const chainId = Number(chainIdRaw);
-    console.log("Detected chainId:", chainId, typeof chainId);
-    let networkName;
-    switch (chainId) {
-        case 31337: // Hardhat localhost
-            networkName = "localhost";
-            break;
-        case 11155111:
-            networkName = "sepolia";
-            break;
-        case 57054: // Sonic Testnet
-            networkName = "sonic";
-            break;
-        default:
-            throw new Error(`Unsupported chainId: ${chainId}`);
-    }
-
+    const networkName = hre.network.name;
     const config = networkConfig[networkName];
-    const usdcAddress = config.USDC;
-    const usdtAddress = config.USDT;
-    const usdcFeed = config.USDC_FEED;
-    const usdtFeed = config.USDT_FEED;
 
     console.log(`Deploying to network: ${networkName}`);
-    console.log("USDC:", usdcAddress);
-    console.log("USDT:", usdtAddress);
-    console.log("ZK Mode:", config.USE_REAL_VERIFIER ? "Real Verifier" : "Mock Verifier");
-
     console.log("Deploying contracts with account:", deployer.address);
+    console.log("Account balance:", ethers.utils.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH");
 
-    // Deploy GlintToken first with initial supply of 1,000,000 tokens
-    console.log("\nDeploying GlintToken...");
-    const GlintToken = await ethers.getContractFactory("GlintToken");
-    const initialSupply = ethers.utils.parseUnits("1000000", 18); // 1 million tokens with 18 decimals
-    const glintToken = await GlintToken.deploy(initialSupply);
-    await glintToken.deployed();
-    const glintTokenAddress = await glintToken.address;
-    console.log("GlintToken deployed to:", glintTokenAddress);
-
-    // Deploy MockPriceFeed for GlintToken with initial price of 1.50 and 8 decimals
-    console.log("\nDeploying MockPriceFeed for GlintToken...");
-    const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-    const glintFeed = await MockPriceFeed.deploy(
-        ethers.utils.parseUnits("1.50", 18),
-        8
-    );
-    await glintFeed.deployed();
-    const glintFeedAddress = await glintFeed.address;
-    console.log("MockPriceFeed for GlintToken deployed to:", glintFeedAddress);
-
-    // Deploy MockPriceFeed for CORAL with initial price of 1.00 and 8 decimals (before deploying LiquidityPool)
-    console.log("\nDeploying MockPriceFeed for CORAL...");
-    const coralFeed = await MockPriceFeed.deploy(
-        ethers.utils.parseUnits("1.00", 18),
-        8
-    );
-    await coralFeed.deployed();
-    const coralFeedAddress = await coralFeed.address;
-    console.log("MockPriceFeed for CORAL deployed to:", coralFeedAddress);
-
-    // Deploy MockPriceFeed for USDC with initial price of 1.00 and 8 decimals
-    console.log("\nDeploying MockPriceFeed for USDC...");
-    const usdcMockFeed = await MockPriceFeed.deploy(
-        ethers.utils.parseUnits("1.00", 18),
-        8
-    );
-    await usdcMockFeed.deployed();
-    const usdcMockFeedAddress = await usdcMockFeed.address;
-    console.log("MockPriceFeed for USDC deployed to:", usdcMockFeedAddress);
-
-    // Deploy MockPriceFeed for USDT with initial price of 1.00 and 8 decimals
-    console.log("\nDeploying MockPriceFeed for USDT...");
-    const usdtMockFeed = await MockPriceFeed.deploy(
-        ethers.utils.parseUnits("1.00", 18),
-        8
-    );
-    await usdtMockFeed.deployed();
-    const usdtMockFeedAddress = await usdtMockFeed.address;
-    console.log("MockPriceFeed for USDT deployed to:", usdtMockFeedAddress);
-
-    // Deploy StablecoinManager first
-    console.log("\nDeploying StablecoinManager...");
-    const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
-    const stablecoinManager = await StablecoinManager.deploy(deployer.address);
-    await stablecoinManager.deployed();
-    const stablecoinManagerAddress = await stablecoinManager.address;
-    console.log("StablecoinManager deployed to:", stablecoinManagerAddress);
-
-    // Deploy LiquidityPool first (without LendingManager for now)
-    console.log("\nDeploying LiquidityPool...");
-    const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
-    const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
-        deployer.address,
-        stablecoinManagerAddress,
-        ethers.ZeroAddress, // Temporary placeholder for LendingManager
-        ethers.ZeroAddress, // Temporary placeholder for CreditSystem
-        ethers.ZeroAddress
-    ], {
-        initializer: "initialize",
-    });
-    await liquidityPool.deployed();
-    const liquidityPoolAddress = await liquidityPool.address;
-    console.log("LiquidityPool deployed to:", liquidityPoolAddress);
-
-    // Deploy LendingManager with LiquidityPool address
-    console.log("\nDeploying LendingManager...");
-    const LendingManager = await ethers.getContractFactory("LendingManager");
-    const lendingManager = await LendingManager.deploy(deployer.address, liquidityPoolAddress);
-    await lendingManager.deployed();
-    const lendingManagerAddress = await lendingManager.address;
-    console.log("LendingManager deployed to:", lendingManagerAddress);
-
-    // Update LiquidityPool with the correct LendingManager address
-    console.log("\nUpdating LiquidityPool with LendingManager address...");
-    await liquidityPool.setLendingManager(lendingManagerAddress);
-    console.log("LiquidityPool updated with LendingManager address");
-
-    // NEW: Deploy ZK Proof System
-    const zkComponents = await deployZKComponents(deployer, config, liquidityPoolAddress);
-
-    // Connect ZK system to LiquidityPool
-    const zkConnected = await connectZKToLiquidityPool(liquidityPool, zkComponents.creditSystemAddress);
-
-    // Continue with existing deployment...
-
-    // Set up GlintToken as collateral
-    console.log("\nSetting up GlintToken as collateral...");
-    const setCollateralTx = await liquidityPool.setAllowedCollateral(glintTokenAddress, true);
-    await setCollateralTx.wait();
-    console.log("GlintToken set as allowed collateral");
-
-    // Set price feed for GLINT after LendingManager is set
+    // Deploy in correct order with proper error handling
     try {
-        await liquidityPool.setPriceFeed(glintTokenAddress, glintFeedAddress);
-        console.log("GLINT price feed set");
-        // Verify
-        const pf = await liquidityPool.getPriceFeed(glintTokenAddress);
-        console.log("GLINT price feed address in contract:", pf);
-        const value = await liquidityPool.getTokenValue(glintTokenAddress);
-        console.log("GLINT price feed value:", ethers.formatUnits(value, 18), "USD");
-    } catch (e) {
-        console.error("Failed to set or verify GLINT price feed:", e);
-    }
+        // 1. Deploy basic tokens first
+        console.log("\n1️⃣ Deploying GlintToken...");
+        const GlintToken = await ethers.getContractFactory("GlintToken");
+        const initialSupply = ethers.utils.parseUnits("1000000", 18);
+        const glintToken = await GlintToken.deploy(initialSupply);
+        await glintToken.deployed();
+        const glintTokenAddress = await glintToken.address;
+        console.log("✅ GlintToken deployed to:", glintTokenAddress);
 
-    // Set up CORAL as collateral
-    console.log("\nSetting up CORAL as collateral...");
-    const coralTokenAddress = "0xecc6f14f4b64eedd56111d80f46ce46933dc2d64";
-    const setCoralCollateralTx = await liquidityPool.setAllowedCollateral(coralTokenAddress, true);
-    await setCoralCollateralTx.wait();
-    console.log("CORAL set as allowed collateral");
+        // 2. Deploy StablecoinManager
+        console.log("\n2️⃣ Deploying StablecoinManager...");
+        const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
+        const stablecoinManager = await StablecoinManager.deploy(deployer.address); // Use deployer as initial timelock
+        await stablecoinManager.deployed();
+        const stablecoinManagerAddress = await stablecoinManager.address;
+        console.log("✅ StablecoinManager deployed to:", stablecoinManagerAddress);
 
-    // Set price feed for CORAL on the deployed LiquidityPool
-    try {
-        await liquidityPool.setPriceFeed(coralTokenAddress, coralFeedAddress);
-        console.log("CORAL price feed set");
-    } catch (e) {
-        console.error("Failed to set CORAL price feed:", e);
-    }
+        // Deploy MockPriceFeed for GlintToken with initial price of 1.50 and 8 decimals
+        console.log("\nDeploying MockPriceFeed for GlintToken...");
+        const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+        const glintFeed = await MockPriceFeed.deploy(
+            ethers.utils.parseUnits("1.50", 18),
+            8
+        );
+        await glintFeed.deployed();
+        const glintFeedAddress = await glintFeed.address;
+        console.log("MockPriceFeed for GlintToken deployed to:", glintFeedAddress);
 
-    // Set up USDC as collateral (only if not localhost)
-    if (networkName !== "localhost") {
-        console.log("\nSetting up USDC as collateral...");
-        const setUsdcCollateralTx = await liquidityPool.setAllowedCollateral(usdcAddress, true);
-        await setUsdcCollateralTx.wait();
-        console.log("USDC set as allowed collateral");
+        // Deploy MockPriceFeed for CORAL with initial price of 1.00 and 8 decimals (before deploying LiquidityPool)
+        console.log("\nDeploying MockPriceFeed for CORAL...");
+        const coralFeed = await MockPriceFeed.deploy(
+            ethers.utils.parseUnits("1.00", 18),
+            8
+        );
+        await coralFeed.deployed();
+        const coralFeedAddress = await coralFeed.address;
+        console.log("MockPriceFeed for CORAL deployed to:", coralFeedAddress);
 
-        // Set price feed for USDC based on network config
-        try {
-            await liquidityPool.setPriceFeed(usdcAddress, usdcMockFeedAddress);
-            console.log("USDC price feed set");
-        } catch (e) {
-            console.error("Failed to set USDC price feed:", e);
-        }
+        // Deploy MockPriceFeed for USDC with initial price of 1.00 and 8 decimals
+        console.log("\nDeploying MockPriceFeed for USDC...");
+        const usdcMockFeed = await MockPriceFeed.deploy(
+            ethers.utils.parseUnits("1.00", 18),
+            8
+        );
+        await usdcMockFeed.deployed();
+        const usdcMockFeedAddress = await usdcMockFeed.address;
+        console.log("MockPriceFeed for USDC deployed to:", usdcMockFeedAddress);
 
-        // Set up USDT as collateral
-        console.log("\nSetting up USDT as collateral...");
-        const setUsdtCollateralTx = await liquidityPool.setAllowedCollateral(usdtAddress, true);
-        await setUsdtCollateralTx.wait();
-        console.log("USDT set as allowed collateral");
+        // Deploy MockPriceFeed for USDT with initial price of 1.00 and 8 decimals
+        console.log("\nDeploying MockPriceFeed for USDT...");
+        const usdtMockFeed = await MockPriceFeed.deploy(
+            ethers.utils.parseUnits("1.00", 18),
+            8
+        );
+        await usdtMockFeed.deployed();
+        const usdtMockFeedAddress = await usdtMockFeed.address;
+        console.log("MockPriceFeed for USDT deployed to:", usdtMockFeedAddress);
 
-        // Set price feed for USDT based on network config
-        try {
-            await liquidityPool.setPriceFeed(usdtAddress, usdtMockFeedAddress);
-            console.log("USDT price feed set");
-        } catch (e) {
-            console.error("Failed to set USDT price feed:", e);
-        }
-    } else {
-        console.log("\nSkipping USDC/USDT setup for localhost (using mock addresses)");
-    }
+        // Deploy LiquidityPool first (without LendingManager for now)
+        console.log("\nDeploying LiquidityPool...");
+        const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
+        const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
+            deployer.address,
+            stablecoinManagerAddress,
+            ethers.ZeroAddress, // Temporary placeholder for LendingManager
+            ethers.ZeroAddress, // Temporary placeholder for CreditSystem
+            ethers.ZeroAddress
+        ], {
+            initializer: "initialize",
+        });
+        await liquidityPool.deployed();
+        const liquidityPoolAddress = await liquidityPool.address;
+        console.log("LiquidityPool deployed to:", liquidityPoolAddress);
 
-    const verifyTokenSetup = async (pool, token) => {
-        try {
-            const isAllowed = await pool.isAllowedCollateral(token);
-            const priceFeed = await pool.getPriceFeed(token);
+        // Deploy LendingManager with proper constructor
+        console.log("\nDeploying LendingManager...");
+        const LendingManager = await ethers.getContractFactory("LendingManager");
+        const lendingManager = await LendingManager.deploy(liquidityPoolAddress);
+        await lendingManager.deployed();
+        const lendingManagerAddress = await lendingManager.address;
+        console.log("LendingManager deployed to:", lendingManagerAddress);
 
-            if (!isAllowed) throw new Error(token + ' not allowed as collateral');
-            if (priceFeed === ethers.ZeroAddress) throw new Error('Price feed not set for ' + token);
-
-            //get the token value to verify the price feed is working
+        // Set timelock if available
+        if (typeof timelock !== 'undefined' && timelock.address) {
             try {
-                const value = await pool.getTokenValue(token);
-                console.log(`Price feed verified for ${token}. Current value: ${ethers.formatUnits(value, 18)} USD`);
+                await lendingManager.setTimelock(timelock.address);
+                console.log("LendingManager timelock set");
             } catch (e) {
-                throw new Error(`Price feed not working for ${token}: ${e.message}`);
+                console.log("Note: Could not set timelock on LendingManager:", e.message);
             }
-        } catch (error) {
-            console.error("Error verifying token setup:", error.message);
         }
-    };
 
-    // Set up price feeds for all tokens with retries
-    const setupPriceFeed = async (token, feed, retries = 3) => {
-        for (let i = 0; i < retries; i++) {
+        // Update LiquidityPool with the correct LendingManager address
+        console.log("\nUpdating LiquidityPool with LendingManager address...");
+        await liquidityPool.setLendingManager(lendingManagerAddress);
+        console.log("LiquidityPool updated with LendingManager address");
+
+        // NEW: Deploy ZK Proof System
+        const zkComponents = await deployZKComponents(deployer, config, liquidityPoolAddress);
+
+        // Connect ZK system to LiquidityPool
+        const zkConnected = await connectZKToLiquidityPool(liquidityPool, zkComponents.creditSystemAddress);
+
+        // Continue with existing deployment...
+
+        // Set up GlintToken as collateral
+        console.log("\nSetting up GlintToken as collateral...");
+        const setCollateralTx = await liquidityPool.setAllowedCollateral(glintTokenAddress, true);
+        await setCollateralTx.wait();
+        console.log("GlintToken set as allowed collateral");
+
+        // Set price feed for GLINT after LendingManager is set
+        try {
+            await liquidityPool.setPriceFeed(glintTokenAddress, glintFeedAddress);
+            console.log("GLINT price feed set");
+            // Verify
+            const pf = await liquidityPool.getPriceFeed(glintTokenAddress);
+            console.log("GLINT price feed address in contract:", pf);
+            const value = await liquidityPool.getTokenValue(glintTokenAddress);
+            console.log("GLINT price feed value:", ethers.formatUnits(value, 18), "USD");
+        } catch (e) {
+            console.error("Failed to set or verify GLINT price feed:", e);
+        }
+
+        // Set up CORAL as collateral
+        console.log("\nSetting up CORAL as collateral...");
+        const coralTokenAddress = "0xecc6f14f4b64eedd56111d80f46ce46933dc2d64";
+        const setCoralCollateralTx = await liquidityPool.setAllowedCollateral(coralTokenAddress, true);
+        await setCoralCollateralTx.wait();
+        console.log("CORAL set as allowed collateral");
+
+        // Set price feed for CORAL on the deployed LiquidityPool
+        try {
+            await liquidityPool.setPriceFeed(coralTokenAddress, coralFeedAddress);
+            console.log("CORAL price feed set");
+        } catch (e) {
+            console.error("Failed to set CORAL price feed:", e);
+        }
+
+        // Set up USDC as collateral (only if not localhost)
+        if (networkName !== "localhost") {
+            console.log("\nSetting up USDC as collateral...");
+            const setUsdcCollateralTx = await liquidityPool.setAllowedCollateral(usdcAddress, true);
+            await setUsdcCollateralTx.wait();
+            console.log("USDC set as allowed collateral");
+
+            // Set price feed for USDC based on network config
             try {
-                await liquidityPool.setPriceFeed(token, feed);
-                console.log(`Price feed set for ${token}`);
-                // Verify it works
-                await verifyTokenSetup(liquidityPool, token);
-                return true;
+                await liquidityPool.setPriceFeed(usdcAddress, usdcMockFeedAddress);
+                console.log("USDC price feed set");
             } catch (e) {
-                console.error(`Attempt ${i + 1}/${retries} failed to set price feed for ${token}:`, e.message);
-                if (i === retries - 1) {
-                    console.error(`Failed to set price feed for ${token} after ${retries} attempts`);
-                    return false;
+                console.error("Failed to set USDC price feed:", e);
+            }
+
+            // Set up USDT as collateral
+            console.log("\nSetting up USDT as collateral...");
+            const setUsdtCollateralTx = await liquidityPool.setAllowedCollateral(usdtAddress, true);
+            await setUsdtCollateralTx.wait();
+            console.log("USDT set as allowed collateral");
+
+            // Set price feed for USDT based on network config
+            try {
+                await liquidityPool.setPriceFeed(usdtAddress, usdtMockFeedAddress);
+                console.log("USDT price feed set");
+            } catch (e) {
+                console.error("Failed to set USDT price feed:", e);
+            }
+        } else {
+            console.log("\nSkipping USDC/USDT setup for localhost (using mock addresses)");
+        }
+
+        const verifyTokenSetup = async (pool, token) => {
+            try {
+                const isAllowed = await pool.isAllowedCollateral(token);
+                const priceFeed = await pool.getPriceFeed(token);
+
+                if (!isAllowed) throw new Error(token + ' not allowed as collateral');
+                if (priceFeed === ethers.ZeroAddress) throw new Error('Price feed not set for ' + token);
+
+                //get the token value to verify the price feed is working
+                try {
+                    const value = await pool.getTokenValue(token);
+                    console.log(`Price feed verified for ${token}. Current value: ${ethers.formatUnits(value, 18)} USD`);
+                } catch (e) {
+                    throw new Error(`Price feed not working for ${token}: ${e.message}`);
                 }
-                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (error) {
+                console.error("Error verifying token setup:", error.message);
             }
-        }
-    };
+        };
 
-    // Set up price feeds with the new retry mechanism
-    console.log("\nSetting up price feeds...");
-    await setupPriceFeed(glintTokenAddress, glintFeedAddress);
-    await setupPriceFeed(coralTokenAddress, coralFeedAddress);
-    if (networkName !== "localhost") {
-        await setupPriceFeed(usdcAddress, usdcMockFeedAddress);
-        await setupPriceFeed(usdtAddress, usdtMockFeedAddress);
-    }
-
-    // Set up stablecoin parameters
-    console.log("\nSetting stablecoin parameters...");
-    await stablecoinManager.setStablecoinParams(
-        usdcAddress,
-        true,
-        85, // 85% LTV
-        110 // 110% liquidation threshold
-    );
-    await stablecoinManager.setStablecoinParams(
-        usdtAddress,
-        true,
-        85, // 85% LTV
-        110 // 110% liquidation threshold
-    );
-
-    // Deploy InterestRateModel
-    console.log("\nDeploying InterestRateModel...");
-    const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
-    // Example parameters, adjust as needed
-    const irmParams = [
-        ethers.utils.parseUnits("0.02", 18), // baseRate
-        ethers.utils.parseUnits("0.8", 18),  // kink
-        ethers.utils.parseUnits("0.20", 18), // slope1
-        ethers.utils.parseUnits("1.00", 18), // slope2
-        ethers.utils.parseUnits("0.10", 18), // reserveFactor
-        ethers.utils.parseUnits("2.00", 18), // maxBorrowRate
-        ethers.utils.parseUnits("0.05", 18), // maxRateChange
-        ethers.utils.parseUnits("0.02", 18), // ethPriceRiskPremium
-        ethers.utils.parseUnits("0.05", 18), // ethVolatilityThreshold
-        3600 // oracleStalenessWindow
-    ];
-    // Use deployer.address and a mock oracle for now
-    const OracleMock = await ethers.getContractFactory("OracleMock");
-    const oracleMock = await OracleMock.deploy();
-    await oracleMock.deployed();
-    const oracleAddress = await oracleMock.address;
-    const irm = await InterestRateModel.deploy(
-        deployer.address,
-        oracleAddress,
-        irmParams
-    );
-    await irm.deployed();
-    const irmAddress = await irm.address;
-    console.log("InterestRateModel deployed to:", irmAddress);
-
-    // Deployment summary with ZK components
-    console.log("\nDeployment Summary:");
-    console.log("===================");
-    console.log("🏢 CORE CONTRACTS:");
-    console.log("GlintToken:", glintTokenAddress);
-    console.log("MockPriceFeed (Glint):", glintFeedAddress);
-    console.log("CORAL Token:", coralTokenAddress);
-    console.log("MockPriceFeed (CORAL):", coralFeedAddress);
-    console.log("USDC:", usdcAddress);
-    console.log("USDT:", usdtAddress);
-    console.log("StablecoinManager:", stablecoinManagerAddress);
-    console.log("LiquidityPool:", liquidityPoolAddress);
-    console.log("LendingManager:", lendingManagerAddress);
-    console.log("InterestRateModel:", irmAddress);
-
-    console.log("\n🔐 ZK PROOF SYSTEM:");
-    console.log("RISC Zero Verifier:", zkComponents.verifierAddress || "Not deployed");
-    console.log("SimpleRISC0Test:", zkComponents.simpleRisc0TestAddress || "Not deployed");
-    console.log("IntegratedCreditSystem:", zkComponents.creditSystemAddress || "Not deployed");
-    console.log("ZK Integration Status:", zkConnected ? "✅ Connected" : "❌ Failed");
-
-    // Update App.jsx with new addresses including ZK components
-    console.log("\nUpdating App.jsx addresses...");
-    try {
-        const updateResult = await updateAppAddresses({
-            liquidityPoolAddress,
-            lendingManagerAddress,
-            interestRateModelAddress: irmAddress,
-            // Add ZK components
-            creditSystemAddress: zkComponents.creditSystemAddress,
-            simpleRisc0TestAddress: zkComponents.simpleRisc0TestAddress,
-            riscZeroVerifierAddress: zkComponents.verifierAddress,
-            tokens: {
-                GLINT: glintTokenAddress,
-                CORAL: coralTokenAddress,
-                USDC: usdcAddress,
-                USDT: usdtAddress
+        // Set up price feeds for all tokens with retries
+        const setupPriceFeed = async (token, feed, retries = 3) => {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    await liquidityPool.setPriceFeed(token, feed);
+                    console.log(`Price feed set for ${token}`);
+                    // Verify it works
+                    await verifyTokenSetup(liquidityPool, token);
+                    return true;
+                } catch (e) {
+                    console.error(`Attempt ${i + 1}/${retries} failed to set price feed for ${token}:`, e.message);
+                    if (i === retries - 1) {
+                        console.error(`Failed to set price feed for ${token} after ${retries} attempts`);
+                        return false;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
             }
-        });
-        console.log("App.jsx update result:", updateResult);
-    } catch (error) {
-        console.error("Failed to update App.jsx:", error.message);
-        // Don't exit, continue with mockup
-    }
+        };
 
-    // Copy ABI to frontend
-    const fs = require('fs');
-    const path = require('path');
-    const abiSrc = path.join(__dirname, '../artifacts/contracts/InterestRateModel.sol/InterestRateModel.json');
-    const abiDest = path.join(__dirname, '../../frontend/src/abis/InterestRateModel.json');
-    try {
-        fs.copyFileSync(abiSrc, abiDest);
-        console.log('InterestRateModel ABI copied to frontend.');
-    } catch (e) {
-        console.error('Failed to copy InterestRateModel ABI:', e.message);
-    }
-
-    // Copy ZK-related ABIs
-    try {
-        if (zkComponents.creditSystemAddress) {
-            const creditSystemAbiSrc = path.join(__dirname, '../artifacts/contracts/IntegratedCreditSystem.sol/IntegratedCreditSystem.json');
-            const creditSystemAbiDest = path.join(__dirname, '../../frontend/src/abis/IntegratedCreditSystem.json');
-            fs.copyFileSync(creditSystemAbiSrc, creditSystemAbiDest);
-            console.log('IntegratedCreditSystem ABI copied to frontend.');
+        // Set up price feeds with the new retry mechanism
+        console.log("\nSetting up price feeds...");
+        await setupPriceFeed(glintTokenAddress, glintFeedAddress);
+        await setupPriceFeed(coralTokenAddress, coralFeedAddress);
+        if (networkName !== "localhost") {
+            await setupPriceFeed(usdcAddress, usdcMockFeedAddress);
+            await setupPriceFeed(usdtAddress, usdtMockFeedAddress);
         }
-    } catch (e) {
-        console.error('Failed to copy ZK ABIs:', e.message);
-    }
 
-    console.log("\n✅ All contracts and feeds deployed and configured successfully!");
+        // Set up stablecoin parameters
+        console.log("\nSetting stablecoin parameters...");
+        await stablecoinManager.setStablecoinParams(
+            usdcAddress,
+            true,
+            85, // 85% LTV
+            110 // 110% liquidation threshold
+        );
+        await stablecoinManager.setStablecoinParams(
+            usdtAddress,
+            true,
+            85, // 85% LTV
+            110 // 110% liquidation threshold
+        );
 
-    if (zkConnected) {
-        console.log("\n🎉 ZK PROOF SYSTEM READY!");
-        console.log("Risc0 team can submit their proofs using:");
-        console.log(`- creditSystem.submitTradFiProof(seal, journal)`);
-        console.log(`- creditSystem.submitAccountProof(seal, journal)`);
-        console.log(`- creditSystem.submitNestingProof(seal, journal)`);
-    }
+        // Deploy InterestRateModel
+        console.log("\nDeploying InterestRateModel...");
+        const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+        // Example parameters, adjust as needed
+        const irmParams = [
+            ethers.utils.parseUnits("0.02", 18), // baseRate
+            ethers.utils.parseUnits("0.8", 18),  // kink
+            ethers.utils.parseUnits("0.20", 18), // slope1
+            ethers.utils.parseUnits("1.00", 18), // slope2
+            ethers.utils.parseUnits("0.10", 18), // reserveFactor
+            ethers.utils.parseUnits("2.00", 18), // maxBorrowRate
+            ethers.utils.parseUnits("0.05", 18), // maxRateChange
+            ethers.utils.parseUnits("0.02", 18), // ethPriceRiskPremium
+            ethers.utils.parseUnits("0.05", 18), // ethVolatilityThreshold
+            3600 // oracleStalenessWindow
+        ];
+        // Use deployer.address and a mock oracle for now
+        const OracleMock = await ethers.getContractFactory("OracleMock");
+        const oracleMock = await OracleMock.deploy();
+        await oracleMock.deployed();
+        const oracleAddress = await oracleMock.address;
+        const irm = await InterestRateModel.deploy(
+            deployer.address,
+            oracleAddress,
+            irmParams
+        );
+        await irm.deployed();
+        const irmAddress = await irm.address;
+        console.log("InterestRateModel deployed to:", irmAddress);
 
-    // Run mockup platform behavior simulation
-    console.log("\n=== RUNNING MOCKUP PLATFORM BEHAVIOR SIMULATION ===");
-    try {
-        // Set environment variables for the mockup script
-        process.env.LIQUIDITY_POOL_ADDRESS = liquidityPoolAddress;
-        process.env.LENDING_MANAGER_ADDRESS = lendingManagerAddress;
-        process.env.GLINT_TOKEN_ADDRESS = glintTokenAddress;
-        process.env.CREDIT_SYSTEM_ADDRESS = zkComponents.creditSystemAddress;
+        // Deployment summary with ZK components
+        console.log("\nDeployment Summary:");
+        console.log("===================");
+        console.log("🏢 CORE CONTRACTS:");
+        console.log("GlintToken:", glintTokenAddress);
+        console.log("MockPriceFeed (Glint):", glintFeedAddress);
+        console.log("CORAL Token:", coralTokenAddress);
+        console.log("MockPriceFeed (CORAL):", coralFeedAddress);
+        console.log("USDC:", usdcAddress);
+        console.log("USDT:", usdtAddress);
+        console.log("StablecoinManager:", stablecoinManagerAddress);
+        console.log("LiquidityPool:", liquidityPoolAddress);
+        console.log("LendingManager:", lendingManagerAddress);
+        console.log("InterestRateModel:", irmAddress);
 
-        // Import and run the mockup script
-        const { runMockupSimulation } = require('./run-mockup-after-deploy.js');
-        await runMockupSimulation({
-            liquidityPool: liquidityPoolAddress,
-            lendingManager: lendingManagerAddress,
-            glintToken: glintTokenAddress,
-            creditSystem: zkComponents.creditSystemAddress
-        });
-        console.log("✅ Mockup simulation completed successfully!");
+        console.log("\n🔐 ZK PROOF SYSTEM:");
+        console.log("RISC Zero Verifier:", zkComponents.verifierAddress || "Not deployed");
+        console.log("SimpleRISC0Test:", zkComponents.simpleRisc0TestAddress || "Not deployed");
+        console.log("IntegratedCreditSystem:", zkComponents.creditSystemAddress || "Not deployed");
+        console.log("ZK Integration Status:", zkConnected ? "✅ Connected" : "❌ Failed");
+
+        // Update App.jsx with new addresses including ZK components
+        console.log("\nUpdating App.jsx addresses...");
+        try {
+            const updateResult = await updateAppAddresses({
+                liquidityPoolAddress,
+                lendingManagerAddress,
+                interestRateModelAddress: irmAddress,
+                // Add ZK components
+                creditSystemAddress: zkComponents.creditSystemAddress,
+                simpleRisc0TestAddress: zkComponents.simpleRisc0TestAddress,
+                riscZeroVerifierAddress: zkComponents.verifierAddress,
+                tokens: {
+                    GLINT: glintTokenAddress,
+                    CORAL: coralTokenAddress,
+                    USDC: usdcAddress,
+                    USDT: usdtAddress
+                }
+            });
+            console.log("App.jsx update result:", updateResult);
+        } catch (error) {
+            console.error("Failed to update App.jsx:", error.message);
+            // Don't exit, continue with mockup
+        }
+
+        // Copy ABI to frontend
+        const fs = require('fs');
+        const path = require('path');
+        const abiSrc = path.join(__dirname, '../artifacts/contracts/InterestRateModel.sol/InterestRateModel.json');
+        const abiDest = path.join(__dirname, '../../frontend/src/abis/InterestRateModel.json');
+        try {
+            fs.copyFileSync(abiSrc, abiDest);
+            console.log('InterestRateModel ABI copied to frontend.');
+        } catch (e) {
+            console.error('Failed to copy InterestRateModel ABI:', e.message);
+        }
+
+        // Copy ZK-related ABIs
+        try {
+            if (zkComponents.creditSystemAddress) {
+                const creditSystemAbiSrc = path.join(__dirname, '../artifacts/contracts/IntegratedCreditSystem.sol/IntegratedCreditSystem.json');
+                const creditSystemAbiDest = path.join(__dirname, '../../frontend/src/abis/IntegratedCreditSystem.json');
+                fs.copyFileSync(creditSystemAbiSrc, creditSystemAbiDest);
+                console.log('IntegratedCreditSystem ABI copied to frontend.');
+            }
+        } catch (e) {
+            console.error('Failed to copy ZK ABIs:', e.message);
+        }
+
+        console.log("\n✅ All contracts and feeds deployed and configured successfully!");
+
+        if (zkConnected) {
+            console.log("\n🎉 ZK PROOF SYSTEM READY!");
+            console.log("Risc0 team can submit their proofs using:");
+            console.log(`- creditSystem.submitTradFiProof(seal, journal)`);
+            console.log(`- creditSystem.submitAccountProof(seal, journal)`);
+            console.log(`- creditSystem.submitNestingProof(seal, journal)`);
+        }
+
+        // Run mockup platform behavior simulation
+        console.log("\n=== RUNNING MOCKUP PLATFORM BEHAVIOR SIMULATION ===");
+        try {
+            // Set environment variables for the mockup script
+            process.env.LIQUIDITY_POOL_ADDRESS = liquidityPoolAddress;
+            process.env.LENDING_MANAGER_ADDRESS = lendingManagerAddress;
+            process.env.GLINT_TOKEN_ADDRESS = glintTokenAddress;
+            process.env.CREDIT_SYSTEM_ADDRESS = zkComponents.creditSystemAddress;
+
+            // Import and run the mockup script
+            const { runMockupSimulation } = require('./run-mockup-after-deploy.js');
+            await runMockupSimulation({
+                liquidityPool: liquidityPoolAddress,
+                lendingManager: lendingManagerAddress,
+                glintToken: glintTokenAddress,
+                creditSystem: zkComponents.creditSystemAddress
+            });
+            console.log("✅ Mockup simulation completed successfully!");
+        } catch (error) {
+            console.error("⚠️  Mockup simulation failed:", error.message);
+            console.log("You can run the mockup manually with: npx hardhat run scripts/run-mockup-after-deploy.js");
+        }
     } catch (error) {
-        console.error("⚠️  Mockup simulation failed:", error.message);
-        console.log("You can run the mockup manually with: npx hardhat run scripts/run-mockup-after-deploy.js");
+        console.error("❌ Deployment failed:", error.message);
+        console.error("Stack trace:", error.stack);
+        process.exit(1);
     }
 }
 

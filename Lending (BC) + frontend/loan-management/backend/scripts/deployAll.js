@@ -261,8 +261,10 @@ async function main() {
     const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
     // Grant EXECUTOR_ROLE to AddressZero (anyone can execute after delay)
     await timelock.grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
-    // Revoke admin role from deployer
-    await timelock.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address);
+
+    // DON'T revoke admin role from deployer yet - do it at the very end
+    // await timelock.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address); // REMOVE THIS LINE
+
     // Verify roles
     const governorIsProposer = await timelock.hasRole(PROPOSER_ROLE, governor.address);
     const zeroIsExecutor = await timelock.hasRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
@@ -366,13 +368,12 @@ async function main() {
     }
 
     // 7. Deploy LendingManager
-    console.log("Deploying LendingManager...");
+    console.log("\nDeploying LendingManager...");
     const LendingManager = await ethers.getContractFactory("LendingManager");
     const lendingManager = await LendingManager.deploy(liquidityPool.address, timelock.address);
     await lendingManager.deployed();
-    const lendingManagerAddress = lendingManager.address;
-    console.log("LendingManager:", lendingManagerAddress);
-    console.log(`[DEPLOYED] LendingManager at: ${lendingManagerAddress} (new deployment)`);
+    console.log("LendingManager deployed at:", lendingManager.address);
+    console.log(`[DEPLOYED] LendingManager at: ${lendingManager.address} (new deployment)`);
 
     // 7.1 Set credit scores for two users (lender, borrower) before admin transfer
     const lender = accounts[1];
@@ -453,8 +454,20 @@ async function main() {
         console.error('Failed to write addresses to frontend/addresses.json or frontend/src/addresses.json:', e.message);
     }
 
-    // Revoke DEFAULT_ADMIN_ROLE from deployer after all admin actions are complete
-    await votingToken.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address);
+    // At the very end, after all setup is complete, revoke admin roles
+    console.log("\nFinalizing permissions...");
+
+    // Revoke DEFAULT_ADMIN_ROLE from deployer on VotingToken (only if timelock has it)
+    const timelockHasVotingTokenAdmin = await votingToken.hasRole(DEFAULT_ADMIN_ROLE, timelock.address);
+    if (timelockHasVotingTokenAdmin) {
+        try {
+            await votingToken.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address);
+            console.log("✅ Revoked VotingToken admin role from deployer");
+        } catch (e) {
+            console.log("⚠️ Could not revoke VotingToken admin role:", e.message);
+        }
+    }
+
     timelock.removeAllListeners();
 }
 

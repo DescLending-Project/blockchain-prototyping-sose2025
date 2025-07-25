@@ -212,7 +212,7 @@ describe("InterestRateModel", function () {
     describe("Oracle integration", () => {
         it("returns ETH price and updatedAt", async () => {
             const price = 2000e8; // 2000 * 1e8 = 200000000000
-            
+
             // First set a large staleness window
             const largeStalenessWindow = 86400; // 24 hours
             await model.setParameters(
@@ -243,18 +243,22 @@ describe("InterestRateModel", function () {
         });
         it("reverts if oracle is stale", async () => {
             const price = 2000e8;
-            // Set oldTime to be much further in the past than the staleness window
             const stalenessWindow = await model.oracleStalenessWindow();
-            const now = Math.floor(Date.now() / 1000);
-            const oldTime = now - Number(stalenessWindow) - 10; // 10s past staleness
+
+            // Use explicit time control instead of Date.now()
+            await ethers.provider.send("evm_mine");
+            const currentBlock = await ethers.provider.getBlock("latest");
+            const oldTime = currentBlock.timestamp - Number(stalenessWindow) - 10;
+
             await oracleMock.setLatestRoundData(price, oldTime);
-            // This should revert due to staleness
+
             let reverted = false;
             try {
                 await model.getEthPrice();
             } catch (err) {
                 reverted = true;
-                expect(err.message).to.match(/revert|StaleOracle|panic|invalid/i);
+                // More flexible error matching for coverage
+                expect(err.message).to.match(/revert|StaleOracle|panic|invalid|VM Exception/i);
             }
             expect(reverted).to.be.true;
         });
