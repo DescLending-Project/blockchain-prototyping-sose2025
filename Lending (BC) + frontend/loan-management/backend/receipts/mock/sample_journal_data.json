@@ -1,0 +1,25 @@
+{
+  "account": {
+    "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "nonce": 150,
+    "balance": "2500000000000000000",
+    "storageRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "codeHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+    "blockNumber": 123456,
+    "stateRoot": "0xe717d168d366b01f6edddc3554333c5b63afaedb34edd210f425b7334c251764"
+  },
+  "tradfi": {
+    "creditScore": "750",
+    "dataSource": "experian.com",
+    "reportDate": "2024-01-15",
+    "accountAge": "5",
+    "paymentHistory": "excellent"
+  },
+  "nesting": {
+    "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "defiScore": 85,
+    "tradfiScore": 750,
+    "hybridScore": 82,
+    "timestamp": 1753093558
+  }
+}

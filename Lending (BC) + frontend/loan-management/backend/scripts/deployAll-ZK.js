@@ -49,16 +49,16 @@ async function deployZKComponents(deployer, config, liquidityPoolV3Address) {
             const mockVerifier = await MockRiscZeroVerifier.deploy();
             await mockVerifier.waitForDeployment();
             verifierAddress = await mockVerifier.getAddress();
-            console.log("✅ Mock verifier deployed:", verifierAddress);
+            console.log("Mock verifier deployed:", verifierAddress);
         }
 
         // Step 2: Deploy SimpleRISC0Test
-        console.log("\n📋 Deploying SimpleRISC0Test...");
+        console.log("\n Deploying SimpleRISC0Test...");
         const SimpleRISC0Test = await ethers.getContractFactory("SimpleRISC0Test");
         const simpleRisc0Test = await SimpleRISC0Test.deploy(verifierAddress);
         await simpleRisc0Test.waitForDeployment();
         simpleRisc0TestAddress = await simpleRisc0Test.getAddress();
-        console.log("✅ SimpleRISC0Test deployed:", simpleRisc0TestAddress);
+        console.log("SimpleRISC0Test deployed:", simpleRisc0TestAddress);
 
         // Enable demo mode for mock verifier
         if (!config.USE_REAL_VERIFIER) {
@@ -67,7 +67,7 @@ async function deployZKComponents(deployer, config, liquidityPoolV3Address) {
         }
 
         // Step 3: Deploy IntegratedCreditSystem
-        console.log("\n📋 Deploying IntegratedCreditSystem...");
+        console.log("\n Deploying IntegratedCreditSystem...");
         const IntegratedCreditSystem = await ethers.getContractFactory("IntegratedCreditSystem");
         const creditSystem = await IntegratedCreditSystem.deploy(
             simpleRisc0TestAddress,
@@ -75,9 +75,9 @@ async function deployZKComponents(deployer, config, liquidityPoolV3Address) {
         );
         await creditSystem.waitForDeployment();
         creditSystemAddress = await creditSystem.getAddress();
-        console.log("✅ IntegratedCreditSystem deployed:", creditSystemAddress);
+        console.log("Success: IntegratedCreditSystem deployed:", creditSystemAddress);
 
-        console.log("\n✅ ZK Proof System deployed successfully!");
+        console.log("\nSuccess: ZK Proof System deployed successfully!");
         return {
             verifierAddress,
             simpleRisc0TestAddress,
@@ -95,6 +95,7 @@ async function deployZKComponents(deployer, config, liquidityPoolV3Address) {
     }
 }
 
+// we have this so it shouldnt skip
 async function connectZKToLiquidityPool(liquidityPoolV3, creditSystemAddress) {
     if (!creditSystemAddress) {
         console.log("⚠️ Skipping ZK integration - credit system not deployed");
@@ -106,11 +107,11 @@ async function connectZKToLiquidityPool(liquidityPoolV3, creditSystemAddress) {
         
         // Connect credit system to liquidity pool
         await liquidityPoolV3.setCreditSystem(creditSystemAddress);
-        console.log("✅ Credit system connected to LiquidityPool");
+        console.log("Success: Credit system connected to LiquidityPool");
 
         // Enable ZK proof requirement (optional - you can disable this)
         await liquidityPoolV3.setZKProofRequirement(false); // Start with false for testing
-        console.log("✅ ZK proof requirement configured");
+        console.log("Success: ZK proof requirement configured");
 
         return true;
     } catch (error) {
@@ -126,7 +127,7 @@ async function main() {
     console.log("Compiling contracts...");
     try {
         await hre.run("compile");
-        console.log("✅ Contracts compiled successfully");
+        console.log("Success: Contracts compiled successfully");
     } catch (error) {
         console.error("❌ Contract compilation failed:", error.message);
         process.exit(1);
@@ -136,7 +137,7 @@ async function main() {
     try {
         console.log("Copying artifacts to frontend...");
         require('./copy-artifacts.js');
-        console.log("✅ Artifacts copied successfully");
+        console.log("Success: Artifacts copied successfully");
     } catch (error) {
         console.error("❌ Failed to copy artifacts:", error.message);
         // Don't exit here, continue with deployment
@@ -432,7 +433,7 @@ async function main() {
     // Deployment summary with ZK components
     console.log("\nDeployment Summary:");
     console.log("===================");
-    console.log("🏢 CORE CONTRACTS:");
+    console.log("CORE CONTRACTS:");
     console.log("GlintToken:", glintTokenAddress);
     console.log("MockPriceFeed (Glint):", glintFeedAddress);
     console.log("CORAL Token:", coralTokenAddress);
@@ -444,11 +445,11 @@ async function main() {
     console.log("LendingManager:", lendingManagerAddress);
     console.log("InterestRateModel:", irmAddress);
     
-    console.log("\n🔐 ZK PROOF SYSTEM:");
+    console.log("\n ZK PROOF SYSTEM:");
     console.log("RISC Zero Verifier:", zkComponents.verifierAddress || "Not deployed");
     console.log("SimpleRISC0Test:", zkComponents.simpleRisc0TestAddress || "Not deployed");
     console.log("IntegratedCreditSystem:", zkComponents.creditSystemAddress || "Not deployed");
-    console.log("ZK Integration Status:", zkConnected ? "✅ Connected" : "❌ Failed");
+    console.log("ZK Integration Status:", zkConnected ? "Success: Connected" : "❌ Failed");
 
     // Update App.jsx with new addresses including ZK components
     console.log("\nUpdating App.jsx addresses...");
@@ -498,10 +499,10 @@ async function main() {
         console.error('Failed to copy ZK ABIs:', e.message);
     }
 
-    console.log("\n✅ All contracts and feeds deployed and configured successfully!");
+    console.log("\nSuccess: All contracts and feeds deployed and configured successfully!");
 
     if (zkConnected) {
-        console.log("\n🎉 ZK PROOF SYSTEM READY!");
+        console.log("\n ZK PROOF SYSTEM READY!");
         console.log("Risc0 team can submit their proofs using:");
         console.log(`- creditSystem.submitTradFiProof(seal, journal)`);
         console.log(`- creditSystem.submitAccountProof(seal, journal)`);
@@ -525,7 +526,7 @@ async function main() {
             glintToken: glintTokenAddress,
             creditSystem: zkComponents.creditSystemAddress
         });
-        console.log("✅ Mockup simulation completed successfully!");
+        console.log("Success: Mockup simulation completed successfully!");
     } catch (error) {
         console.error("⚠️  Mockup simulation failed:", error.message);
         console.log("You can run the mockup manually with: npx hardhat run scripts/run-mockup-after-deploy.js");

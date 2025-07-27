@@ -3,13 +3,11 @@ pragma solidity ^0.8.20;
 
 import "./verifiers/IRiscZeroVerifier.sol";
 
-/// @title Simple RISC Zero Integration Test with Demo Support
-/// @notice Minimal contract to test RISC Zero proof verification with mock support
-/// @dev Tests each proof type individually and supports demo mode
+//Simple RISC Zero Integration Test with Demo Support
+//- supports demo mode
 contract SimpleRISC0Test {
     IRiscZeroVerifier public immutable verifier;
     
-    // Image IDs from your extracted values
     bytes32 public constant ACCOUNT_MERKLE_IMAGE_ID = 0xb083f461f1de589187ceac04a9eb2c0fd7c99b8c80f4ed3f3d45963c8b9606bf;
     bytes32 public constant TRADFI_SCORE_IMAGE_ID = 0x81c6f5d0702b3a373ce771febb63581ed62fbd6ff427e4182bb827144e4a4c4c;
     //bytes32 public constant NESTING_PROOF_IMAGE_ID = 0xc5f84dae4b65b7ddd4591d0a119bcfb84fec97156216be7014ff03e1ff8f380e;
@@ -40,18 +38,18 @@ contract SimpleRISC0Test {
     constructor(IRiscZeroVerifier _verifier) {
         verifier = _verifier;
         owner = msg.sender;
-        demoMode = false; // Start in production mode
+        demoMode = true; // Start in DEMO mode NOTE: DONT FORGET TO CHANGE THIS
     }
     
-    /// @notice Toggle demo mode for testing
+    // Toggle demo mode for testing
     function setDemoMode(bool _demoMode) external onlyOwner {
         demoMode = _demoMode;
         emit DemoModeToggled(_demoMode);
     }
     
-    /// @notice Test TradFi TLSN proof verification
-    /// @param seal The RISC Zero proof seal
-    /// @param journalData The journal data from the proof
+    // Test TradFi TLSN proof verification
+    // The RISC Zero proof seal
+    // The journal data from the proof
     function testTradFiProof(
         bytes calldata seal,
         bytes calldata journalData
@@ -78,9 +76,9 @@ contract SimpleRISC0Test {
         }
     }
     
-    /// @notice Test Account Merkle proof verification
-    /// @param seal The RISC Zero proof seal
-    /// @param journalData The journal data from the proof
+    // Test Account Merkle proof verification
+    // seal The RISC Zero proof seal
+    // journalData The journal data from the proof
     function testAccountProof(
         bytes calldata seal,
         bytes calldata journalData
@@ -107,9 +105,9 @@ contract SimpleRISC0Test {
         }
     }
     
-    /// @notice Test Nesting proof verification
-    /// @param seal The RISC Zero proof seal
-    /// @param journalData The journal data from the proof
+    // Test Nesting proof verification
+    // seal The RISC Zero proof seal
+    // journalData The journal data from the proof
 
 
     function testNestingProof(
@@ -158,11 +156,6 @@ contract SimpleRISC0Test {
         return _isMockProof(seal, prefix);
     }
     
-    /// @notice Get verification status for a user
-    /// @param user Address to check
-    /// @return tradFiVerified Whether user has verified TradFi proof
-    /// @return accountVerified Whether user has verified Account proof
-    /// @return nestingVerified Whether user has verified Nesting proof
     function getVerificationStatus(address user) 
         external 
         view 
@@ -177,20 +170,17 @@ contract SimpleRISC0Test {
         nestingVerified = hasVerifiedNesting[user];
     }
     
-    /// @notice Simple function to test if contract is working
-    /// @return The current block timestamp
+
     function ping() external view returns (uint256) {
         return block.timestamp;
     }
     
-    /// @notice Get the verifier address for debugging
-    /// @return Address of the RISC Zero verifier contract
+
     function getVerifierAddress() external view returns (address) {
         return address(verifier);
     }
     
-    /// @notice Check if demo mode is enabled
-    /// @return Whether demo mode is active
+    
     function isDemoMode() external view returns (bool) {
         return demoMode;
     }
