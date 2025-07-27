@@ -9,16 +9,16 @@ import { UserPanel } from "./user/UserPanel"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Settings } from "lucide-react"
-import { Contract, Provider } from "ethers"
+import { ethers } from "ethers"
 import { GovernancePanel } from "./governance/GovernancePanel";
 
 interface DashboardProps {
-    contract: Contract;
-    lendingManagerContract: Contract;
+    contract: ethers.Contract;
+    lendingManagerContract: ethers.Contract;
     account: string | null;
     isAdmin: boolean;
     isLiquidator: boolean;
-    provider?: Provider;
+    provider?: ethers.Provider;
 }
 
 export function Dashboard({ contract, lendingManagerContract, account, isAdmin, isLiquidator, provider }: DashboardProps) {

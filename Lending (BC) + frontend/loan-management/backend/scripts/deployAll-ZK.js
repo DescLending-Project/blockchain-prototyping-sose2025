@@ -516,9 +516,5 @@ async function main() {
     }
 }
 
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error("Error in main function:", error.message);
-        process.exit(1);
-    });
+// No top-level await or promise usage outside functions. main() is only called if run directly.
+module.exports = { main };

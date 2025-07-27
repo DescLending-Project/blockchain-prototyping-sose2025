@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { useAccount } from 'wagmi';
 
 interface LoanDetails {
     principal: string;
@@ -17,20 +16,20 @@ interface LoanDetails {
 
 interface LoanDashboardProps {
     contract: ethers.Contract;
+    account: string;
 }
 
-const LoanDashboard: React.FC<LoanDashboardProps> = ({ contract }) => {
-    const { address } = useAccount();
+const LoanDashboard: React.FC<LoanDashboardProps> = ({ contract, account }) => {
     const [loanDetails, setLoanDetails] = useState<LoanDetails | null>(null);
     const [loading, setLoading] = useState(false);
     const [notifications, setNotifications] = useState<string[]>([]);
 
-    const fetchLoanDetails = async () => {
-        if (!address || !contract) return;
+    const fetchLoanDetails = async (): Promise<void> => {
+        if (!account || !contract) return;
 
         setLoading(true);
         try {
-            const details = await contract.getLoanDetails(address);
+            const details = await contract.getLoanDetails(account);
             setLoanDetails({
                 principal: ethers.formatEther(details.principal),
                 outstanding: ethers.formatEther(details.outstanding),
@@ -50,7 +49,7 @@ const LoanDashboard: React.FC<LoanDashboardProps> = ({ contract }) => {
         }
     };
 
-    const handleRepayInstallment = async () => {
+    const handleRepayInstallment = async (): Promise<void> => {
         if (!contract || !loanDetails) return;
 
         try {
@@ -66,23 +65,11 @@ const LoanDashboard: React.FC<LoanDashboardProps> = ({ contract }) => {
         }
     };
 
-    const getBorrowerRate = async () => {
-        if (!address || !contract) return;
-
-        try {
-            const rate = await contract.getBorrowerRate(address);
-            return ethers.formatUnits(rate, 18);
-        } catch (error) {
-            console.error('Error fetching borrower rate:', error);
-            return '0';
-        }
-    };
-
     useEffect(() => {
         fetchLoanDetails();
-        const interval = setInterval(fetchLoanDetails, 30000); // Refresh every 30 seconds
+        const interval = setInterval(fetchLoanDetails, 30000);
         return () => clearInterval(interval);
-    }, [address, contract]);
+    }, [account, contract]);
 
     if (loading) {
         return <div className="text-center p-4">Loading loan details...</div>;
@@ -101,7 +88,6 @@ const LoanDashboard: React.FC<LoanDashboardProps> = ({ contract }) => {
         <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-2xl font-bold mb-6">Loan Dashboard</h2>
 
-            {/* Notifications */}
             {notifications.length > 0 && (
                 <div className="mb-4">
                     {notifications.map((notification, index) => (
@@ -112,7 +98,6 @@ const LoanDashboard: React.FC<LoanDashboardProps> = ({ contract }) => {
                 </div>
             )}
 
-            {/* Loan Status */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="bg-gray-50 p-4 rounded-lg">
                     <h3 className="font-semibold text-lg mb-3">Loan Status</h3>
@@ -163,7 +148,6 @@ const LoanDashboard: React.FC<LoanDashboardProps> = ({ contract }) => {
                 </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
                 <button
                     onClick={handleRepayInstallment}
@@ -181,7 +165,6 @@ const LoanDashboard: React.FC<LoanDashboardProps> = ({ contract }) => {
                 </button>
             </div>
 
-            {/* Warning Messages */}
             {Number(loanDetails.daysUntilDue) <= 3 && Number(loanDetails.daysUntilDue) > 0 && (
                 <div className="mt-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
                     ⚠️ Payment due soon! Please make your payment to avoid late fees.

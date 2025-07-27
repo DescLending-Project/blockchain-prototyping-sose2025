@@ -20,14 +20,14 @@ async function deployContracts() {
     const MockVerifierFactory = await ethers.getContractFactory("MockRiscZeroVerifier");
     contracts.mockVerifier = await MockVerifierFactory.deploy();
     await contracts.mockVerifier.deployed();
-    console.log("✅ MockRiscZeroVerifier deployed to:", await contracts.mockVerifier..address);
+    console.log("✅ MockRiscZeroVerifier deployed to:", await contracts.mockVerifier.address);
 
     /* // Deploy SimpleRISC0Test
     console.log("\n📋 Step 2: Deploying SimpleRISC0Test...");
     const SimpleRISC0TestFactory = await ethers.getContractFactory("SimpleRISC0Test");
-    contracts.risc0Test = await SimpleRISC0TestFactory.deploy(await contracts.mockVerifier..address);
+    contracts.risc0Test = await SimpleRISC0TestFactory.deploy(await contracts.mockVerifier.address);
     await contracts.risc0Test.deployed();
-    console.log("✅ SimpleRISC0Test deployed to:", await contracts.risc0Test..address);*/
+    console.log("✅ SimpleRISC0Test deployed to:", await contracts.risc0Test.address);*/
 
     // Replace this section in deploy-and-demo.js:
     console.log("\n📋 Step 2: Deploying SimpleRISC0Test...");
@@ -51,13 +51,13 @@ async function deployContracts() {
         8 // 8 decimals is chainlink standard
     );
     await contracts.glintPriceFeed.deployed();
-    console.log("✅ MockPriceFeed deployed to:", await contracts.glintPriceFeed..address);
+    console.log("✅ MockPriceFeed deployed to:", await contracts.glintPriceFeed.address);
 
     console.log("\n📋 Step 5: Deploying StablecoinManager...");
     const StablecoinManagerFactory = await ethers.getContractFactory("StablecoinManager");
     contracts.stablecoinManager = await StablecoinManagerFactory.deploy(deployer.address);
     await contracts.stablecoinManager.deployed();
-    console.log("✅ StablecoinManager deployed to:", await contracts.stablecoinManager..address);
+    console.log("✅ StablecoinManager deployed to:", await contracts.stablecoinManager.address);
 
     // LendingManager as required by LiquidityPool
     console.log("\n📋 Step 6: Deploying LendingManager...");
@@ -70,18 +70,18 @@ async function deployContracts() {
         ethers.ZeroAddress // temporary liquidityPool address, will be updated later
     );
     await contracts.lendingManager.deployed();
-    console.log("✅ LendingManager deployed to:", await contracts.lendingManager..address);
+    console.log("✅ LendingManager deployed to:", await contracts.lendingManager.address);
 
     // Deploy IntegratedCreditSystem
     console.log("\n📋 Step 7: Deploying IntegratedCreditSystem...");
     console.log("\n📋 Step 5: Deploying IntegratedCreditSystem...");
     const IntegratedCreditSystemFactory = await ethers.getContractFactory("IntegratedCreditSystem");
     contracts.creditSystem = await IntegratedCreditSystemFactory.deploy(
-        await contracts.risc0Test..address,
+        await contracts.risc0Test.address,
         ethers.ZeroAddress // Will be set after LiquidityPool deployment
     );
     await contracts.creditSystem.deployed();
-    console.log("✅ IntegratedCreditSystem deployed to:", await contracts.creditSystem..address);
+    console.log("✅ IntegratedCreditSystem deployed to:", await contracts.creditSystem.address);
 
     //LiquidityPool
     console.log("\n📋 Step 8: Deploying LiquidityPool...");
@@ -93,11 +93,11 @@ async function deployContracts() {
     // Initialize the upgradeable contract with temporary addresses
     await contracts.liquidityPool.initialize(
         deployer.address, // initialOwner
-        await contracts.stablecoinManager..address,
-        await contracts.lendingManager..address, // temporary, will be updated
+        await contracts.stablecoinManager.address,
+        await contracts.lendingManager.address, // temporary, will be updated
         ethers.ZeroAddress // temporary, will be set later
     );
-    console.log("✅ LiquidityPool deployed and initialized to:", await contracts.liquidityPool..address);
+    console.log("✅ LiquidityPool deployed and initialized to:", await contracts.liquidityPool.address);
 
     // circular dependencies will be fixed by redeploying with correct addresses
     console.log("\n📋 Step 9: Fixing circular dependencies...");
@@ -107,28 +107,28 @@ async function deployContracts() {
     const LendingManagerFactory2 = await ethers.getContractFactory("LendingManager");
     const newLendingManager = await LendingManagerFactory2.deploy(
         deployer.address, // initialOwner
-        await contracts.liquidityPool..address // correct liquidityPool address
+        await contracts.liquidityPool.address // correct liquidityPool address
     );
     await newLendingManager.deployed();
     contracts.lendingManager = newLendingManager;
-    console.log("✅ LendingManager redeployed with correct pool address:", await contracts.lendingManager..address);
+    console.log("✅ LendingManager redeployed with correct pool address:", await contracts.lendingManager.address);
 
     // update LiquidityPool to use the new lending manager
-    await contracts.liquidityPool.setLendingManager(await contracts.lendingManager..address);
+    await contracts.liquidityPool.setLendingManager(await contracts.lendingManager.address);
     console.log("✅ LiquidityPool updated with new lending manager");
 
     // IntegratedCreditSystem deployed again with correct LiquidityPool address
     const IntegratedCreditSystemFactory2 = await ethers.getContractFactory("IntegratedCreditSystem");
     const newCreditSystem = await IntegratedCreditSystemFactory2.deploy(
-        await contracts.risc0Test..address,
-        await contracts.liquidityPool..address
+        await contracts.risc0Test.address,
+        await contracts.liquidityPool.address
     );
     await newCreditSystem.deployed();
     contracts.creditSystem = newCreditSystem;
-    console.log("✅ IntegratedCreditSystem redeployed with correct pool address:", await contracts.creditSystem..address);
+    console.log("✅ IntegratedCreditSystem redeployed with correct pool address:", await contracts.creditSystem.address);
 
     // Update LiquidityPool to use the new credit system
-    await contracts.liquidityPool.setCreditSystem(await contracts.creditSystem..address);
+    await contracts.liquidityPool.setCreditSystem(await contracts.creditSystem.address);
     console.log("✅ LiquidityPool updated with new credit system");
 
     // demoTester
@@ -136,12 +136,12 @@ async function deployContracts() {
     console.log("\n📋 Step 8: Deploying DemoTester...");
     const DemoTesterFactory = await ethers.getContractFactory("DemoTester");
     contracts.demoTester = await DemoTesterFactory.deploy(
-        await contracts.creditSystem..address,
-        await contracts.risc0Test..address,
-        await contracts.liquidityPool..address
+        await contracts.creditSystem.address,
+        await contracts.risc0Test.address,
+        await contracts.liquidityPool.address
     );
     await contracts.demoTester.deployed();
-    console.log("✅ DemoTester deployed to:", await contracts.demoTester..address);
+    console.log("✅ DemoTester deployed to:", await contracts.demoTester.address);
 
     return contracts;
 }
@@ -158,7 +158,7 @@ async function setupForDemo(contracts) {
     // Add funds to liquidity pool
     const fundAmount = ethers.parseEther("100");
     await deployer.sendTransaction({
-        to: await contracts.liquidityPool..address,
+        to: await contracts.liquidityPool.address,
         value: fundAmount
     });
     console.log(`✅ Added ${ethers.formatEther(fundAmount)} ETH to liquidity pool`);
@@ -169,7 +169,7 @@ async function setupForDemo(contracts) {
 
     await contracts.liquidityPool.setPriceFeed(
         await contracts.glintToken.address,
-        await contracts.glintPriceFeed..address
+        await contracts.glintPriceFeed.address
     );
     console.log("✅ GlintToken price feed set");
 
@@ -285,14 +285,14 @@ async function displaySummary(contracts, success) {
     console.log("=".repeat(60));
 
     console.log("\n📋 Deployed Contracts:");
-    console.log("- LiquidityPool:", await contracts.liquidityPool..address);
-    console.log("- IntegratedCreditSystem:", await contracts.creditSystem..address);
-    console.log("- SimpleRISC0Test:", await contracts.risc0Test..address);
-    console.log("- DemoTester:", await contracts.demoTester..address);
-    console.log("- StablecoinManager:", await contracts.stablecoinManager..address);
-    console.log("- LendingManager:", await contracts.lendingManager..address);
+    console.log("- LiquidityPool:", await contracts.liquidityPool.address);
+    console.log("- IntegratedCreditSystem:", await contracts.creditSystem.address);
+    console.log("- SimpleRISC0Test:", await contracts.risc0Test.address);
+    console.log("- DemoTester:", await contracts.demoTester.address);
+    console.log("- StablecoinManager:", await contracts.stablecoinManager.address);
+    console.log("- LendingManager:", await contracts.lendingManager.address);
     console.log("- GlintToken:", await contracts.glintToken.address);
-    console.log("- GlintPriceFeed:", await contracts.glintPriceFeed..address);
+    console.log("- GlintPriceFeed:", await contracts.glintPriceFeed.address);
 
     if (success) {
         console.log("\n🏆 DEMO RESULT: SUCCESS!");
@@ -358,13 +358,5 @@ async function main() {
     }
 }
 
-module.exports = {
-    deployContracts,
-    setupForDemo,
-    runDemo,
-    main
-};
-
-if (require.main === module) {
-    main().catch(console.error);
-}
+// No top-level await or promise usage outside functions. main() is only called if run directly.
+module.exports = { main };

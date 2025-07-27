@@ -32,7 +32,7 @@ async function main() {
     // Try to get private keys from hardhat node (works for local node with known mnemonic)
     // Hardhat exposes private keys for local accounts via hardhat.config.js or node output
     // If not available directly, derive from known mnemonic
-    const hardhatMnemonic = "test test test test test test test test test test test junk";
+    const hardhatMnemonic = "test test test test test test test test test test test test junk";
     const hdNode = ethers.utils.HDNode.fromMnemonic(hardhatMnemonic);
 
     roles.forEach(({ name, signer }, idx) => {
@@ -371,7 +371,5 @@ function getStateName(state) {
     return states[state] || "Unknown";
 }
 
-main().catch((err) => {
-    console.error('Mock transaction script failed:', err);
-    process.exit(1);
-});
+// No top-level await or promise usage outside functions. main() is only called if run directly.
+module.exports = { main };

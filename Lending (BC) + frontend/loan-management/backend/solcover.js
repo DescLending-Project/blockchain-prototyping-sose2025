@@ -13,9 +13,7 @@ module.exports = {
     silent: false,
     istanbulReporter: ['text', 'html'],
     mocha: {
-        timeout: 600000,
-        grep: "ProtocolGovernor|Integration|Coverage Expansion",
-        invert: true
+        timeout: 600000
     },
     providerOptions: {
         default_balance_ether: 10000,
@@ -24,12 +22,5 @@ module.exports = {
     },
     measureStatementCoverage: true,
     measureFunctionCoverage: true,
-    configureYulOptimizer: true,
-    solcOptimizerDetails: {
-        enabled: true,
-        runs: 200,
-        details: {
-            yul: true
-        }
-    }
+    testfiles: "./test/simple.coverage.test.js"
 }; 

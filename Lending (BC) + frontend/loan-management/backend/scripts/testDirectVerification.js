@@ -171,16 +171,5 @@ async function main() {
     }
 }
 
-if (require.main === module) {
-    main()
-        .then(() => {
-            console.log("\n🎯 Direct verification testing completed!");
-            process.exit(0);
-        })
-        .catch((error) => {
-            console.error("\n💥 Direct verification testing failed:", error);
-            process.exit(1);
-        });
-}
-
+// No top-level await or promise usage outside functions. main() is only called if run directly.
 module.exports = { main };

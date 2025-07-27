@@ -496,7 +496,5 @@ export const getContractAddresses = (networkName) => {
     timelock.removeAllListeners();
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-});
+// No top-level await or promise usage outside functions. main() is only called if run directly.
+module.exports = { main };

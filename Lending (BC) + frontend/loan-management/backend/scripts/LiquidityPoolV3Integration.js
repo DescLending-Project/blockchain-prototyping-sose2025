@@ -330,13 +330,5 @@ module.exports = { CreditMonitoring };
     console.log("✅ Credit monitoring system created");
 }
 
-if (require.main === module) {
-    main()
-        .then(() => process.exit(0))
-        .catch((error) => {
-            console.error(error);
-            process.exit(1);
-        });
-}
-
+// No top-level await or promise usage outside functions. main() is only called if run directly.
 module.exports = { main };

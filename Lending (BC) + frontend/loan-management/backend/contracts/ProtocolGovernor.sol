@@ -543,4 +543,15 @@ contract ProtocolGovernor is
         }
         return string(result);
     }
+
+    // Implementation for IERC6372 required functions
+    function clock() public view override returns (uint48) {
+        // Use block.number as the clock, matching OpenZeppelin's default
+        return uint48(block.number);
+    }
+
+    function CLOCK_MODE() public view override returns (string memory) {
+        // Return the default clock mode string as in OpenZeppelin
+        return "mode=blocknumber";
+    }
 }
