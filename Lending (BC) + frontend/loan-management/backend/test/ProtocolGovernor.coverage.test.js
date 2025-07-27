@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ProtocolGovernor - Coverage Boost", function () {
+describe("ProtocolGovernor - Coverage Boost", function() {
     let governor, votingToken, timelock;
     let owner, user1, user2, user3;
 
@@ -11,7 +11,7 @@ describe("ProtocolGovernor - Coverage Boost", function () {
         // Deploy VotingToken with correct constructor
         const VotingToken = await ethers.getContractFactory("VotingToken");
         votingToken = await VotingToken.deploy(owner.address); // Pass DAO address
-        await votingToken.deployed();
+        await votingToken.waitForDeployment();
 
         // Deploy TimelockController
         const TimelockController = await ethers.getContractFactory("TimelockController");
@@ -21,15 +21,15 @@ describe("ProtocolGovernor - Coverage Boost", function () {
             [owner.address], // executors
             owner.address // admin
         );
-        await timelock.deployed();
+        await timelock.waitForDeployment();
 
         // Deploy ProtocolGovernor with correct constructor
         const ProtocolGovernor = await ethers.getContractFactory("ProtocolGovernor");
         governor = await ProtocolGovernor.deploy(
-            votingToken.address,
-            timelock.address
+            await votingToken.getAddress(),
+            timelock.getAddress()
         );
-        await governor.deployed();
+        await governor.waitForDeployment();
 
         // Setup voting tokens for users (within 1-100 range)
         await votingToken.connect(owner).setLiquidityPool(owner.address);
@@ -38,15 +38,15 @@ describe("ProtocolGovernor - Coverage Boost", function () {
         await votingToken.connect(owner).mint(user3.address, 20);
     });
 
-    describe("Governance Functions", function () {
+    describe("Governance Functions", function() {
         it("should track user reputation", async function () {
             // Initial reputation should be token balance
-            expect(await votingToken.balanceOf(user1.address)).to.equal(50);
-            expect(await votingToken.balanceOf(user2.address)).to.equal(30);
+            expect(await votingToken.balanceOf(user1.address)).to.equal(50n);
+            expect(await votingToken.balanceOf(user2.address)).to.equal(30n);
         });
 
         it("should handle proposal creation", async function () {
-            const targets = [votingToken.address];
+            const targets = [await votingToken.getAddress()];
             const values = [0];
             const calldatas = [votingToken.interface.encodeFunctionData("setLiquidityPool", [user2.address])];
             const description = "Change liquidity pool";
@@ -57,7 +57,7 @@ describe("ProtocolGovernor - Coverage Boost", function () {
         });
 
         it("should handle voting process", async function () {
-            const targets = [votingToken.address];
+            const targets = [await votingToken.getAddress()];
             const values = [0];
             const calldatas = [votingToken.interface.encodeFunctionData("setLiquidityPool", [user2.address])];
             const description = "Test proposal";
@@ -79,7 +79,7 @@ describe("ProtocolGovernor - Coverage Boost", function () {
         });
 
         it("should handle reputation penalties", async function () {
-            await votingToken.connect(owner).setProtocolGovernor(governor.address);
+            await votingToken.connect(owner).setProtocolGovernor(governor.getAddress());
 
             const initialBalance = await votingToken.balanceOf(user1.address);
 
@@ -87,7 +87,7 @@ describe("ProtocolGovernor - Coverage Boost", function () {
             await governor.connect(owner).penalizeReputation(user1.address, 10);
 
             const newBalance = await votingToken.balanceOf(user1.address);
-            expect(newBalance).to.equal(initialBalance.sub(10));
+            expect(newBalance).to.equal(initialBalance - 10);
         });
     });
 });

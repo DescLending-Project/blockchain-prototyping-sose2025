@@ -1,0 +1,14 @@
+{
+  "name": "loan-management-backend",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "test": "npx hardhat test",
+    "coverage": "npx hardhat coverage"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
+    "hardhat": "^2.20.0",
+    "solidity-coverage": "^0.8.16"
+  }
+}

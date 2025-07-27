@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("IntegratedCreditSystem - Basic Tests", function () {
+describe("IntegratedCreditSystem - Basic Tests", function() {
     let creditSystem, mockRisc0Verifier, mockLiquidityPool;
     let owner, user1, user2, user3;
 
@@ -18,7 +18,7 @@ describe("IntegratedCreditSystem - Basic Tests", function () {
         // Deploy SimpleRISC0Test instead of MockRiscZeroVerifier
         const SimpleRISC0Test = await ethers.getContractFactory("SimpleRISC0Test");
         mockRisc0Verifier = await SimpleRISC0Test.deploy(owner.address);
-        await mockRisc0Verifier.deployed();
+        await mockRisc0Verifier.waitForDeployment();
 
         // Enable demo mode to accept mock proofs
         await mockRisc0Verifier.setDemoMode(true);
@@ -26,29 +26,29 @@ describe("IntegratedCreditSystem - Basic Tests", function () {
         // Deploy mock liquidity pool with timelock functionality
         const MockLiquidityPool = await ethers.getContractFactory("MockPool");
         mockLiquidityPool = await MockLiquidityPool.deploy();
-        await mockLiquidityPool.deployed();
+        await mockLiquidityPool.waitForDeployment();
 
         // Deploy IntegratedCreditSystem
         const IntegratedCreditSystem = await ethers.getContractFactory("IntegratedCreditSystem");
         creditSystem = await IntegratedCreditSystem.deploy(
-            mockRisc0Verifier.address,
-            mockLiquidityPool.address
+            await mockRisc0Verifier.getAddress(),
+            await mockLiquidityPool.getAddress()
         );
-        await creditSystem.deployed();
+        await creditSystem.waitForDeployment();
     });
 
-    describe("Constructor and Initial State", function () {
+    describe("Constructor and Initial State", function() {
         it("should initialize with correct parameters", async function () {
-            expect(await creditSystem.risc0Verifier()).to.equal(mockRisc0Verifier.address);
-            expect(await creditSystem.liquidityPool()).to.equal(mockLiquidityPool.address);
-            expect((await creditSystem.VERIFICATION_VALIDITY_PERIOD()).toNumber()).to.equal(30 * 24 * 60 * 60);
-            expect((await creditSystem.MIN_CREDIT_SCORE()).toNumber()).to.equal(25);
+            expect(await creditSystem.risc0Verifier()).to.equal(await mockRisc0Verifier.getAddress());
+            expect(await creditSystem.liquidityPool()).to.equal(await mockLiquidityPool.getAddress());
+            expect(await creditSystem.VERIFICATION_VALIDITY_PERIOD()).to.equal(BigInt(30 * 24 * 60 * 60));
+            expect(await creditSystem.MIN_CREDIT_SCORE()).to.equal(25n);
         });
 
         it("should have correct initial scoring weights", async function () {
-            expect((await creditSystem.tradFiWeight()).toNumber()).to.equal(50);
-            expect((await creditSystem.accountWeight()).toNumber()).to.equal(30);
-            expect((await creditSystem.nestingWeight()).toNumber()).to.equal(20);
+            expect(await creditSystem.tradFiWeight()).to.equal(50n);
+            expect(await creditSystem.accountWeight()).to.equal(30n);
+            expect(await creditSystem.nestingWeight()).to.equal(20n);
         });
 
         it("should have empty initial credit profiles", async function () {
@@ -56,14 +56,14 @@ describe("IntegratedCreditSystem - Basic Tests", function () {
             expect(profile.hasTradFiVerification).to.be.false;
             expect(profile.hasAccountVerification).to.be.false;
             expect(profile.hasNestingVerification).to.be.false;
-            expect(profile.finalCreditScore.toNumber()).to.equal(0);
+            expect(profile.finalCreditScore).to.equal(0n);
         });
     });
 
-    describe("Utility Functions", function () {
+    describe("Utility Functions", function() {
         it("should return minimum credit score", async function () {
             const minScore = await creditSystem.getMinimumCreditScore();
-            expect(minScore.toNumber()).to.equal(25);
+            expect(minScore).to.equal(25n);
         });
 
         it("should check borrowing eligibility for new users", async function () {
@@ -76,15 +76,15 @@ describe("IntegratedCreditSystem - Basic Tests", function () {
             expect(profile.hasTradFi).to.be.false;
             expect(profile.hasAccount).to.be.false;
             expect(profile.hasNesting).to.be.false;
-            expect(profile.finalScore.toNumber()).to.equal(0);
+            expect(profile.finalScore).to.equal(0n);
             expect(profile.isEligible).to.be.false;
         });
 
         it("should get detailed verification status", async function () {
             const status = await creditSystem.getDetailedVerificationStatus(user1.address);
-            expect(status.tradFiScore.toNumber()).to.equal(0);
-            expect(status.accountScore.toNumber()).to.equal(0);
-            expect(status.hybridScore.toNumber()).to.equal(0);
+            expect(status.tradFiScore).to.equal(0n);
+            expect(status.accountScore).to.equal(0n);
+            expect(status.hybridScore).to.equal(0n);
         });
     });
 });

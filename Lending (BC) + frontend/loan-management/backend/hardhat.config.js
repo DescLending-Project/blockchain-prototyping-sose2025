@@ -1,7 +1,8 @@
 require('solidity-coverage');
-require("@nomiclabs/hardhat-ethers");
+require("@nomicfoundation/hardhat-ethers");
 require("@nomicfoundation/hardhat-verify");
 require("@openzeppelin/hardhat-upgrades");
+require("@nomicfoundation/hardhat-chai-matchers");
 require("dotenv").config();
 
 module.exports = {

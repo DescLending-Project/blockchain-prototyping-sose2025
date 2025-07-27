@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("IntegratedCreditSystem - TradFi Tests", function () {
+describe("IntegratedCreditSystem - TradFi Tests", function() {
     let creditSystem, mockRisc0Verifier, mockLiquidityPool;
     let owner, user1, user2, user3;
 
@@ -11,27 +11,27 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
         // Deploy SimpleRISC0Test
         const SimpleRISC0Test = await ethers.getContractFactory("SimpleRISC0Test");
         mockRisc0Verifier = await SimpleRISC0Test.deploy(owner.address);
-        await mockRisc0Verifier.deployed();
+        await mockRisc0Verifier.waitForDeployment();
         await mockRisc0Verifier.setDemoMode(true);
 
         // Deploy mock liquidity pool
         const MockLiquidityPool = await ethers.getContractFactory("MockPool");
         mockLiquidityPool = await MockLiquidityPool.deploy();
-        await mockLiquidityPool.deployed();
+        await mockLiquidityPool.waitForDeployment();
 
         // Deploy IntegratedCreditSystem
         const IntegratedCreditSystem = await ethers.getContractFactory("IntegratedCreditSystem");
         creditSystem = await IntegratedCreditSystem.deploy(
-            mockRisc0Verifier.address,
-            mockLiquidityPool.address
+            await mockRisc0Verifier.getAddress(),
+            await mockLiquidityPool.getAddress()
         );
-        await creditSystem.deployed();
+        await creditSystem.waitForDeployment();
     });
 
-    describe("TradFi Proof Submission", function () {
+    describe("TradFi Proof Submission", function() {
         it("should successfully submit TradFi proof", async function () {
-            const mockSeal = ethers.utils.toUtf8Bytes("MOCK_TRADFI_SEAL_750_" + Date.now());
-            const mockJournal = ethers.utils.defaultAbiCoder.encode(
+            const mockSeal = ethers.toUtf8Bytes("MOCK_TRADFI_SEAL_750_" + Date.now());
+            const mockJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                 ["tuple(string,string,string,string,string)"],
                 [["750", "experian.com", "2024-01-15", "5 years", "excellent"]]
             );
@@ -40,15 +40,23 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
             const receipt = await tx.wait();
 
             // Check events
-            const verificationEvent = receipt.events?.find(e => e.event === "CreditVerificationCompleted");
+            const verificationEvent = receipt.logs.find(log => {
+                try {
+                    const parsed = creditSystem.interface.parseLog(log);
+                    return parsed.name === "CreditVerificationCompleted";
+                } catch {
+                    return false;
+                }
+            });
             expect(verificationEvent).to.exist;
-            expect(verificationEvent.args.user).to.equal(user1.address);
-            expect(verificationEvent.args.verificationType).to.equal("TradFi");
+            const parsedEvent = creditSystem.interface.parseLog(verificationEvent);
+            expect(parsedEvent.args.user).to.equal(user1.address);
+            expect(parsedEvent.args.verificationType).to.equal("TradFi");
 
             // Check profile update
             const profile = await creditSystem.creditProfiles(user1.address);
             expect(profile.hasTradFiVerification).to.be.true;
-            expect(profile.finalCreditScore.toNumber()).to.be.greaterThan(0);
+            expect(Number(profile.finalCreditScore)).to.be.greaterThan(0);
         });
 
         it("should handle different credit score ranges", async function () {
@@ -63,8 +71,8 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
                 const testCase = testCases[i];
                 const testUser = [user1, user2, user3, owner][i];
 
-                const mockSeal = ethers.utils.toUtf8Bytes("MOCK_TRADFI_SEAL_" + testCase.score + "_" + (Date.now() + i));
-                const mockJournal = ethers.utils.defaultAbiCoder.encode(
+                const mockSeal = ethers.toUtf8Bytes("MOCK_TRADFI_SEAL_" + testCase.score + "_" + (Date.now() + i));
+                const mockJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                     ["tuple(string,string,string,string,string)"],
                     [[testCase.score, "experian", "2024-01-15", "5 years", "good"]]
                 );
@@ -72,7 +80,7 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
                 await creditSystem.connect(testUser).submitTradFiProof(mockSeal, mockJournal);
 
                 const profile = await creditSystem.creditProfiles(testUser.address);
-                expect(profile.finalCreditScore.toNumber()).to.be.within(testCase.expectedRange[0], testCase.expectedRange[1]);
+                expect(Number(profile.finalCreditScore)).to.be.within(testCase.expectedRange[0], testCase.expectedRange[1]);
 
                 // Reset for next test by expiring verification
                 await ethers.provider.send("evm_increaseTime", [31 * 24 * 60 * 60]);
@@ -81,8 +89,8 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
         });
 
         it("should handle TradFi proof with fallback parsing", async function () {
-            const mockSeal = ethers.utils.toUtf8Bytes("MOCK_TRADFI_SEAL_750_" + Date.now());
-            const invalidJournal = ethers.utils.toUtf8Bytes("invalid data");
+            const mockSeal = ethers.toUtf8Bytes("MOCK_TRADFI_SEAL_750_" + Date.now());
+            const invalidJournal = ethers.toUtf8Bytes("invalid data");
 
             const tx = await creditSystem.connect(user1).submitTradFiProof(mockSeal, invalidJournal);
             await tx.wait();
@@ -93,7 +101,7 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
         });
 
         it("should handle external TradFi journal decoding", async function () {
-            const mockJournal = ethers.utils.defaultAbiCoder.encode(
+            const mockJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                 ["tuple(string,string,string,string,string)"],
                 [["750", "experian", "2024-01-15", "5 years", "excellent"]]
             );
@@ -104,8 +112,8 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
         });
 
         it("should emit ProofDataParsed event for TradFi", async function () {
-            const mockSeal = ethers.utils.toUtf8Bytes("MOCK_TRADFI_SEAL_750_" + Date.now());
-            const mockJournal = ethers.utils.defaultAbiCoder.encode(
+            const mockSeal = ethers.toUtf8Bytes("MOCK_TRADFI_SEAL_750_" + Date.now());
+            const mockJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                 ["tuple(string,string,string,string,string)"],
                 [["750", "experian", "2024-01-15", "5 years", "excellent"]]
             );
@@ -113,9 +121,17 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
             const tx = await creditSystem.connect(user1).submitTradFiProof(mockSeal, mockJournal);
             const receipt = await tx.wait();
 
-            const proofDataEvent = receipt.events?.find(e => e.event === "ProofDataParsed");
+            const proofDataEvent = receipt.logs.find(log => {
+                try {
+                    const parsed = creditSystem.interface.parseLog(log);
+                    return parsed.name === "ProofDataParsed";
+                } catch {
+                    return false;
+                }
+            });
             expect(proofDataEvent).to.exist;
-            expect(proofDataEvent.args.proofType).to.equal("TradFi");
+            const parsedProofEvent = creditSystem.interface.parseLog(proofDataEvent);
+            expect(parsedProofEvent.args.proofType).to.equal("TradFi");
         });
 
         it("should handle extreme credit scores", async function () {
@@ -125,8 +141,8 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
                 const score = extremeCases[i];
                 const testUser = [user1, user2, user3, owner][i];
 
-                const mockSeal = ethers.utils.toUtf8Bytes("MOCK_TRADFI_SEAL_" + score + "_" + (Date.now() + i));
-                const mockJournal = ethers.utils.defaultAbiCoder.encode(
+                const mockSeal = ethers.toUtf8Bytes("MOCK_TRADFI_SEAL_" + score + "_" + (Date.now() + i));
+                const mockJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                     ["tuple(string,string,string,string,string)"],
                     [[score, "test", "2024-01-15", "1 year", "test"]]
                 );
@@ -135,8 +151,8 @@ describe("IntegratedCreditSystem - TradFi Tests", function () {
 
                 const profile = await creditSystem.creditProfiles(testUser.address);
                 expect(profile.hasTradFiVerification).to.be.true;
-                expect(profile.finalCreditScore.toNumber()).to.be.at.least(0);
-                expect(profile.finalCreditScore.toNumber()).to.be.at.most(100);
+                expect(Number(profile.finalCreditScore)).to.be.at.least(0);
+                expect(Number(profile.finalCreditScore)).to.be.at.most(100);
 
                 // Reset for next test
                 await ethers.provider.send("evm_increaseTime", [31 * 24 * 60 * 60]);

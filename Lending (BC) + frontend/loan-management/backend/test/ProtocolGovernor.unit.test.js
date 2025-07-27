@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ProtocolGovernor - Comprehensive Coverage", function () {
+describe("ProtocolGovernor - Comprehensive Coverage", function() {
     let votingToken, timelock, governor;
     let owner, user1, user2, user3, user4;
 
@@ -11,7 +11,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
         // Deploy VotingToken
         const VotingToken = await ethers.getContractFactory("VotingToken");
         votingToken = await VotingToken.deploy(owner.address);
-        await votingToken.deployed();
+        await votingToken.waitForDeployment();
 
         // Deploy TimelockController
         const TimelockController = await ethers.getContractFactory("TimelockController");
@@ -21,50 +21,50 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
             [owner.address], // executors
             owner.address // admin
         );
-        await timelock.deployed();
+        await timelock.waitForDeployment();
 
         // Deploy ProtocolGovernor
         const ProtocolGovernor = await ethers.getContractFactory("ProtocolGovernor");
         governor = await ProtocolGovernor.deploy(
-            votingToken.address,
-            timelock.address
+            await votingToken.getAddress(),
+            timelock.getAddress()
         );
-        await governor.deployed();
+        await governor.waitForDeployment();
 
         // Setup roles
         const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
         const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
 
-        await timelock.grantRole(PROPOSER_ROLE, governor.address);
-        await timelock.grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
+        await timelock.grantRole(PROPOSER_ROLE, governor.getAddress());
+        await timelock.grantRole(EXECUTOR_ROLE, ethers.ZeroAddress);
 
         // Grant minter role to governor
         const MINTER_ROLE = await votingToken.MINTER_ROLE();
-        await votingToken.grantRole(MINTER_ROLE, governor.address);
+        await votingToken.grantRole(MINTER_ROLE, governor.getAddress());
 
         // Mint tokens for voting
-        await votingToken.mint(owner.address, ethers.utils.parseEther("1000"));
-        await votingToken.mint(user1.address, ethers.utils.parseEther("500"));
-        await votingToken.mint(user2.address, ethers.utils.parseEther("300"));
+        await votingToken.mint(owner.address, ethers.parseEther("1000"));
+        await votingToken.mint(user1.address, ethers.parseEther("500"));
+        await votingToken.mint(user2.address, ethers.parseEther("300"));
     });
 
-    describe("Initialization", function () {
+    describe("Initialization", function() {
         it("should initialize with correct parameters", async function () {
-            expect(await governor.votingToken()).to.equal(votingToken.address);
-            expect(await governor.timelock()).to.equal(timelock.address);
+            expect(await governor.votingToken()).to.equal(await votingToken.getAddress());
+            expect(await governor.timelock()).to.equal(timelock.getAddress());
             expect(await governor.name()).to.equal("ProtocolGovernor");
         });
 
         it("should have correct voting parameters", async function () {
-            expect(await governor.votingDelay()).to.equal(60);
-            expect(await governor.votingPeriod()).to.equal(60);
-            expect(await governor.proposalThreshold()).to.equal(0);
+            expect(await governor.votingDelay()).to.equal(60n);
+            expect(await governor.votingPeriod()).to.equal(60n);
+            expect(await governor.proposalThreshold()).to.equal(0n);
         });
     });
 
-    describe("Proposal Creation", function () {
+    describe("Proposal Creation", function() {
         it("should allow creating proposals", async function () {
-            const targets = [governor.address];
+            const targets = [governor.getAddress()];
             const values = [0];
             const calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [5])];
             const description = "Change quorum to 5%";
@@ -75,28 +75,28 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
         });
 
         it("should reject proposals with mismatched arrays", async function () {
-            const targets = [governor.address];
+            const targets = [governor.getAddress()];
             const values = [0, 1]; // Mismatched length
             const calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [5])];
             const description = "Invalid proposal";
 
             await expect(
                 governor.connect(owner).propose(targets, values, calldatas, description)
-            ).to.be.revertedWith("Governor: invalid proposal length");
+            ).to.be.revertedWithCustomError("Governor: invalid proposal length");
         });
 
         it("should handle empty proposals", async function () {
             await expect(
                 governor.connect(owner).propose([], [], [], "Empty proposal")
-            ).to.be.revertedWith("Governor: empty proposal");
+            ).to.be.revertedWithCustomError("Governor: empty proposal");
         });
     });
 
-    describe("Voting Mechanism", function () {
+    describe("Voting Mechanism", function() {
         let proposalId;
 
         beforeEach(async function () {
-            const targets = [governor.address];
+            const targets = [governor.getAddress()];
             const values = [0];
             const calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [3])];
             const description = "Test proposal";
@@ -107,7 +107,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
 
             // Advance to voting period
             const votingDelay = await governor.votingDelay();
-            for (let i = 0; i <= votingDelay.toNumber(); i++) {
+            for (let i = 0; i <= votingDelay; i++) {
                 await ethers.provider.send("evm_mine");
             }
         });
@@ -124,9 +124,9 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
             await governor.connect(user2).castVote(proposalId, 2); // Abstain
 
             const votes = await governor.proposalVotes(proposalId);
-            expect(votes.forVotes).to.be.gt(0);
-            expect(votes.againstVotes).to.be.gt(0);
-            expect(votes.abstainVotes).to.be.gt(0);
+            expect(votes.forVotes).to.be > 0;
+            expect(votes.againstVotes).to.be > 0;
+            expect(votes.abstainVotes).to.be > 0;
         });
 
         it("should prevent double voting", async function () {
@@ -134,7 +134,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
 
             await expect(
                 governor.connect(owner).castVote(proposalId, 1)
-            ).to.be.revertedWith("GovernorVotingSimple: vote already cast");
+            ).to.be.revertedWithCustomError("GovernorVotingSimple: vote already cast");
         });
 
         it("should handle voting with reason", async function () {
@@ -146,11 +146,11 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
         });
     });
 
-    describe("Proposal States", function () {
+    describe("Proposal States", function() {
         let proposalId;
 
         beforeEach(async function () {
-            const targets = [governor.address];
+            const targets = [governor.getAddress()];
             const values = [0];
             const calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [2])];
             const description = "State test proposal";
@@ -162,23 +162,23 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
 
         it("should start in Pending state", async function () {
             const state = await governor.state(proposalId);
-            expect(state).to.equal(0); // Pending
+            expect(state).to.equal(0n); // Pending
         });
 
         it("should move to Active state after delay", async function () {
             const votingDelay = await governor.votingDelay();
-            for (let i = 0; i <= votingDelay.toNumber(); i++) {
+            for (let i = 0; i <= votingDelay; i++) {
                 await ethers.provider.send("evm_mine");
             }
 
             const state = await governor.state(proposalId);
-            expect(state).to.equal(1); // Active
+            expect(state).to.equal(1n); // Active
         });
 
         it("should move to Succeeded after successful vote", async function () {
             // Activate proposal
             const votingDelay = await governor.votingDelay();
-            for (let i = 0; i <= votingDelay.toNumber(); i++) {
+            for (let i = 0; i <= votingDelay; i++) {
                 await ethers.provider.send("evm_mine");
             }
 
@@ -188,20 +188,20 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
 
             // End voting period
             const votingPeriod = await governor.votingPeriod();
-            for (let i = 0; i <= votingPeriod.toNumber(); i++) {
+            for (let i = 0; i <= votingPeriod; i++) {
                 await ethers.provider.send("evm_mine");
             }
 
             const state = await governor.state(proposalId);
-            expect(state).to.equal(4); // Succeeded
+            expect(state).to.equal(4n); // Succeeded
         });
     });
 
-    describe("Proposal Execution", function () {
+    describe("Proposal Execution", function() {
         let proposalId, targets, values, calldatas, descriptionHash;
 
         beforeEach(async function () {
-            targets = [governor.address];
+            targets = [governor.getAddress()];
             values = [0];
             calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [1])];
             const description = "Execution test";
@@ -213,7 +213,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
 
             // Activate and vote
             const votingDelay = await governor.votingDelay();
-            for (let i = 0; i <= votingDelay.toNumber(); i++) {
+            for (let i = 0; i <= votingDelay; i++) {
                 await ethers.provider.send("evm_mine");
             }
 
@@ -222,7 +222,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
 
             // End voting
             const votingPeriod = await governor.votingPeriod();
-            for (let i = 0; i <= votingPeriod.toNumber(); i++) {
+            for (let i = 0; i <= votingPeriod; i++) {
                 await ethers.provider.send("evm_mine");
             }
         });
@@ -233,7 +233,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
             ).to.emit(governor, "ProposalQueued");
 
             const state = await governor.state(proposalId);
-            expect(state).to.equal(5); // Queued
+            expect(state).to.equal(5n); // Queued
         });
 
         it("should execute queued proposals after delay", async function () {
@@ -241,7 +241,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
 
             // Wait for timelock delay
             const delay = await timelock.getMinDelay();
-            await ethers.provider.send("evm_increaseTime", [delay.toNumber() + 1]);
+            await ethers.provider.send("evm_increaseTime", [delay + 1]);
             await ethers.provider.send("evm_mine");
 
             await expect(
@@ -249,13 +249,13 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
             ).to.emit(governor, "ProposalExecuted");
 
             const state = await governor.state(proposalId);
-            expect(state).to.equal(7); // Executed
+            expect(state).to.equal(7n); // Executed
         });
     });
 
-    describe("Advanced Proposals", function () {
+    describe("Advanced Proposals", function() {
         it("should handle advanced proposal creation", async function () {
-            const targetContract = governor.address;
+            const targetContract = governor.getAddress();
             const functionSelector = governor.interface.getSighash("setQuorumPercentage");
             const encodedParams = ethers.utils.defaultAbiCoder.encode(["uint256"], [8]);
             const description = "Advanced proposal test";
@@ -271,7 +271,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
         });
 
         it("should handle advanced voting", async function () {
-            const targetContract = governor.address;
+            const targetContract = governor.getAddress();
             const functionSelector = governor.interface.getSighash("setQuorumPercentage");
             const encodedParams = ethers.utils.defaultAbiCoder.encode(["uint256"], [8]);
             const description = "Advanced voting test";
@@ -295,53 +295,55 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
         });
     });
 
-    describe("Token Granting", function () {
+    describe("Token Granting", function() {
         it("should grant tokens for lending actions", async function () {
             const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
-            await mockFeed.deployed();
+            const mockFeed = await MockPriceFeed.deploy(ethers.parseUnits("2000", 8), 8);
+            await mockFeed.waitForDeployment();
+            await mockFeed.waitForDeployment();
 
-            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+            await governor.setPriceFeed(ethers.ZeroAddress, mockFeed.getAddress());
 
             const balanceBefore = await votingToken.balanceOf(user1.address);
 
             await governor.grantTokensForAction(
                 user1.address,
                 0, // LEND
-                ethers.constants.AddressZero, // ETH
-                ethers.utils.parseEther("1")
+                ethers.ZeroAddress, // ETH
+                ethers.parseEther("1")
             );
 
             const balanceAfter = await votingToken.balanceOf(user1.address);
-            expect(balanceAfter).to.be.gt(balanceBefore);
+            expect(balanceAfter).to.be > balanceBefore;
         });
 
         it("should handle different action types", async function () {
             const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
-            await mockFeed.deployed();
+            const mockFeed = await MockPriceFeed.deploy(ethers.parseUnits("2000", 8), 8);
+            await mockFeed.waitForDeployment();
+            await mockFeed.waitForDeployment();
 
-            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+            await governor.setPriceFeed(ethers.ZeroAddress, mockFeed.getAddress());
 
             // Test BORROW action
             await governor.grantTokensForAction(
                 user1.address,
                 1, // BORROW
-                ethers.constants.AddressZero,
-                ethers.utils.parseEther("0.5")
+                ethers.ZeroAddress,
+                ethers.parseEther("0.5")
             );
 
             // Test REPAY action
             await governor.grantTokensForAction(
                 user1.address,
                 2, // REPAY
-                ethers.constants.AddressZero,
-                ethers.utils.parseEther("0.3")
+                ethers.ZeroAddress,
+                ethers.parseEther("0.3")
             );
         });
     });
 
-    describe("Contract Whitelist", function () {
+    describe("Contract Whitelist", function() {
         it("should manage contract whitelist", async function () {
             const contractAddr = user1.address;
 
@@ -357,7 +359,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
         });
     });
 
-    describe("Emergency Multisig", function () {
+    describe("Emergency Multisig", function() {
         it("should set emergency multisig", async function () {
             const signers = [user1.address, user2.address, user3.address];
 
@@ -370,74 +372,79 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
         });
     });
 
-    describe("Reputation System", function () {
+    describe("Reputation System", function() {
         it("should track user reputation", async function () {
             const initialRep = await governor.reputation(user1.address);
-            expect(initialRep).to.equal(0);
+            expect(initialRep).to.equal(0n);
 
             // Only VotingToken can call penalizeReputation
             await expect(
                 governor.connect(owner).penalizeReputation(user1.address, 10)
-            ).to.be.revertedWith("Only VotingToken");
+            ).to.be.revertedWithCustomError("Only VotingToken");
         });
     });
 
-    describe("Price Feed Management", function () {
+    describe("Price Feed Management", function() {
         it("should set price feeds", async function () {
             const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
-            await mockFeed.deployed();
+            const mockFeed = await MockPriceFeed.deploy(ethers.parseUnits("2000", 8), 8);
+            await mockFeed.waitForDeployment();
+            await mockFeed.waitForDeployment();
 
-            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
-            expect(await governor.priceFeeds(ethers.constants.AddressZero)).to.equal(mockFeed.address);
+            await governor.setPriceFeed(ethers.ZeroAddress, mockFeed.getAddress());
+            expect(await governor.priceFeeds(ethers.ZeroAddress)).to.equal(mockFeed.getAddress());
         });
 
         it("should get asset prices", async function () {
             const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
-            await mockFeed.deployed();
+            const mockFeed = await MockPriceFeed.deploy(ethers.parseUnits("2000", 8), 8);
+            await mockFeed.waitForDeployment();
+            await mockFeed.waitForDeployment();
 
-            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+            await governor.setPriceFeed(ethers.ZeroAddress, mockFeed.getAddress());
 
-            const price = await governor.getAssetPrice(ethers.constants.AddressZero);
-            expect(price).to.be.gt(0);
+            const price = await governor.getAssetPrice(ethers.ZeroAddress);
+            expect(price).to.be > 0;
         });
     });
 
-    describe("Utility Functions", function () {
+    describe("Utility Functions", function() {
         it("should calculate square root", async function () {
             // Test internal sqrt function through token granting
             const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
-            await mockFeed.deployed();
+            const mockFeed = await MockPriceFeed.deploy(ethers.parseUnits("2000", 8), 8);
+            await mockFeed.waitForDeployment();
+            await mockFeed.waitForDeployment();
 
-            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+            await governor.setPriceFeed(ethers.ZeroAddress, mockFeed.getAddress());
 
             // This will internally use sqrt function
             await governor.grantTokensForAction(
                 user1.address,
                 0, // LEND
-                ethers.constants.AddressZero,
-                ethers.utils.parseEther("4") // Perfect square for testing
+                ethers.ZeroAddress,
+                ethers.parseEther("4") // Perfect square for testing
             );
         });
     });
 
-    describe("Edge Cases", function () {
+    describe("Edge Cases", function() {
         it("should handle zero token grants", async function () {
             const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-            const mockFeed = await MockPriceFeed.deploy(0, 8); // Zero price
-            await mockFeed.deployed();
+            const mockFeed = await MockPriceFeed.deploy(0, 8);
+            await mockFeed.waitForDeployment();
+  await $2.waitForDeployment(); // Zero price
+            await mockFeed.waitForDeployment();
 
-            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+            await governor.setPriceFeed(ethers.ZeroAddress, mockFeed.getAddress());
 
             const balanceBefore = await votingToken.balanceOf(user1.address);
 
             await governor.grantTokensForAction(
                 user1.address,
                 0, // LEND
-                ethers.constants.AddressZero,
-                ethers.utils.parseEther("1")
+                ethers.ZeroAddress,
+                ethers.parseEther("1")
             );
 
             const balanceAfter = await votingToken.balanceOf(user1.address);
@@ -446,41 +453,42 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
 
         it("should cap token grants at maximum", async function () {
             const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("1000000", 8), 8); // Very high price
-            await mockFeed.deployed();
+            const mockFeed = await MockPriceFeed.deploy(ethers.parseUnits("1000000", 8), 8); // Very high price
+            await mockFeed.waitForDeployment();
+            await mockFeed.waitForDeployment();
 
-            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+            await governor.setPriceFeed(ethers.ZeroAddress, mockFeed.getAddress());
 
             const balanceBefore = await votingToken.balanceOf(user1.address);
 
             await governor.grantTokensForAction(
                 user1.address,
                 0, // LEND
-                ethers.constants.AddressZero,
-                ethers.utils.parseEther("1000") // Large amount
+                ethers.ZeroAddress,
+                ethers.parseEther("1000") // Large amount
             );
 
             const balanceAfter = await votingToken.balanceOf(user1.address);
-            const tokensGranted = balanceAfter.sub(balanceBefore);
+            const tokensGranted = balanceAfter - balanceBefore;
             expect(tokensGranted).to.be.lte(1000); // Capped at 1000
         });
 
         it("should handle invalid price feeds", async function () {
             await expect(
                 governor.getAssetPrice(user1.address) // No price feed set
-            ).to.be.revertedWith("No price feed");
+            ).to.be.revertedWithCustomError("No price feed");
         });
     });
 
-    describe("Access Control", function () {
+    describe("Access Control", function() {
         it("should restrict DAO-only functions", async function () {
             await expect(
                 governor.connect(user1).setContractWhitelist(user2.address, true)
-            ).to.be.revertedWith("Only DAO");
+            ).to.be.revertedWithCustomError("Only DAO");
 
             await expect(
                 governor.connect(user1).setEmergencyMultisig([user2.address])
-            ).to.be.revertedWith("Only DAO");
+            ).to.be.revertedWithCustomError("Only DAO");
         });
 
         it("should allow DAO functions from owner", async function () {
@@ -490,7 +498,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
         });
     });
 
-    describe("Quorum Management", function () {
+    describe("Quorum Management", function() {
         it("should get current quorum", async function () {
             const blockNumber = await ethers.provider.getBlockNumber();
             const quorum = await governor.quorum(blockNumber);
@@ -499,7 +507,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function () {
 
         it("should update quorum percentage", async function () {
             await governor.setQuorumPercentage(10);
-            expect(await governor.quorumPercentage()).to.equal(10);
+            expect(await governor.quorumPercentage()).to.equal(10n);
         });
     });
 });

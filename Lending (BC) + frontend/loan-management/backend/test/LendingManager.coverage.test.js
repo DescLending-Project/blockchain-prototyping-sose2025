@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ProtocolGovernor - Coverage Boost", function () {
+describe("ProtocolGovernor - Coverage Boost", function() {
     let votingToken, timelock, governor, lendingManager;
     let owner, user1, user2, user3;
 
@@ -11,7 +11,7 @@ describe("ProtocolGovernor - Coverage Boost", function () {
         // Deploy VotingToken
         const VotingToken = await ethers.getContractFactory("VotingToken");
         votingToken = await VotingToken.deploy();
-        await votingToken.deployed();
+        await votingToken.waitForDeployment();
 
         // Deploy TimelockController
         const TimelockController = await ethers.getContractFactory("TimelockController");
@@ -21,59 +21,59 @@ describe("ProtocolGovernor - Coverage Boost", function () {
             [owner.address], // executors
             owner.address // admin
         );
-        await timelock.deployed();
+        await timelock.waitForDeployment();
 
         // Deploy ProtocolGovernor
         const ProtocolGovernor = await ethers.getContractFactory("ProtocolGovernor");
         governor = await ProtocolGovernor.deploy(
-            votingToken.address,
-            timelock.address,
+            await votingToken.getAddress(),
+            timelock.getAddress(),
             1, // voting delay
             60, // voting period
-            ethers.utils.parseEther("100"), // proposal threshold
+            ethers.parseEther("100"), // proposal threshold
             4 // quorum percentage
         );
-        await governor.deployed();
+        await governor.waitForDeployment();
 
         // Deploy LendingManager
         const LendingManager = await ethers.getContractFactory("LendingManager");
         lendingManager = await LendingManager.deploy(
             owner.address, // liquidityPool
             owner.address, // interestRateModel
-            timelock.address, // timelock
+            timelock.getAddress(), // timelock
             86400 // withdrawal cooldown (1 day)
         );
-        await lendingManager.deployed();
+        await lendingManager.waitForDeployment();
 
         // Setup roles
         const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
         const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
 
-        await timelock.grantRole(PROPOSER_ROLE, governor.address);
-        await timelock.grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
+        await timelock.grantRole(PROPOSER_ROLE, governor.getAddress());
+        await timelock.grantRole(EXECUTOR_ROLE, ethers.ZeroAddress);
 
         // Mint tokens for testing
-        await votingToken.mint(owner.address, ethers.utils.parseEther("1000"));
-        await votingToken.mint(user1.address, ethers.utils.parseEther("500"));
-        await votingToken.mint(user2.address, ethers.utils.parseEther("300"));
+        await votingToken.mint(owner.address, ethers.parseEther("1000"));
+        await votingToken.mint(user1.address, ethers.parseEther("500"));
+        await votingToken.mint(user2.address, ethers.parseEther("300"));
     });
 
-    describe("User Reputation Tracking", function () {
+    describe("User Reputation Tracking", function() {
         it("should track user reputation", async function () {
             // Test reputation tracking functionality
             const initialReputation = await lendingManager.getUserReputation(user1.address);
-            expect(initialReputation).to.equal(0);
+            expect(initialReputation).to.equal(0n);
 
             // Simulate deposit to increase reputation
-            await lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("1") });
+            await lendingManager.connect(user1).deposit({ value: ethers.parseEther("1") });
 
             const updatedReputation = await lendingManager.getUserReputation(user1.address);
-            expect(updatedReputation).to.be.gt(initialReputation);
+            expect(updatedReputation).to.be > initialReputation;
         });
 
         it("should handle reputation decay over time", async function () {
             // Deposit to build reputation
-            await lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("1") });
+            await lendingManager.connect(user1).deposit({ value: ethers.parseEther("1") });
 
             const initialReputation = await lendingManager.getUserReputation(user1.address);
 
@@ -86,14 +86,14 @@ describe("ProtocolGovernor - Coverage Boost", function () {
         });
     });
 
-    describe("Advanced Lending Features", function () {
+    describe("Advanced Lending Features", function() {
         it("should handle complex interest calculations", async function () {
             // Deposit funds
-            await lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("10") });
+            await lendingManager.connect(user1).deposit({ value: ethers.parseEther("10") });
 
             // Check initial balance
             const initialBalance = await lendingManager.getBalance(user1.address);
-            expect(initialBalance).to.equal(ethers.utils.parseEther("10"));
+            expect(initialBalance).to.equal(ethers.parseEther("10"));
 
             // Fast forward time to accrue interest
             await ethers.provider.send("evm_increaseTime", [86400]); // 1 day
@@ -103,15 +103,15 @@ describe("ProtocolGovernor - Coverage Boost", function () {
             await lendingManager.accrueInterest();
 
             const balanceWithInterest = await lendingManager.getBalance(user1.address);
-            expect(balanceWithInterest).to.be.gt(initialBalance);
+            expect(balanceWithInterest).to.be > initialBalance;
         });
 
         it("should handle withdrawal requests properly", async function () {
             // Deposit funds first
-            await lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("5") });
+            await lendingManager.connect(user1).deposit({ value: ethers.parseEther("5") });
 
             // Request withdrawal
-            await lendingManager.connect(user1).requestWithdrawal(ethers.utils.parseEther("2"));
+            await lendingManager.connect(user1).requestWithdrawal(ethers.parseEther("2"));
 
             // Check withdrawal request
             const canComplete = await lendingManager.canCompleteWithdrawal(user1.address);
@@ -126,7 +126,7 @@ describe("ProtocolGovernor - Coverage Boost", function () {
         });
     });
 
-    describe("Emergency Functions", function () {
+    describe("Emergency Functions", function() {
         it("should handle emergency pause", async function () {
             await lendingManager.pause();
 
@@ -135,8 +135,8 @@ describe("ProtocolGovernor - Coverage Boost", function () {
 
             // Should revert deposits when paused
             await expect(
-                lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("1") })
-            ).to.be.revertedWith("Pausable: paused");
+                lendingManager.connect(user1).deposit({ value: ethers.parseEther("1") })
+            ).to.be.revertedWithCustomError("Pausable: paused");
         });
 
         it("should handle emergency unpause", async function () {
@@ -148,7 +148,7 @@ describe("ProtocolGovernor - Coverage Boost", function () {
 
             // Should allow deposits when unpaused
             await expect(
-                lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("1") })
+                lendingManager.connect(user1).deposit({ value: ethers.parseEther("1") })
             ).to.not.be.reverted;
         });
     });

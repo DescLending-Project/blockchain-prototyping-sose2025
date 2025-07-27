@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("LiquidityPool - Comprehensive Coverage", function () {
+describe("LiquidityPool - Comprehensive Coverage", function() {
     let liquidityPool, interestRateModel, lendingManager, stablecoinManager, timelock;
     let owner, lender1, lender2, borrower1, borrower2, liquidator;
 
@@ -11,52 +11,52 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         // Deploy mock timelock
         const MockTimelock = await ethers.getContractFactory("MockTimelock");
         timelock = await MockTimelock.deploy();
-        await timelock.deployed();
+        await timelock.waitForDeployment();
 
         // Deploy InterestRateModel with all required parameters
         const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
         interestRateModel = await InterestRateModel.deploy(
             "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419", // ETH/USD Oracle
-            timelock.address,
-            ethers.utils.parseEther("0.05"), // baseRate
-            ethers.utils.parseEther("0.8"),   // kink
-            ethers.utils.parseEther("0.1"),   // slope1
-            ethers.utils.parseEther("0.3"),   // slope2
-            ethers.utils.parseEther("0.1"),   // reserveFactor
-            ethers.utils.parseEther("1.0"),   // maxBorrowRate
-            ethers.utils.parseEther("0.05"),  // maxRateChange
-            ethers.utils.parseEther("0.03"),  // ethPriceRiskPremium
-            ethers.utils.parseEther("0.2"),   // ethVolatilityThreshold
+            timelock.getAddress(),
+            ethers.parseEther("0.05"), // baseRate
+            ethers.parseEther("0.8"),   // kink
+            ethers.parseEther("0.1"),   // slope1
+            ethers.parseEther("0.3"),   // slope2
+            ethers.parseEther("0.1"),   // reserveFactor
+            ethers.parseEther("1.0"),   // maxBorrowRate
+            ethers.parseEther("0.05"),  // maxRateChange
+            ethers.parseEther("0.03"),  // ethPriceRiskPremium
+            ethers.parseEther("0.2"),   // ethVolatilityThreshold
             86400 // oracleStalenessWindow
         );
-        await interestRateModel.deployed();
+        await interestRateModel.waitForDeployment();
 
         // Deploy StablecoinManager with correct constructor (1 argument)
         const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
-        stablecoinManager = await StablecoinManager.deploy(timelock.address);
-        await stablecoinManager.deployed();
+        stablecoinManager = await StablecoinManager.deploy(timelock.getAddress());
+        await stablecoinManager.waitForDeployment();
 
         // Deploy LiquidityPool with correct constructor (5 arguments)
         const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
         liquidityPool = await LiquidityPool.deploy(
-            timelock.address,
-            stablecoinManager.address,
-            ethers.constants.AddressZero, // LendingManager placeholder
-            interestRateModel.address,
-            ethers.constants.AddressZero  // CreditSystem placeholder
+            timelock.getAddress(),
+            await stablecoinManager.getAddress(),
+            ethers.ZeroAddress, // LendingManager placeholder
+            await interestRateModel.getAddress(),
+            ethers.ZeroAddress  // CreditSystem placeholder
         );
-        await liquidityPool.deployed();
+        await liquidityPool.waitForDeployment();
 
         // Deploy LendingManager
         const LendingManager = await ethers.getContractFactory("LendingManager");
         lendingManager = await LendingManager.deploy(
-            liquidityPool.address,
-            ethers.constants.AddressZero // VotingToken placeholder
+            await liquidityPool.getAddress(),
+            ethers.ZeroAddress // VotingToken placeholder
         );
-        await lendingManager.deployed();
+        await lendingManager.waitForDeployment();
 
         // Set up contracts
-        await liquidityPool.connect(timelock).setLendingManager(lendingManager.address);
+        await liquidityPool.connect(timelock).setLendingManager(await lendingManager.getAddress());
 
         // Set credit scores for testing
         await liquidityPool.connect(timelock).setCreditScore(borrower1.address, 80);
@@ -65,26 +65,26 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         await liquidityPool.connect(timelock).setCreditScore(lender2.address, 90);
     });
 
-    describe("Initialization", function () {
+    describe("Initialization", function() {
         it("should initialize with correct parameters", async function () {
-            expect(await liquidityPool.interestRateModel()).to.equal(interestRateModel.address);
-            expect(await liquidityPool.timelock()).to.equal(timelock.address);
+            expect(await liquidityPool.interestRateModel()).to.equal(await interestRateModel.getAddress());
+            expect(await liquidityPool.timelock()).to.equal(timelock.getAddress());
             expect(await liquidityPool.paused()).to.be.false;
         });
 
         it("should have correct initial state", async function () {
-            expect(await liquidityPool.getBalance()).to.equal(0);
-            expect(await liquidityPool.totalFunds()).to.equal(0);
+            expect(await liquidityPool.getBalance()).to.equal(0n);
+            expect(await liquidityPool.totalFunds()).to.equal(0n);
             expect(await liquidityPool.locked()).to.be.false;
         });
     });
 
-    describe("Deposit Functionality", function () {
+    describe("Deposit Functionality", function() {
         it("should accept ETH deposits", async function () {
-            const depositAmount = ethers.utils.parseEther("5");
+            const depositAmount = ethers.parseEther("5");
 
             await expect(
-                lender1.sendTransaction({ to: liquidityPool.address, value: depositAmount })
+                lender1.sendTransaction({ to: await liquidityPool.getAddress(), value: depositAmount })
             ).to.emit(liquidityPool, "Deposit")
                 .withArgs(lender1.address, depositAmount);
 
@@ -92,66 +92,66 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         });
 
         it("should handle multiple deposits", async function () {
-            const deposit1 = ethers.utils.parseEther("5");
-            const deposit2 = ethers.utils.parseEther("3");
+            const deposit1 = ethers.parseEther("5");
+            const deposit2 = ethers.parseEther("3");
 
-            await lender1.sendTransaction({ to: liquidityPool.address, value: deposit1 });
-            await lender1.sendTransaction({ to: liquidityPool.address, value: deposit2 });
+            await lender1.sendTransaction({ to: await liquidityPool.getAddress(), value: deposit1 });
+            await lender1.sendTransaction({ to: await liquidityPool.getAddress(), value: deposit2 });
 
-            expect(await liquidityPool.lenderBalances(lender1.address)).to.equal(deposit1.add(deposit2));
+            expect(await liquidityPool.lenderBalances(lender1.address)).to.equal(deposit1 + deposit2);
         });
 
         it("should reject zero deposits", async function () {
             await expect(
-                lender1.sendTransaction({ to: liquidityPool.address, value: 0 })
-            ).to.be.revertedWith("Amount must be greater than 0");
+                lender1.sendTransaction({ to: await liquidityPool.getAddress(), value: 0 })
+            ).to.be.revertedWithCustomError("Amount must be greater than 0");
         });
     });
 
-    describe("Borrowing Functionality", function () {
+    describe("Borrowing Functionality", function() {
         beforeEach(async function () {
             // Setup: lender deposits funds
             await lender1.sendTransaction({
-                to: liquidityPool.address,
-                value: ethers.utils.parseEther("100")
+                to: await liquidityPool.getAddress(),
+                value: ethers.parseEther("100")
             });
         });
 
         it("should allow borrowing with sufficient credit score", async function () {
-            const borrowAmount = ethers.utils.parseEther("1");
+            const borrowAmount = ethers.parseEther("1");
 
             await expect(
                 liquidityPool.connect(borrower1).borrow(borrowAmount)
             ).to.emit(liquidityPool, "Borrowed")
                 .withArgs(borrower1.address, borrowAmount);
 
-            expect(await liquidityPool.userDebt(borrower1.address)).to.be.gt(borrowAmount);
+            expect(await liquidityPool.userDebt(borrower1.address)).to.be > borrowAmount;
         });
 
         it("should reject borrowing with insufficient credit score", async function () {
             await liquidityPool.connect(timelock).setCreditScore(borrower1.address, 30); // Below minimum
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.utils.parseEther("1"))
-            ).to.be.revertedWith("Credit score too low");
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"))
+            ).to.be.revertedWithCustomError("Credit score too low");
         });
 
         it("should reject borrowing more than available liquidity", async function () {
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.utils.parseEther("200"))
-            ).to.be.revertedWith("Borrow amount exceeds available lending capacity");
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("200"))
+            ).to.be.revertedWithCustomError("Borrow amount exceeds available lending capacity");
         });
     });
 
-    describe("Repayment Functionality", function () {
+    describe("Repayment Functionality", function() {
         beforeEach(async function () {
             // Setup: lender deposits and borrower borrows
             await lender1.sendTransaction({
-                to: liquidityPool.address,
-                value: ethers.utils.parseEther("100")
+                to: await liquidityPool.getAddress(),
+                value: ethers.parseEther("100")
             });
 
-            await liquidityPool.connect(borrower1).borrow(ethers.utils.parseEther("10"));
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("10"));
         });
 
         it("should allow full repayment", async function () {
@@ -162,7 +162,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
             ).to.emit(liquidityPool, "Repaid")
                 .withArgs(borrower1.address, debt);
 
-            expect(await liquidityPool.userDebt(borrower1.address)).to.equal(0);
+            expect(await liquidityPool.userDebt(borrower1.address)).to.equal(0n);
         });
 
         it("should handle partial repayment", async function () {
@@ -171,17 +171,17 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
 
             await liquidityPool.connect(borrower1).repay({ value: partialAmount });
 
-            expect(await liquidityPool.userDebt(borrower1.address)).to.equal(debt.sub(partialAmount));
+            expect(await liquidityPool.userDebt(borrower1.address)).to.equal(debt - partialAmount);
         });
     });
 
-    describe("Interest Accrual", function () {
+    describe("Interest Accrual", function() {
         beforeEach(async function () {
             await lender1.sendTransaction({
-                to: liquidityPool.address,
-                value: ethers.utils.parseEther("100")
+                to: await liquidityPool.getAddress(),
+                value: ethers.parseEther("100")
             });
-            await liquidityPool.connect(borrower1).borrow(ethers.utils.parseEther("10"));
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("10"));
         });
 
         it("should accrue interest over time", async function () {
@@ -194,7 +194,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
             await liquidityPool.accrueInterest();
 
             const newDebt = await liquidityPool.userDebt(borrower1.address);
-            expect(newDebt).to.be.gt(initialDebt);
+            expect(newDebt).to.be > initialDebt;
         });
 
         it("should distribute interest to lenders", async function () {
@@ -206,20 +206,20 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
             await liquidityPool.accrueInterest();
 
             const newBalance = await liquidityPool.lenderBalances(lender1.address);
-            expect(newBalance).to.be.gt(initialBalance);
+            expect(newBalance).to.be > initialBalance;
         });
     });
 
-    describe("Withdrawal Process", function () {
+    describe("Withdrawal Process", function() {
         beforeEach(async function () {
             await lender1.sendTransaction({
-                to: liquidityPool.address,
-                value: ethers.utils.parseEther("10")
+                to: await liquidityPool.getAddress(),
+                value: ethers.parseEther("10")
             });
         });
 
         it("should allow withdrawal requests", async function () {
-            const withdrawAmount = ethers.utils.parseEther("5");
+            const withdrawAmount = ethers.parseEther("5");
 
             await expect(
                 liquidityPool.connect(lender1).requestWithdrawal(withdrawAmount)
@@ -228,7 +228,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         });
 
         it("should complete withdrawals after cooldown", async function () {
-            const withdrawAmount = ethers.utils.parseEther("5");
+            const withdrawAmount = ethers.parseEther("5");
 
             await liquidityPool.connect(lender1).requestWithdrawal(withdrawAmount);
 
@@ -242,7 +242,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         });
 
         it("should allow withdrawal cancellation", async function () {
-            const withdrawAmount = ethers.utils.parseEther("5");
+            const withdrawAmount = ethers.parseEther("5");
 
             await liquidityPool.connect(lender1).requestWithdrawal(withdrawAmount);
 
@@ -252,7 +252,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         });
     });
 
-    describe("Admin Functions", function () {
+    describe("Admin Functions", function() {
         it("should allow timelock to pause/unpause", async function () {
             await liquidityPool.connect(timelock).togglePause();
             expect(await liquidityPool.paused()).to.be.true;
@@ -263,52 +263,52 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
 
         it("should allow timelock to set credit scores", async function () {
             await liquidityPool.connect(timelock).setCreditScore(borrower1.address, 95);
-            expect(await liquidityPool.creditScores(borrower1.address)).to.equal(95);
+            expect(await liquidityPool.creditScores(borrower1.address)).to.equal(95n);
         });
 
         it("should reject non-timelock operations", async function () {
             await expect(
                 liquidityPool.connect(lender1).togglePause()
-            ).to.be.revertedWith("Only timelock");
+            ).to.be.revertedWithCustomError("Only timelock");
         });
     });
 
-    describe("Edge Cases and Error Handling", function () {
+    describe("Edge Cases and Error Handling", function() {
         it("should handle zero balance withdrawals", async function () {
             await expect(
-                liquidityPool.connect(lender1).requestWithdrawal(ethers.utils.parseEther("1"))
-            ).to.be.revertedWith("Insufficient balance");
+                liquidityPool.connect(lender1).requestWithdrawal(ethers.parseEther("1"))
+            ).to.be.revertedWithCustomError("Insufficient balance");
         });
 
         it("should handle borrowing when paused", async function () {
             await liquidityPool.pause();
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.utils.parseEther("1"))
-            ).to.be.revertedWith("Pausable: paused");
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"))
+            ).to.be.revertedWithCustomError("Pausable: paused");
         });
 
         it("should handle multiple borrowers", async function () {
             await lender1.sendTransaction({
-                to: liquidityPool.address,
-                value: ethers.utils.parseEther("100")
+                to: await liquidityPool.getAddress(),
+                value: ethers.parseEther("100")
             });
 
-            await liquidityPool.connect(borrower1).borrow(ethers.utils.parseEther("10"));
-            await liquidityPool.connect(borrower2).borrow(ethers.utils.parseEther("15"));
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("10"));
+            await liquidityPool.connect(borrower2).borrow(ethers.parseEther("15"));
 
-            expect(await liquidityPool.userDebt(borrower1.address)).to.be.gt(0);
-            expect(await liquidityPool.userDebt(borrower2.address)).to.be.gt(0);
+            expect(await liquidityPool.userDebt(borrower1.address)).to.be > 0;
+            expect(await liquidityPool.userDebt(borrower2.address)).to.be > 0;
         });
     });
 
-    describe("Liquidation", function () {
+    describe("Liquidation", function() {
         beforeEach(async function () {
             await lender1.sendTransaction({
-                to: liquidityPool.address,
-                value: ethers.utils.parseEther("100")
+                to: await liquidityPool.getAddress(),
+                value: ethers.parseEther("100")
             });
-            await liquidityPool.connect(borrower1).borrow(ethers.utils.parseEther("50"));
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("50"));
         });
 
         it("should allow liquidation of undercollateralized positions", async function () {
