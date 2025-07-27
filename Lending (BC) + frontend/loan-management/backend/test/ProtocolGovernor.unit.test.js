@@ -1,219 +1,12 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ProtocolGovernor", function () {
-    // Helper to disable bootstrap mode via proposal
-    async function disableBootstrap(governor, voter) {
-        // Ensure voter has enough tokens for bootstrap quorum
-        // Need sqrt(tokens) >= 100, so need at least 10000 tokens
-        const currentBalance = await votingToken.balanceOf(voter.address);
-        if (currentBalance.lt(10000)) {
-            await votingToken.mint(voter.address, 10000);
-        }
+describe("ProtocolGovernor - Comprehensive Coverage", function () {
+    let votingToken, timelock, governor;
+    let owner, user1, user2, user3, user4;
 
-        await governor.connect(voter).proposeAdvanced(
-            governor.address,
-            governor.interface.getSighash("disableBootstrapMode()"),
-            "0x",
-            1,
-            { gasLimit: 1000000 }
-        );
-
-        await governor.connect(voter).voteAdvanced(0, true, { gasLimit: 500000 });
-
-        await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60 + 2 * 24 * 60 * 60 + 1]);
-        await ethers.provider.send("evm_mine");
-
-        await governor.executeAdvancedProposal(0, { gasLimit: 2000000 });
-    }
-    let governor, votingToken, timelock, owner, addr1, addr2;
     beforeEach(async function () {
-        [owner, addr1, addr2] = await ethers.getSigners();
-
-        const VotingToken = await ethers.getContractFactory("VotingToken");
-        votingToken = await VotingToken.deploy(owner.address);
-        await votingToken.deployed();
-
-        const Timelock = await ethers.getContractFactory("TimelockController");
-        // Use these precomputed role hashes instead of calling functions
-        const PROPOSER_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PROPOSER_ROLE"));
-        const EXECUTOR_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXECUTOR_ROLE"));
-        const TIMELOCK_ADMIN_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TIMELOCK_ADMIN_ROLE"));
-
-        timelock = await Timelock.deploy(3600, [owner.address], [owner.address], owner.address);
-        await timelock.deployed();
-
-        await votingToken.grantRole(await votingToken.DEFAULT_ADMIN_ROLE(), timelock.address);
-
-        const ProtocolGovernor = await ethers.getContractFactory("ProtocolGovernor");
-        governor = await ProtocolGovernor.deploy(votingToken.address, timelock.address);
-        await governor.deployed();
-
-        // Grant roles using the precomputed hashes
-        await timelock.grantRole(PROPOSER_ROLE, governor.address);
-        await timelock.grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
-
-        // The governor contract whitelists itself in the constructor, so no need to call setContractWhitelist
-        // Remove this line that was causing the error:
-        // await governor.setContractWhitelist(governor.address, true);
-    });
-    it("deploys with correct parameters", async function () {
-        expect(await governor.votingToken()).to.equal(votingToken.address);
-        expect((await governor.votingDelay()).eq(60)).to.be.true;
-        expect((await governor.votingPeriod()).eq(60)).to.be.true;
-        expect((await governor.proposalThreshold()).eq(0)).to.be.true;
-    });
-    it("calculates quorum as 5% of total supply", async function () {
-        // Mint enough tokens to meet bootstrap quorum first
-        await votingToken.mint(addr1.address, 50);
-
-        // Check if we're in bootstrap mode
-        const isBootstrap = await governor.bootstrapMode();
-        if (isBootstrap) {
-            // In bootstrap mode, quorum should be bootstrapQuorum (100)
-            expect((await governor.quorum(0)).eq(100)).to.be.true;
-        } else {
-            // Normal mode calculation
-            const totalSupply = await votingToken.nextTokenId() - 1;
-            const expectedQuorum = Math.floor((totalSupply * 1) / 10000); // 0.01%
-            expect((await governor.quorum(0)).eq(expectedQuorum)).to.be.true;
-        }
-    });
-    it("uses quadratic voting logic", async function () {
-        // Mint tokens more efficiently
-        await votingToken.mint(addr1.address, 9, { gasLimit: 500000 });
-
-        // Check balance
-        expect((await votingToken.balanceOf(addr1.address)).eq(9)).to.be.true;
-
-        // Test voting power calculation (sqrt(9) = 3)
-        const votingPower = await governor.getVotingPower(addr1.address);
-        expect(votingPower.eq(3)).to.be.true; // sqrt(9) = 3
-    });
-    it("can create, vote, and execute an advanced proposal - efficient", async function () {
-        // Much more efficient minting - single transaction with correct amount
-        await votingToken.mint(owner.address, 50, { gasLimit: 5000000 }); // Reduced from 10000 to 50
-
-        const balance = await votingToken.balanceOf(owner.address);
-        const votingPower = await governor.getVotingPower(owner.address);
-
-        // Verify we have enough voting power for bootstrap quorum
-        expect(votingPower.gte(7)).to.be.true; // sqrt(50) = ~7, which should be enough
-
-        // Create proposal
-        const proposeTx = await governor.connect(owner).proposeAdvanced(
-            governor.address,
-            governor.interface.getSighash("setQuorumPercentage(uint256)"),
-            ethers.utils.defaultAbiCoder.encode(["uint256"], [10]),
-            1,
-            { gasLimit: 2000000 }
-        );
-        const proposeReceipt = await proposeTx.wait();
-        const proposalId = proposeReceipt.events.find(e => e.event === "AdvancedProposalCreated").args.proposalId;
-
-        // Vote
-        await governor.connect(owner).voteAdvanced(proposalId, true, { gasLimit: 1000000 });
-
-        // Fast forward time
-        await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60 + 2 * 24 * 60 * 60 + 1]);
-        await ethers.provider.send("evm_mine");
-
-        // Queue the proposal
-        await governor.connect(owner).queueAdvancedProposal(proposalId, { gasLimit: 2000000 });
-
-        // Get the timelock delay and wait for it
-        const timelockDelay = await timelock.getMinDelay();
-
-        await ethers.provider.send("evm_increaseTime", [timelockDelay.toNumber() + 1]);
-        await ethers.provider.send("evm_mine");
-
-        // Execute
-        await governor.connect(owner).executeAdvancedProposal(proposalId, { gasLimit: 10000000 });
-
-        // Verify
-        const newQuorum = await governor.quorumPercentage();
-        expect(newQuorum.toString()).to.equal("10");
-    });
-    it("returns correct clock and CLOCK_MODE", async function () {
-        // Remove clock test as it's not implemented in our contract
-        expect(await governor.CLOCK_MODE()).to.equal("mode=blocknumber&from=default");
-    });
-    it("should allow governance to set multipliers within bounds", async function () {
-        let reverted = false;
-        try { await governor.setMultipliers(ethers.utils.parseUnits("1.6", 18), ethers.utils.parseUnits("0.8", 18), ethers.utils.parseUnits("1.1", 18)) } catch (err) { reverted = true; expect(err.message).to.match(/Only DAO via proposal|revert/i); }
-        expect(reverted).to.be.true;
-        let reverted2 = false;
-        try { await governor.connect(owner).callStatic.setMultipliers(ethers.utils.parseUnits("2.1", 18), ethers.utils.parseUnits("0.8", 18), ethers.utils.parseUnits("1.1", 18)) } catch (err) { reverted2 = true; expect(err.message).to.match(/Lend multiplier out of bounds|revert/i); }
-        expect(reverted2).to.be.true;
-    });
-    it("should allow governance to set allowed contracts", async function () {
-        const dummy = addr1.address;
-        let reverted = false;
-        try { await governor.setAllowedContract(dummy, true) } catch (err) { reverted = true; expect(err.message).to.match(/Only DAO via proposal|revert/i); }
-        expect(reverted).to.be.true;
-    });
-    it("should allow governance to set price feeds", async function () {
-        const dummyAsset = addr1.address;
-        const dummyFeed = addr2.address;
-        let reverted = false;
-        try { await governor.setPriceFeed(dummyAsset, dummyFeed) } catch (err) { reverted = true; expect(err.message).to.match(/Only DAO via proposal|revert/i); }
-        expect(reverted).to.be.true;
-    });
-    // The following tests require a mock contract to call grantTokens as an allowed contract.
-    // For simplicity, we will only test revert logic and event emission for grantTokens here.
-    it("should revert grantTokens if not allowed contract", async function () {
-        const user = addr2.address;
-        let reverted = false;
-        try { await governor.connect(addr1).grantTokens(user, addr1.address, 100, 0) } catch (err) { reverted = true; expect(err.message).to.match(/Not allowed|revert/i); }
-        expect(reverted).to.be.true;
-    });
-    it("should revert grantTokens if no price feed", async function () {
-        // Whitelist owner
-        // This would require a governance proposal in practice, so we only test revert logic here.
-        // The function will revert due to no price feed.
-        // Simulate allowed contract by using the owner (not realistic, but for revert test only)
-        governor.allowedContracts = { [owner.address]: true };
-        const user = addr2.address;
-        let reverted = false;
-        try { await governor.grantTokens(user, addr1.address, 100, 0) } catch (err) { reverted = true; expect(err.message).to.match(/No price feed|revert/i); }
-        expect(reverted).to.be.true;
-    });
-    it("should revert grantTokens if price is invalid", async function () {
-        // This test would require a mock price feed with price 0, which is not possible without a helper contract.
-        // So we skip this test for now.
-    });
-    it("should not mint tokens if tokens == 0", async function () {
-        // This test would require a mock price feed with very low price, which is not possible without a helper contract.
-        // So we skip this test for now.
-    });
-    it("should emit TokensGranted event on successful grant", async function () {
-        // This test would require a mock price feed and a whitelisted contract, which is not possible without a helper contract.
-        // So we skip this test for now.
-    });
-    it("getVotingPower returns sqrt of token balance", async function () {
-        await votingToken.mint(addr1.address, 9);
-        expect((await governor.getVotingPower(addr1.address)).eq(3)).to.be.true;
-    });
-});
-
-describe("ProtocolGovernor - Integration", function () {
-    // Helper to disable bootstrap mode via proposal
-    async function disableBootstrap(governor, voter) {
-        await governor.connect(voter).proposeAdvanced(
-            governor.address,
-            governor.interface.getSighash("disableBootstrapMode()"),
-            "0x",
-            1
-        );
-        await governor.connect(voter).voteAdvanced(0, true);
-        await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60 + 2 * 24 * 60 * 60 + 1]);
-        await ethers.provider.send("evm_mine");
-        await governor.executeAdvancedProposal(0);
-    }
-
-    let governor, votingToken, timelock, owner, addr1, addr2, mockFeed;
-    beforeEach(async function () {
-        [owner, addr1, addr2] = await ethers.getSigners();
+        [owner, user1, user2, user3, user4] = await ethers.getSigners();
 
         // Deploy VotingToken
         const VotingToken = await ethers.getContractFactory("VotingToken");
@@ -221,63 +14,492 @@ describe("ProtocolGovernor - Integration", function () {
         await votingToken.deployed();
 
         // Deploy TimelockController
-        const Timelock = await ethers.getContractFactory("TimelockController");
-
-        // Precompute role hashes
-        const PROPOSER_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PROPOSER_ROLE"));
-        const EXECUTOR_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXECUTOR_ROLE"));
-        const TIMELOCK_ADMIN_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TIMELOCK_ADMIN_ROLE"));
-
-        timelock = await Timelock.deploy(
-            3600, // 1 hour min delay
-            [], // Empty proposers - will add governor later
-            [], // Empty executors - will set to any address
-            owner.address // Initial admin
+        const TimelockController = await ethers.getContractFactory("TimelockController");
+        timelock = await TimelockController.deploy(
+            60, // 1 minute delay
+            [owner.address], // proposers
+            [owner.address], // executors
+            owner.address // admin
         );
         await timelock.deployed();
 
         // Deploy ProtocolGovernor
         const ProtocolGovernor = await ethers.getContractFactory("ProtocolGovernor");
-        governor = await ProtocolGovernor.deploy(votingToken.address, timelock.address);
+        governor = await ProtocolGovernor.deploy(
+            votingToken.address,
+            timelock.address
+        );
         await governor.deployed();
 
         // Setup roles
+        const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
+        const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
+
         await timelock.grantRole(PROPOSER_ROLE, governor.address);
-        await timelock.grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero); // Allow anyone to execute
+        await timelock.grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
 
-        // Grant admin role to governor contract
-        await timelock.grantRole(TIMELOCK_ADMIN_ROLE, governor.address);
+        // Grant minter role to governor
+        const MINTER_ROLE = await votingToken.MINTER_ROLE();
+        await votingToken.grantRole(MINTER_ROLE, governor.address);
 
-        // The governor contract whitelists itself in the constructor, so no need to call setContractWhitelist
-        // Remove this line that was causing the error:
-        // await governor.connect(owner).setContractWhitelist(governor.address, true);
+        // Mint tokens for voting
+        await votingToken.mint(owner.address, ethers.utils.parseEther("1000"));
+        await votingToken.mint(user1.address, ethers.utils.parseEther("500"));
+        await votingToken.mint(user2.address, ethers.utils.parseEther("300"));
     });
-    it("should allow full DAO flow with advanced proposal - efficient", async function () {
-        this.timeout(300000); // Reduce timeout to 5 minutes
 
-        // Simplified test flow
-        const targets = [governor.address];
-        const values = [0];
-        const calldatas = [iface.encodeFunctionData("setQuorumPercentage", [2500])];
-        const description = "Test proposal";
+    describe("Initialization", function () {
+        it("should initialize with correct parameters", async function () {
+            expect(await governor.votingToken()).to.equal(votingToken.address);
+            expect(await governor.timelock()).to.equal(timelock.address);
+            expect(await governor.name()).to.equal("ProtocolGovernor");
+        });
 
-        try {
-            await executeGovernanceProposal(
-                governor,
-                targets,
-                values,
-                calldatas,
-                description,
-                accounts,
-                5, // Reduced number of accounts
-                network
+        it("should have correct voting parameters", async function () {
+            expect(await governor.votingDelay()).to.equal(60);
+            expect(await governor.votingPeriod()).to.equal(60);
+            expect(await governor.proposalThreshold()).to.equal(0);
+        });
+    });
+
+    describe("Proposal Creation", function () {
+        it("should allow creating proposals", async function () {
+            const targets = [governor.address];
+            const values = [0];
+            const calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [5])];
+            const description = "Change quorum to 5%";
+
+            await expect(
+                governor.connect(owner).propose(targets, values, calldatas, description)
+            ).to.emit(governor, "ProposalCreated");
+        });
+
+        it("should reject proposals with mismatched arrays", async function () {
+            const targets = [governor.address];
+            const values = [0, 1]; // Mismatched length
+            const calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [5])];
+            const description = "Invalid proposal";
+
+            await expect(
+                governor.connect(owner).propose(targets, values, calldatas, description)
+            ).to.be.revertedWith("Governor: invalid proposal length");
+        });
+
+        it("should handle empty proposals", async function () {
+            await expect(
+                governor.connect(owner).propose([], [], [], "Empty proposal")
+            ).to.be.revertedWith("Governor: empty proposal");
+        });
+    });
+
+    describe("Voting Mechanism", function () {
+        let proposalId;
+
+        beforeEach(async function () {
+            const targets = [governor.address];
+            const values = [0];
+            const calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [3])];
+            const description = "Test proposal";
+
+            const tx = await governor.connect(owner).propose(targets, values, calldatas, description);
+            const receipt = await tx.wait();
+            proposalId = receipt.events.find(e => e.event === 'ProposalCreated').args.proposalId;
+
+            // Advance to voting period
+            const votingDelay = await governor.votingDelay();
+            for (let i = 0; i <= votingDelay.toNumber(); i++) {
+                await ethers.provider.send("evm_mine");
+            }
+        });
+
+        it("should allow voting", async function () {
+            await expect(
+                governor.connect(owner).castVote(proposalId, 1)
+            ).to.emit(governor, "VoteCast");
+        });
+
+        it("should track vote counts", async function () {
+            await governor.connect(owner).castVote(proposalId, 1); // For
+            await governor.connect(user1).castVote(proposalId, 0); // Against
+            await governor.connect(user2).castVote(proposalId, 2); // Abstain
+
+            const votes = await governor.proposalVotes(proposalId);
+            expect(votes.forVotes).to.be.gt(0);
+            expect(votes.againstVotes).to.be.gt(0);
+            expect(votes.abstainVotes).to.be.gt(0);
+        });
+
+        it("should prevent double voting", async function () {
+            await governor.connect(owner).castVote(proposalId, 1);
+
+            await expect(
+                governor.connect(owner).castVote(proposalId, 1)
+            ).to.be.revertedWith("GovernorVotingSimple: vote already cast");
+        });
+
+        it("should handle voting with reason", async function () {
+            const reason = "I support this proposal";
+
+            await expect(
+                governor.connect(owner).castVoteWithReason(proposalId, 1, reason)
+            ).to.emit(governor, "VoteCast");
+        });
+    });
+
+    describe("Proposal States", function () {
+        let proposalId;
+
+        beforeEach(async function () {
+            const targets = [governor.address];
+            const values = [0];
+            const calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [2])];
+            const description = "State test proposal";
+
+            const tx = await governor.connect(owner).propose(targets, values, calldatas, description);
+            const receipt = await tx.wait();
+            proposalId = receipt.events.find(e => e.event === 'ProposalCreated').args.proposalId;
+        });
+
+        it("should start in Pending state", async function () {
+            const state = await governor.state(proposalId);
+            expect(state).to.equal(0); // Pending
+        });
+
+        it("should move to Active state after delay", async function () {
+            const votingDelay = await governor.votingDelay();
+            for (let i = 0; i <= votingDelay.toNumber(); i++) {
+                await ethers.provider.send("evm_mine");
+            }
+
+            const state = await governor.state(proposalId);
+            expect(state).to.equal(1); // Active
+        });
+
+        it("should move to Succeeded after successful vote", async function () {
+            // Activate proposal
+            const votingDelay = await governor.votingDelay();
+            for (let i = 0; i <= votingDelay.toNumber(); i++) {
+                await ethers.provider.send("evm_mine");
+            }
+
+            // Vote
+            await governor.connect(owner).castVote(proposalId, 1);
+            await governor.connect(user1).castVote(proposalId, 1);
+
+            // End voting period
+            const votingPeriod = await governor.votingPeriod();
+            for (let i = 0; i <= votingPeriod.toNumber(); i++) {
+                await ethers.provider.send("evm_mine");
+            }
+
+            const state = await governor.state(proposalId);
+            expect(state).to.equal(4); // Succeeded
+        });
+    });
+
+    describe("Proposal Execution", function () {
+        let proposalId, targets, values, calldatas, descriptionHash;
+
+        beforeEach(async function () {
+            targets = [governor.address];
+            values = [0];
+            calldatas = [governor.interface.encodeFunctionData("setQuorumPercentage", [1])];
+            const description = "Execution test";
+            descriptionHash = ethers.utils.id(description);
+
+            const tx = await governor.connect(owner).propose(targets, values, calldatas, description);
+            const receipt = await tx.wait();
+            proposalId = receipt.events.find(e => e.event === 'ProposalCreated').args.proposalId;
+
+            // Activate and vote
+            const votingDelay = await governor.votingDelay();
+            for (let i = 0; i <= votingDelay.toNumber(); i++) {
+                await ethers.provider.send("evm_mine");
+            }
+
+            await governor.connect(owner).castVote(proposalId, 1);
+            await governor.connect(user1).castVote(proposalId, 1);
+
+            // End voting
+            const votingPeriod = await governor.votingPeriod();
+            for (let i = 0; i <= votingPeriod.toNumber(); i++) {
+                await ethers.provider.send("evm_mine");
+            }
+        });
+
+        it("should queue successful proposals", async function () {
+            await expect(
+                governor.queue(targets, values, calldatas, descriptionHash)
+            ).to.emit(governor, "ProposalQueued");
+
+            const state = await governor.state(proposalId);
+            expect(state).to.equal(5); // Queued
+        });
+
+        it("should execute queued proposals after delay", async function () {
+            await governor.queue(targets, values, calldatas, descriptionHash);
+
+            // Wait for timelock delay
+            const delay = await timelock.getMinDelay();
+            await ethers.provider.send("evm_increaseTime", [delay.toNumber() + 1]);
+            await ethers.provider.send("evm_mine");
+
+            await expect(
+                governor.execute(targets, values, calldatas, descriptionHash)
+            ).to.emit(governor, "ProposalExecuted");
+
+            const state = await governor.state(proposalId);
+            expect(state).to.equal(7); // Executed
+        });
+    });
+
+    describe("Advanced Proposals", function () {
+        it("should handle advanced proposal creation", async function () {
+            const targetContract = governor.address;
+            const functionSelector = governor.interface.getSighash("setQuorumPercentage");
+            const encodedParams = ethers.utils.defaultAbiCoder.encode(["uint256"], [8]);
+            const description = "Advanced proposal test";
+
+            await expect(
+                governor.connect(owner).createAdvancedProposal(
+                    targetContract,
+                    functionSelector,
+                    encodedParams,
+                    description
+                )
+            ).to.emit(governor, "AdvancedProposalCreated");
+        });
+
+        it("should handle advanced voting", async function () {
+            const targetContract = governor.address;
+            const functionSelector = governor.interface.getSighash("setQuorumPercentage");
+            const encodedParams = ethers.utils.defaultAbiCoder.encode(["uint256"], [8]);
+            const description = "Advanced voting test";
+
+            const tx = await governor.connect(owner).createAdvancedProposal(
+                targetContract,
+                functionSelector,
+                encodedParams,
+                description
+            );
+            const receipt = await tx.wait();
+            const proposalId = receipt.events.find(e => e.event === 'AdvancedProposalCreated').args.proposalId;
+
+            // Fast forward to voting period
+            await ethers.provider.send("evm_increaseTime", [3600]);
+            await ethers.provider.send("evm_mine");
+
+            await expect(
+                governor.connect(owner).voteAdvanced(proposalId, true)
+            ).to.emit(governor, "AdvancedVoteCast");
+        });
+    });
+
+    describe("Token Granting", function () {
+        it("should grant tokens for lending actions", async function () {
+            const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
+            await mockFeed.deployed();
+
+            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+
+            const balanceBefore = await votingToken.balanceOf(user1.address);
+
+            await governor.grantTokensForAction(
+                user1.address,
+                0, // LEND
+                ethers.constants.AddressZero, // ETH
+                ethers.utils.parseEther("1")
             );
 
-            const newQuorum = await governor.quorumPercentage();
-            expect(newQuorum.toNumber()).to.equal(2500);
-        } catch (error) {
-            console.log("Governance test completed with expected behavior");
-            // Test passes if it reaches here without hanging
-        }
+            const balanceAfter = await votingToken.balanceOf(user1.address);
+            expect(balanceAfter).to.be.gt(balanceBefore);
+        });
+
+        it("should handle different action types", async function () {
+            const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
+            await mockFeed.deployed();
+
+            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+
+            // Test BORROW action
+            await governor.grantTokensForAction(
+                user1.address,
+                1, // BORROW
+                ethers.constants.AddressZero,
+                ethers.utils.parseEther("0.5")
+            );
+
+            // Test REPAY action
+            await governor.grantTokensForAction(
+                user1.address,
+                2, // REPAY
+                ethers.constants.AddressZero,
+                ethers.utils.parseEther("0.3")
+            );
+        });
+    });
+
+    describe("Contract Whitelist", function () {
+        it("should manage contract whitelist", async function () {
+            const contractAddr = user1.address;
+
+            await expect(
+                governor.setContractWhitelist(contractAddr, true)
+            ).to.emit(governor, "ContractWhitelisted")
+                .withArgs(contractAddr, true);
+
+            expect(await governor.contractWhitelist(contractAddr)).to.be.true;
+
+            await governor.setContractWhitelist(contractAddr, false);
+            expect(await governor.contractWhitelist(contractAddr)).to.be.false;
+        });
+    });
+
+    describe("Emergency Multisig", function () {
+        it("should set emergency multisig", async function () {
+            const signers = [user1.address, user2.address, user3.address];
+
+            await expect(
+                governor.setEmergencyMultisig(signers)
+            ).to.emit(governor, "EmergencyMultisigSet");
+
+            expect(await governor.isMultisig(user1.address)).to.be.true;
+            expect(await governor.isMultisig(user4.address)).to.be.false;
+        });
+    });
+
+    describe("Reputation System", function () {
+        it("should track user reputation", async function () {
+            const initialRep = await governor.reputation(user1.address);
+            expect(initialRep).to.equal(0);
+
+            // Only VotingToken can call penalizeReputation
+            await expect(
+                governor.connect(owner).penalizeReputation(user1.address, 10)
+            ).to.be.revertedWith("Only VotingToken");
+        });
+    });
+
+    describe("Price Feed Management", function () {
+        it("should set price feeds", async function () {
+            const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
+            await mockFeed.deployed();
+
+            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+            expect(await governor.priceFeeds(ethers.constants.AddressZero)).to.equal(mockFeed.address);
+        });
+
+        it("should get asset prices", async function () {
+            const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
+            await mockFeed.deployed();
+
+            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+
+            const price = await governor.getAssetPrice(ethers.constants.AddressZero);
+            expect(price).to.be.gt(0);
+        });
+    });
+
+    describe("Utility Functions", function () {
+        it("should calculate square root", async function () {
+            // Test internal sqrt function through token granting
+            const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("2000", 8), 8);
+            await mockFeed.deployed();
+
+            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+
+            // This will internally use sqrt function
+            await governor.grantTokensForAction(
+                user1.address,
+                0, // LEND
+                ethers.constants.AddressZero,
+                ethers.utils.parseEther("4") // Perfect square for testing
+            );
+        });
+    });
+
+    describe("Edge Cases", function () {
+        it("should handle zero token grants", async function () {
+            const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+            const mockFeed = await MockPriceFeed.deploy(0, 8); // Zero price
+            await mockFeed.deployed();
+
+            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+
+            const balanceBefore = await votingToken.balanceOf(user1.address);
+
+            await governor.grantTokensForAction(
+                user1.address,
+                0, // LEND
+                ethers.constants.AddressZero,
+                ethers.utils.parseEther("1")
+            );
+
+            const balanceAfter = await votingToken.balanceOf(user1.address);
+            expect(balanceAfter).to.equal(balanceBefore); // No tokens granted for zero price
+        });
+
+        it("should cap token grants at maximum", async function () {
+            const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+            const mockFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("1000000", 8), 8); // Very high price
+            await mockFeed.deployed();
+
+            await governor.setPriceFeed(ethers.constants.AddressZero, mockFeed.address);
+
+            const balanceBefore = await votingToken.balanceOf(user1.address);
+
+            await governor.grantTokensForAction(
+                user1.address,
+                0, // LEND
+                ethers.constants.AddressZero,
+                ethers.utils.parseEther("1000") // Large amount
+            );
+
+            const balanceAfter = await votingToken.balanceOf(user1.address);
+            const tokensGranted = balanceAfter.sub(balanceBefore);
+            expect(tokensGranted).to.be.lte(1000); // Capped at 1000
+        });
+
+        it("should handle invalid price feeds", async function () {
+            await expect(
+                governor.getAssetPrice(user1.address) // No price feed set
+            ).to.be.revertedWith("No price feed");
+        });
+    });
+
+    describe("Access Control", function () {
+        it("should restrict DAO-only functions", async function () {
+            await expect(
+                governor.connect(user1).setContractWhitelist(user2.address, true)
+            ).to.be.revertedWith("Only DAO");
+
+            await expect(
+                governor.connect(user1).setEmergencyMultisig([user2.address])
+            ).to.be.revertedWith("Only DAO");
+        });
+
+        it("should allow DAO functions from owner", async function () {
+            // These should work since owner is the DAO
+            await governor.setContractWhitelist(user1.address, true);
+            await governor.setEmergencyMultisig([user1.address, user2.address]);
+        });
+    });
+
+    describe("Quorum Management", function () {
+        it("should get current quorum", async function () {
+            const blockNumber = await ethers.provider.getBlockNumber();
+            const quorum = await governor.quorum(blockNumber);
+            expect(quorum).to.be.gte(0);
+        });
+
+        it("should update quorum percentage", async function () {
+            await governor.setQuorumPercentage(10);
+            expect(await governor.quorumPercentage()).to.equal(10);
+        });
     });
 });

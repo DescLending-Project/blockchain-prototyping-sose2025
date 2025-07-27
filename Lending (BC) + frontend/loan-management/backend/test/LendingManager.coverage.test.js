@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("ProtocolGovernor - Coverage Boost", function () {
-    let governor, votingToken, timelock;
+    let votingToken, timelock, governor, lendingManager;
     let owner, user1, user2, user3;
 
     beforeEach(async function () {
@@ -10,136 +10,146 @@ describe("ProtocolGovernor - Coverage Boost", function () {
 
         // Deploy VotingToken
         const VotingToken = await ethers.getContractFactory("VotingToken");
-        votingToken = await VotingToken.deploy(owner.address);
+        votingToken = await VotingToken.deploy();
         await votingToken.deployed();
 
         // Deploy TimelockController
         const TimelockController = await ethers.getContractFactory("TimelockController");
         timelock = await TimelockController.deploy(
-            3600, // 1 hour delay
+            60, // 1 minute delay
             [owner.address], // proposers
-            [ethers.constants.AddressZero], // executors
+            [owner.address], // executors
             owner.address // admin
         );
         await timelock.deployed();
 
         // Deploy ProtocolGovernor
         const ProtocolGovernor = await ethers.getContractFactory("ProtocolGovernor");
-        governor = await ProtocolGovernor.deploy(votingToken.address, timelock.address);
+        governor = await ProtocolGovernor.deploy(
+            votingToken.address,
+            timelock.address,
+            1, // voting delay
+            60, // voting period
+            ethers.utils.parseEther("100"), // proposal threshold
+            4 // quorum percentage
+        );
         await governor.deployed();
+
+        // Deploy LendingManager
+        const LendingManager = await ethers.getContractFactory("LendingManager");
+        lendingManager = await LendingManager.deploy(
+            owner.address, // liquidityPool
+            owner.address, // interestRateModel
+            timelock.address, // timelock
+            86400 // withdrawal cooldown (1 day)
+        );
+        await lendingManager.deployed();
 
         // Setup roles
         const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
+        const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
+
         await timelock.grantRole(PROPOSER_ROLE, governor.address);
-        await votingToken.setDAO(governor.address);
+        await timelock.grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
+
+        // Mint tokens for testing
+        await votingToken.mint(owner.address, ethers.utils.parseEther("1000"));
+        await votingToken.mint(user1.address, ethers.utils.parseEther("500"));
+        await votingToken.mint(user2.address, ethers.utils.parseEther("300"));
     });
 
-    describe("Reputation System", function () {
+    describe("User Reputation Tracking", function () {
         it("should track user reputation", async function () {
-            expect(await governor.getReputation(user1.address)).to.equal(0);
+            // Test reputation tracking functionality
+            const initialReputation = await lendingManager.getUserReputation(user1.address);
+            expect(initialReputation).to.equal(0);
+
+            // Simulate deposit to increase reputation
+            await lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("1") });
+
+            const updatedReputation = await lendingManager.getUserReputation(user1.address);
+            expect(updatedReputation).to.be.gt(initialReputation);
         });
 
-        it("should penalize reputation", async function () {
-            await governor.penalizeReputation(user1.address, 10);
-            expect(await governor.getReputation(user1.address)).to.equal(-10);
-        });
+        it("should handle reputation decay over time", async function () {
+            // Deposit to build reputation
+            await lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("1") });
 
-        it("should affect voting power based on reputation", async function () {
-            await votingToken.mint(user1.address, 100);
+            const initialReputation = await lendingManager.getUserReputation(user1.address);
 
-            // Test normal voting power
-            const normalVotes = await governor._getVotes(user1.address, 0, "0x");
+            // Fast forward time
+            await ethers.provider.send("evm_increaseTime", [86400 * 30]); // 30 days
+            await ethers.provider.send("evm_mine");
 
-            // Penalize reputation
-            await governor.penalizeReputation(user1.address, 15);
-
-            // Test reduced voting power
-            const reducedVotes = await governor._getVotes(user1.address, 0, "0x");
-            expect(reducedVotes).to.be.lt(normalVotes);
-        });
-    });
-
-    describe("Token Granting", function () {
-        beforeEach(async function () {
-            // Setup mock price feed
-            const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
-            const priceFeed = await MockPriceFeed.deploy(ethers.utils.parseUnits("1", 8), 8);
-            await priceFeed.deployed();
-
-            await governor.setPriceFeed(user1.address, priceFeed.address);
-            await governor.setAllowedContract(owner.address, true);
-        });
-
-        it("should grant tokens for lending", async function () {
-            const initialBalance = await votingToken.balanceOf(user1.address);
-
-            await governor.grantTokens(
-                user1.address,
-                user1.address, // mock asset
-                ethers.utils.parseEther("100"),
-                0 // LEND
-            );
-
-            const finalBalance = await votingToken.balanceOf(user1.address);
-            expect(finalBalance).to.be.gt(initialBalance);
-        });
-
-        it("should grant tokens for borrowing", async function () {
-            await governor.grantTokens(
-                user1.address,
-                user1.address,
-                ethers.utils.parseEther("100"),
-                1 // BORROW
-            );
-
-            expect(await votingToken.balanceOf(user1.address)).to.be.gt(0);
-        });
-
-        it("should grant tokens for repaying", async function () {
-            await governor.grantTokens(
-                user1.address,
-                user1.address,
-                ethers.utils.parseEther("100"),
-                2 // REPAY
-            );
-
-            expect(await votingToken.balanceOf(user1.address)).to.be.gt(0);
+            const decayedReputation = await lendingManager.getUserReputation(user1.address);
+            expect(decayedReputation).to.be.lte(initialReputation);
         });
     });
 
-    describe("Contract Management", function () {
-        it("should set allowed contracts", async function () {
-            await governor.setAllowedContract(user1.address, true);
-            expect(await governor.allowedContracts(user1.address)).to.be.true;
+    describe("Advanced Lending Features", function () {
+        it("should handle complex interest calculations", async function () {
+            // Deposit funds
+            await lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("10") });
+
+            // Check initial balance
+            const initialBalance = await lendingManager.getBalance(user1.address);
+            expect(initialBalance).to.equal(ethers.utils.parseEther("10"));
+
+            // Fast forward time to accrue interest
+            await ethers.provider.send("evm_increaseTime", [86400]); // 1 day
+            await ethers.provider.send("evm_mine");
+
+            // Accrue interest
+            await lendingManager.accrueInterest();
+
+            const balanceWithInterest = await lendingManager.getBalance(user1.address);
+            expect(balanceWithInterest).to.be.gt(initialBalance);
         });
 
-        it("should set price feeds", async function () {
-            await governor.setPriceFeed(user1.address, user2.address);
-            expect(await governor.priceFeeds(user1.address)).to.equal(user2.address);
-        });
+        it("should handle withdrawal requests properly", async function () {
+            // Deposit funds first
+            await lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("5") });
 
-        it("should set multipliers", async function () {
-            await governor.setMultipliers(
-                ethers.utils.parseEther("1.2"),
-                ethers.utils.parseEther("0.8"),
-                ethers.utils.parseEther("1.1")
-            );
+            // Request withdrawal
+            await lendingManager.connect(user1).requestWithdrawal(ethers.utils.parseEther("2"));
 
-            expect(await governor.lendMultiplier()).to.equal(ethers.utils.parseEther("1.2"));
-            expect(await governor.borrowMultiplier()).to.equal(ethers.utils.parseEther("0.8"));
-            expect(await governor.repayMultiplier()).to.equal(ethers.utils.parseEther("1.1"));
+            // Check withdrawal request
+            const canComplete = await lendingManager.canCompleteWithdrawal(user1.address);
+            expect(canComplete).to.be.false; // Should be false before cooldown
+
+            // Fast forward past cooldown
+            await ethers.provider.send("evm_increaseTime", [86400 + 1]); // 1 day + 1 second
+            await ethers.provider.send("evm_mine");
+
+            const canCompleteAfter = await lendingManager.canCompleteWithdrawal(user1.address);
+            expect(canCompleteAfter).to.be.true;
         });
     });
 
-    describe("Quorum Management", function () {
-        it("should set quorum percentage", async function () {
-            await governor.setQuorumPercentage(3000);
-            expect(await governor.quorumPercentage()).to.equal(3000);
+    describe("Emergency Functions", function () {
+        it("should handle emergency pause", async function () {
+            await lendingManager.pause();
+
+            const isPaused = await lendingManager.paused();
+            expect(isPaused).to.be.true;
+
+            // Should revert deposits when paused
+            await expect(
+                lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("1") })
+            ).to.be.revertedWith("Pausable: paused");
         });
 
-        it("should reject invalid quorum values", async function () {
-            await expect(governor.setQuorumPercentage(0)).to.be.revertedWith("Quorum must be > 0");
-            await expect(governor.setQuorumPercentage(10001)).to.be.revertedWith("Quorum must be <= 10000");
+        it("should handle emergency unpause", async function () {
+            await lendingManager.pause();
+            await lendingManager.unpause();
+
+            const isPaused = await lendingManager.paused();
+            expect(isPaused).to.be.false;
+
+            // Should allow deposits when unpaused
+            await expect(
+                lendingManager.connect(user1).deposit({ value: ethers.utils.parseEther("1") })
+            ).to.not.be.reverted;
         });
     });
 });

@@ -1,27 +1,24 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-require("chai").use(require("chai-as-promised"));
 
 describe("IntegratedCreditSystem - Admin Tests", function () {
     let creditSystem, mockRisc0Verifier, mockLiquidityPool;
-    let owner, user1, user2, user3;
-
-    // Increase timeout for coverage
-    this.timeout(30000);
+    let owner, user1;
 
     beforeEach(async function () {
-        [owner, user1, user2, user3] = await ethers.getSigners();
+        [owner, user1] = await ethers.getSigners();
 
-        // Deploy SimpleRISC0Test
-        const SimpleRISC0Test = await ethers.getContractFactory("SimpleRISC0Test");
-        mockRisc0Verifier = await SimpleRISC0Test.deploy(owner.address);
+        // Deploy mock contracts
+        const MockRiscZeroVerifier = await ethers.getContractFactory("MockRiscZeroVerifier");
+        mockRisc0Verifier = await MockRiscZeroVerifier.deploy();
         await mockRisc0Verifier.deployed();
-        await mockRisc0Verifier.setDemoMode(true);
 
-        // Deploy mock liquidity pool
-        const MockLiquidityPool = await ethers.getContractFactory("MockPool");
+        const MockLiquidityPool = await ethers.getContractFactory("MockLiquidityPool");
         mockLiquidityPool = await MockLiquidityPool.deploy();
         await mockLiquidityPool.deployed();
+
+        // Set timelock in mock liquidity pool
+        await mockLiquidityPool.setTimelock(owner.address);
 
         // Deploy IntegratedCreditSystem
         const IntegratedCreditSystem = await ethers.getContractFactory("IntegratedCreditSystem");
@@ -30,13 +27,6 @@ describe("IntegratedCreditSystem - Admin Tests", function () {
             mockLiquidityPool.address
         );
         await creditSystem.deployed();
-    });
-
-    afterEach(async function () {
-        // Clean up between tests
-        if (mockRisc0Verifier) {
-            await mockRisc0Verifier.setDemoMode(true);
-        }
     });
 
     describe("Admin Functions", function () {
@@ -105,6 +95,13 @@ describe("IntegratedCreditSystem - Admin Tests", function () {
                 ).to.be.revertedWith("Weights must sum to 100");
             }
         });
+
+        it("should emit ScoringWeightsUpdated event", async function () {
+            await expect(
+                creditSystem.connect(owner).updateScoringWeights(40, 40, 20)
+            ).to.emit(creditSystem, "ScoringWeightsUpdated")
+                .withArgs(40, 40, 20);
+        });
     });
 
     describe("Access Control", function () {
@@ -115,6 +112,35 @@ describe("IntegratedCreditSystem - Admin Tests", function () {
             await expect(
                 creditSystem.connect(user1).updateScoringWeights(40, 40, 20)
             ).to.be.revertedWith("Only DAO/Timelock");
+        });
+
+        it("should allow liquidity pool address to update weights", async function () {
+            // Impersonate the liquidity pool contract
+            await network.provider.request({
+                method: "hardhat_impersonateAccount",
+                params: [mockLiquidityPool.address],
+            });
+
+            const liquidityPoolSigner = await ethers.getSigner(mockLiquidityPool.address);
+
+            // Fund the impersonated account
+            await owner.sendTransaction({
+                to: mockLiquidityPool.address,
+                value: ethers.utils.parseEther("1")
+            });
+
+            const tx = await creditSystem.connect(liquidityPoolSigner).updateScoringWeights(30, 30, 40);
+            await tx.wait();
+
+            const [tradFi, account, nesting] = await Promise.all([
+                creditSystem.tradFiWeight(),
+                creditSystem.accountWeight(),
+                creditSystem.nestingWeight()
+            ]);
+
+            expect(tradFi.toNumber()).to.equal(30);
+            expect(account.toNumber()).to.equal(30);
+            expect(nesting.toNumber()).to.equal(40);
         });
     });
 

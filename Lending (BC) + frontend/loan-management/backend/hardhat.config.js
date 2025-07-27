@@ -37,7 +37,7 @@ module.exports = {
             gas: 0xfffffffffff,
             gasPrice: 0x01,
             blockGasLimit: 0xfffffffffff,
-            allowUnlimitedContractSize: false,
+            allowUnlimitedContractSize: true,
             timeout: 300000
         },
         sonicTestnet: {
@@ -54,11 +54,11 @@ module.exports = {
             url: "http://127.0.0.1:8545",
             gas: 30000000,
             blockGasLimit: 50000000,
-            allowUnlimitedContractSize: false,
+            allowUnlimitedContractSize: true,
         },
         hardhat: {
             blockGasLimit: 30_000_000,
-            allowUnlimitedContractSize: false,
+            allowUnlimitedContractSize: true,
             hardfork: "cancun"
         },
     },

@@ -454,6 +454,31 @@ async function main() {
         console.error('Failed to write addresses to frontend/addresses.json or frontend/src/addresses.json:', e.message);
     }
 
+    // Update frontend contract addresses file
+    const frontendAddressesPath = path.join(__dirname, '../../frontend/src/contractAddresses.js');
+    const addressesContent = `// This file is automatically updated by the deployment script
+export const CONTRACT_ADDRESSES = {
+  localhost: ${JSON.stringify(addressesObj, null, 4)},
+  sepolia: {
+    // Add Sepolia addresses when deployed
+  },
+  sonic: {
+    // Add Sonic addresses when deployed
+  }
+};
+
+export const getContractAddresses = (networkName) => {
+  return CONTRACT_ADDRESSES[networkName] || CONTRACT_ADDRESSES.localhost;
+};
+`;
+
+    try {
+        fs.writeFileSync(frontendAddressesPath, addressesContent);
+        console.log('✅ Updated frontend/src/contractAddresses.js');
+    } catch (e) {
+        console.error('❌ Failed to update frontend contract addresses:', e.message);
+    }
+
     // At the very end, after all setup is complete, revoke admin roles
     console.log("\nFinalizing permissions...");
 

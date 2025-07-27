@@ -2,12 +2,13 @@
   "name": "loan-management",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "test": "npx hardhat test",
     "clean": "npx hardhat clean",
     "copy-artifacts": "node scripts/copy-artifacts.js",
-    "coverage": "hardhat coverage",
-    "coverage-with-cleanup": "hardhat coverage && node scripts/clean-coverage.js"
+    "coverage": "npx hardhat coverage --network coverage",
+    "coverage-with-cleanup": "npx hardhat coverage --network coverage && node scripts/clean-coverage.js"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +27,9 @@
   "dependencies": {
     "@chainlink/contracts": "^0.8.0",
     "@openzeppelin/contracts": "4.8.3",
-    "dotenv": "^16.5.0"
+    "@tanstack/react-query": "^5.83.0",
+    "dotenv": "^16.5.0",
+    "viem": "^2.33.1",
+    "wagmi": "^2.16.0"
   }
 }

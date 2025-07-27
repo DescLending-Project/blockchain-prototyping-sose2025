@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
+import { WagmiProvider } from 'wagmi'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@radix-ui/react-tabs'
 import { Card } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'
@@ -15,10 +16,7 @@ import { AdminPanel } from './components/liquidity-pool/admin/AdminPanel'
 import { Dashboard } from './components/liquidity-pool/Dashboard'
 import { CollateralPanel } from './components/liquidity-pool/user/CollateralPanel'
 import { DEFAULT_NETWORK } from './config/networks'
-
-// Contract addresses
-// Remove POOL_ADDRESS, LENDING_MANAGER_ADDRESS, CONTRACT_ADDRESSES
-export const INTEREST_RATE_MODEL_ADDRESS = '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318';
+import { getContractAddresses as getAddresses } from './contractAddresses';
 
 // Network-specific token addresses
 const NETWORK_TOKENS = {
@@ -86,6 +84,7 @@ export default function App() {
   const [contract, setContract] = useState(null)
   const [lendingManagerContract, setLendingManagerContract] = useState(null)
   const [provider, setProvider] = useState(null)
+  const [contracts, setContracts] = useState({})
   const [isAdmin, setIsAdmin] = useState(false)
   const [isLiquidator, setIsLiquidator] = useState(false)
   const [error, setError] = useState("")
@@ -93,62 +92,123 @@ export default function App() {
   const [isPaused, setIsPaused] = useState(false)
   const [userError, setUserError] = useState("")
   const [networkName, setNetworkName] = useState('localhost')
-  const SUPPORTED_CHAINS = [31337, 11155111, 57054]; // Localhost, Sepolia, and Sonic
+  const SUPPORTED_CHAINS = [31337, 11155111, 57054];
 
-  // Remove dynamic require() logic for ABIs
-  // LiquidityPoolABI = require('./abis/LiquidityPool.json');
-  // LendingManagerABI = require('./abis/LendingManager.json');
+  const getContractAddresses = (networkName) => {
+    const addresses = getAddresses(networkName);
+    return {
+      liquidityPool: addresses.LiquidityPool,
+      lendingManager: addresses.LendingManager,
+      interestRateModel: addresses.InterestRateModel,
+      stablecoinManager: addresses.StablecoinManager,
+      glintToken: addresses.GlintToken,
+      votingToken: addresses.VotingToken,
+      protocolGovernor: addresses.ProtocolGovernor,
+      creditSystem: addresses.IntegratedCreditSystem,
+      risc0Test: addresses.risc0Test
+    };
+  };
 
   const initializeContracts = async (provider, signer, networkName) => {
     try {
-      console.log('Initializing contracts for network:', networkName);
-      // Debug: Check ABI presence
-      console.log('LiquidityPool ABI exists:', !!LiquidityPoolABI);
-      console.log('LendingManager ABI exists:', !!LendingManagerABI);
-      // Check if ABIs are loaded
-      if (!LiquidityPoolABI || !LendingManagerABI) {
-        throw new Error('ABIs not loaded. Check file paths.');
+      setIsLoading(true);
+      setError("");
+
+      // Clear previous contracts
+      setContracts({});
+
+      const network = await provider.getNetwork();
+      const chainId = Number(network.chainId);
+
+      console.log(`Initializing contracts for network: ${networkName} (chainId: ${chainId})`);
+
+      // Get contract addresses for the network
+      const addresses = getContractAddresses(networkName);
+      if (!addresses) {
+        throw new Error(`No contract addresses found for network: ${networkName}`);
       }
-      // Check if addresses exist
-      if (!addresses.LiquidityPool || !addresses.LendingManager) {
-        throw new Error('Contract addresses missing in addresses.json');
+
+      // Initialize contracts with proper error handling
+      const contractInstances = {};
+
+      try {
+        contractInstances.liquidityPool = new ethers.Contract(
+          addresses.liquidityPool,
+          LiquidityPoolABI,
+          signer
+        );
+
+        contractInstances.lendingManager = new ethers.Contract(
+          addresses.lendingManager,
+          LendingManagerABI,
+          signer
+        );
+
+        contractInstances.stablecoinManager = new ethers.Contract(
+          addresses.stablecoinManager,
+          StablecoinManagerABI,
+          signer
+        );
+
+        contractInstances.glintToken = new ethers.Contract(
+          addresses.glintToken,
+          GlintTokenABI,
+          signer
+        );
+
+        contractInstances.votingToken = new ethers.Contract(
+          addresses.votingToken,
+          VotingTokenABI,
+          signer
+        );
+
+        contractInstances.protocolGovernor = new ethers.Contract(
+          addresses.protocolGovernor,
+          ProtocolGovernorABI,
+          signer
+        );
+
+        // Optional contracts (may not exist on all networks)
+        if (addresses.creditSystem) {
+          contractInstances.creditSystem = new ethers.Contract(
+            addresses.creditSystem,
+            IntegratedCreditSystemABI,
+            signer
+          );
+        }
+
+        if (addresses.risc0Test) {
+          contractInstances.risc0Test = new ethers.Contract(
+            addresses.risc0Test,
+            SimpleRISC0TestABI,
+            signer
+          );
+        }
+
+        // Test contract connectivity
+        await contractInstances.liquidityPool.getBalance();
+
+        // Set both the new contracts object and legacy contract references
+        setContracts(contractInstances);
+        setContract(contractInstances.liquidityPool); // Legacy compatibility
+        setLendingManagerContract(contractInstances.lendingManager); // Legacy compatibility
+
+        console.log("✅ Contracts initialized successfully");
+        return contractInstances;
+
+      } catch (contractError) {
+        console.error("Contract initialization error:", contractError);
+        throw new Error(`Failed to initialize contracts: ${contractError.message}`);
       }
-      const poolAddress = addresses.LiquidityPool;
-      const lendingAddress = addresses.LendingManager;
-      // Initialize contracts
-      const liquidityPoolContract = new ethers.Contract(
-        poolAddress,
-        LiquidityPoolABI.abi,
-        signer
-      );
-      const lendingContract = new ethers.Contract(
-        lendingAddress,
-        LendingManagerABI.abi,
-        signer
-      );
-      // Verify contracts are deployed
-      const [poolCode, lendingCode] = await Promise.all([
-        provider.getCode(poolAddress),
-        provider.getCode(lendingAddress)
-      ]);
-      if (poolCode === '0x') {
-        throw new Error(`LiquidityPool not deployed at ${poolAddress}`);
-      }
-      if (lendingCode === '0x') {
-        throw new Error(`LendingManager not deployed at ${lendingAddress}`);
-      }
-      console.log('Contracts initialized successfully');
-      setContract(liquidityPoolContract);
-      setLendingManagerContract(lendingContract);
-      setProvider(provider);
-      setNetworkName(networkName);
-      return { liquidityPoolContract, lendingContract };
+
     } catch (err) {
-      console.error('Failed to initialize contracts:', err);
+      console.error("Contract initialization failed:", err);
       setError(`Failed to initialize contracts: ${err.message}`);
       return null;
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   const connectWallet = async () => {
     try {
@@ -174,20 +234,21 @@ export default function App() {
 
       // 2. Get network name for contract initialization
       const network = await provider.getNetwork();
-      const networkName = CHAIN_ID_TO_NETWORK[Number(network.chainId)] || 'sepolia';
+      const networkName = CHAIN_ID_TO_NETWORK[Number(network.chainId)] || 'localhost';
+      setNetworkName(networkName);
 
       // 3. Initialize contracts with network context
-      const contracts = await initializeContracts(provider, signer, networkName);
-      if (!contracts) {
+      const contractInstances = await initializeContracts(provider, signer, networkName);
+      if (!contractInstances) {
         throw new Error("Failed to initialize contracts");
       }
 
       setAccount(accounts[0]);
       setProvider(provider);
 
-      // 4. Check roles and pause status
-      await checkRoles(contracts.liquidityPoolContract, accounts[0]);
-      await checkPauseStatus(contracts.liquidityPoolContract);
+      // 4. Check roles and pause status using the legacy contract reference
+      await checkRoles(contractInstances.liquidityPool, accounts[0]);
+      await checkPauseStatus(contractInstances.liquidityPool);
 
       // 5. Update token addresses based on network
       updateTokenAddresses(networkName);
@@ -209,6 +270,7 @@ export default function App() {
 
           await initializeContracts(newProvider, newSigner, newNetworkName);
           updateTokenAddresses(newNetworkName);
+          setNetworkName(newNetworkName);
           setError("");
         } catch (err) {
           console.error("Network change failed:", err);
@@ -227,8 +289,8 @@ export default function App() {
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to connect wallet");
-
-      // Clear loading state on error
+    } finally {
+      // Clear loading state
       setIsLoading(false);
     }
   };
@@ -243,6 +305,7 @@ export default function App() {
       setIsPaused(false)
       setContract(null)
       setLendingManagerContract(null)
+      setContracts({}) // Clear contracts object
       setProvider(null)
 
       // Clear connection state from localStorage
@@ -273,22 +336,20 @@ export default function App() {
       // Determine network name
       const chainId = Number(network.chainId);
       const networkName = CHAIN_ID_TO_NETWORK[chainId] || 'localhost';
+      setNetworkName(networkName);
 
       // Initialize contracts with network name
-      const contracts = await initializeContracts(provider, signer, networkName);
+      const contractInstances = await initializeContracts(provider, signer, networkName);
 
-      if (!contracts) {
+      if (!contractInstances) {
         throw new Error("Failed to initialize contracts");
       }
 
       setAccount(accounts[0]);
-      setContract(contracts.liquidityPoolContract);
-      setLendingManagerContract(contracts.lendingContract);
       setProvider(provider);
-      setNetworkName(networkName);
 
-      await checkRoles(contracts.liquidityPoolContract, accounts[0]);
-      await checkPauseStatus(contracts.liquidityPoolContract);
+      await checkRoles(contractInstances.liquidityPool, accounts[0]);
+      await checkPauseStatus(contractInstances.liquidityPool);
 
       // Update last connected account in localStorage
       localStorage.setItem('lastConnectedAccount', accounts[0]);

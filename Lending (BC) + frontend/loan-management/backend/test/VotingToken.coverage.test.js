@@ -3,146 +3,181 @@ const { ethers } = require("hardhat");
 
 describe("VotingToken - Coverage Boost", function () {
     let votingToken;
-    let mockDAO;
     let owner, user1, user2, user3;
 
     beforeEach(async function () {
         [owner, user1, user2, user3] = await ethers.getSigners();
 
-        // Deploy mock DAO
-        mockDAO = owner; // Simplified for testing
-
-        // Deploy VotingToken
+        // Deploy VotingToken with correct constructor
         const VotingToken = await ethers.getContractFactory("VotingToken");
-        votingToken = await VotingToken.deploy(mockDAO.address);
+        votingToken = await VotingToken.deploy(owner.address); // Pass DAO address
         await votingToken.deployed();
+
+        // Set up liquidity pool role for minting
+        await votingToken.connect(owner).setLiquidityPool(owner.address);
     });
 
     describe("Initialization", function () {
         it("should initialize with correct parameters", async function () {
-            expect(await votingToken.dao()).to.equal(mockDAO.address);
-            expect(await votingToken.name()).to.equal("VotingToken");
+            expect(await votingToken.totalSupply()).to.equal(0);
+            expect(await votingToken.name()).to.equal("Voting Token");
             expect(await votingToken.symbol()).to.equal("VOTE");
-        });
-
-        it("should set correct roles", async function () {
-            const MINTER_ROLE = await votingToken.MINTER_ROLE();
-            const DEFAULT_ADMIN_ROLE = await votingToken.DEFAULT_ADMIN_ROLE();
-
-            expect(await votingToken.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.true;
-            expect(await votingToken.hasRole(MINTER_ROLE, mockDAO.address)).to.be.true;
         });
     });
 
     describe("Minting", function () {
-        it("should mint tokens to users", async function () {
-            await votingToken.mint(user1.address, 100);
-            expect(await votingToken.balanceOf(user1.address)).to.equal(100);
-        });
-
-        it("should only allow minters to mint", async function () {
+        it("should allow DAO to mint tokens", async function () {
             await expect(
-                votingToken.connect(user1).mint(user2.address, 100)
-            ).to.be.revertedWith("AccessControl:");
+                votingToken.connect(owner).mint(user1.address, 50)
+            ).to.emit(votingToken, "Transfer")
+                .withArgs(ethers.constants.AddressZero, user1.address, 50);
+
+            expect(await votingToken.balanceOf(user1.address)).to.equal(50);
         });
 
-        it("should mint multiple tokens", async function () {
-            await votingToken.mint(user1.address, 50);
-            await votingToken.mint(user1.address, 30);
-            expect(await votingToken.balanceOf(user1.address)).to.equal(80);
+        it("should reject minting from non-DAO", async function () {
+            await expect(
+                votingToken.connect(user1).mint(user2.address, 50)
+            ).to.be.revertedWith("Only LiquidityPool can mint");
         });
 
-        it("should handle zero amount minting", async function () {
-            await votingToken.mint(user1.address, 0);
-            expect(await votingToken.balanceOf(user1.address)).to.equal(0);
+        it("should handle multiple mints", async function () {
+            await votingToken.connect(owner).mint(user1.address, 30);
+            await votingToken.connect(owner).mint(user1.address, 20);
+
+            expect(await votingToken.balanceOf(user1.address)).to.equal(50);
+        });
+
+        it("should handle zero minting", async function () {
+            await expect(
+                votingToken.connect(owner).mint(user1.address, 0)
+            ).to.be.revertedWith("Amount must be 1-100");
+        });
+
+        it("should handle large amounts", async function () {
+            await expect(
+                votingToken.connect(owner).mint(user1.address, 101)
+            ).to.be.revertedWith("Amount must be 1-100");
         });
     });
 
-    describe("Slashing", function () {
+    describe("Voting Power", function () {
         beforeEach(async function () {
-            await votingToken.mint(user1.address, 100);
+            await votingToken.connect(owner).mint(user1.address, 50);
+            await votingToken.connect(owner).mint(user2.address, 30);
         });
 
-        it("should slash tokens from users", async function () {
-            await votingToken.connect(mockDAO).slash(user1.address, 30);
-            expect(await votingToken.balanceOf(user1.address)).to.equal(70);
+        it("should track voting power correctly", async function () {
+            expect(await votingToken.getVotes(user1.address)).to.equal(50);
+            expect(await votingToken.getVotes(user2.address)).to.equal(30);
         });
 
-        it("should only allow DAO to slash", async function () {
-            await expect(
-                votingToken.connect(user2).slash(user1.address, 30)
-            ).to.be.revertedWith("Only DAO can slash");
-        });
-
-        it("should handle slashing more than balance", async function () {
-            await votingToken.connect(mockDAO).slash(user1.address, 150);
-            expect(await votingToken.balanceOf(user1.address)).to.equal(0);
-        });
-
-        it("should reject slashing zero address", async function () {
-            await expect(
-                votingToken.connect(mockDAO).slash(ethers.constants.AddressZero, 30)
-            ).to.be.revertedWith("Invalid address");
-        });
-
-        it("should handle slashing user with no tokens", async function () {
-            await expect(
-                votingToken.connect(mockDAO).slash(user2.address, 30)
-            ).to.be.revertedWith("No tokens to slash");
+        it("should handle delegation", async function () {
+            await votingToken.connect(user1).delegate(user2.address);
+            expect(await votingToken.getVotes(user2.address)).to.equal(80); // 30 + 50
         });
     });
 
     describe("DAO Management", function () {
-        it("should set new DAO", async function () {
-            await votingToken.setDAO(user2.address);
-            expect(await votingToken.dao()).to.equal(user2.address);
+        it("should allow DAO to change DAO address", async function () {
+            await votingToken.connect(owner).setLiquidityPool(user1.address);
+
+            // Now user1 should be able to mint
+            await votingToken.connect(user1).mint(user2.address, 25);
+            expect(await votingToken.balanceOf(user2.address)).to.equal(25);
         });
 
-        it("should only allow admin to set DAO", async function () {
+        it("should reject DAO change from non-DAO", async function () {
             await expect(
-                votingToken.connect(user1).setDAO(user2.address)
-            ).to.be.revertedWith("AccessControl:");
+                votingToken.connect(user1).setLiquidityPool(user2.address)
+            ).to.be.revertedWith("Only DAO");
         });
 
-        it("should reject zero address as DAO", async function () {
+        it("should emit DAO change event", async function () {
             await expect(
-                votingToken.setDAO(ethers.constants.AddressZero)
-            ).to.be.revertedWith("Invalid DAO address");
+                votingToken.connect(owner).setLiquidityPool(user1.address)
+            ).to.emit(votingToken, "LiquidityPoolUpdated")
+                .withArgs(user1.address);
         });
     });
 
     describe("Token Transfers", function () {
         beforeEach(async function () {
-            await votingToken.mint(user1.address, 100);
+            await votingToken.connect(owner).mint(user1.address, 50);
         });
 
-        it("should transfer tokens between users", async function () {
-            const tokenId = await votingToken.tokenOfOwnerByIndex(user1.address, 0);
-            await votingToken.connect(user1).transferFrom(user1.address, user2.address, tokenId);
-            expect(await votingToken.balanceOf(user2.address)).to.equal(1);
-            expect(await votingToken.balanceOf(user1.address)).to.equal(99);
+        it("should allow token transfers", async function () {
+            await votingToken.connect(user1).transfer(user2.address, 20);
+
+            expect(await votingToken.balanceOf(user1.address)).to.equal(30);
+            expect(await votingToken.balanceOf(user2.address)).to.equal(20);
         });
 
-        it("should approve and transfer", async function () {
-            const tokenId = await votingToken.tokenOfOwnerByIndex(user1.address, 0);
-            await votingToken.connect(user1).approve(user2.address, tokenId);
-            await votingToken.connect(user2).transferFrom(user1.address, user3.address, tokenId);
-            expect(await votingToken.ownerOf(tokenId)).to.equal(user3.address);
+        it("should handle transfer approvals", async function () {
+            await votingToken.connect(user1).approve(user2.address, 25);
+            await votingToken.connect(user2).transferFrom(user1.address, user3.address, 25);
+
+            expect(await votingToken.balanceOf(user3.address)).to.equal(25);
         });
     });
 
-    describe("Batch Operations", function () {
-        it("should handle batch minting", async function () {
-            const users = [user1.address, user2.address, user3.address];
-            const amounts = [50, 75, 25];
+    describe("Burning", function () {
+        beforeEach(async function () {
+            await votingToken.connect(owner).mint(user1.address, 50);
+        });
 
-            for (let i = 0; i < users.length; i++) {
-                await votingToken.mint(users[i], amounts[i]);
-            }
+        it("should allow token burning", async function () {
+            await votingToken.connect(user1).burn(20);
+            expect(await votingToken.balanceOf(user1.address)).to.equal(30);
+        });
 
-            expect(await votingToken.balanceOf(user1.address)).to.equal(50);
-            expect(await votingToken.balanceOf(user2.address)).to.equal(75);
-            expect(await votingToken.balanceOf(user3.address)).to.equal(25);
+        it("should handle burn from approval", async function () {
+            await votingToken.connect(user1).approve(user2.address, 15);
+            await votingToken.connect(user2).burnFrom(user1.address, 15);
+
+            expect(await votingToken.balanceOf(user1.address)).to.equal(35);
+        });
+    });
+
+    describe("Checkpoints", function () {
+        it("should create checkpoints on delegation", async function () {
+            await votingToken.connect(owner).mint(user1.address, 50);
+
+            const blockNumber = await ethers.provider.getBlockNumber();
+            await votingToken.connect(user1).delegate(user1.address);
+
+            expect(await votingToken.getPastVotes(user1.address, blockNumber)).to.equal(0);
+        });
+
+        it("should handle multiple checkpoints", async function () {
+            await votingToken.connect(owner).mint(user1.address, 30);
+            await votingToken.connect(user1).delegate(user1.address);
+
+            await votingToken.connect(owner).mint(user1.address, 20);
+
+            expect(await votingToken.getVotes(user1.address)).to.equal(50);
+        });
+    });
+
+    describe("Edge Cases", function () {
+        it("should handle zero address operations", async function () {
+            await expect(
+                votingToken.connect(owner).mint(ethers.constants.AddressZero, 50)
+            ).to.be.revertedWith("ERC20: mint to the zero address");
+        });
+
+        it("should handle maximum token amounts", async function () {
+            // Test with maximum allowed amount (100)
+            await votingToken.connect(owner).mint(user1.address, 100);
+            expect(await votingToken.balanceOf(user1.address)).to.equal(100);
+        });
+
+        it("should handle reputation penalties", async function () {
+            await votingToken.connect(owner).mint(user1.address, 50);
+            await votingToken.connect(owner).setProtocolGovernor(owner.address);
+
+            await votingToken.connect(owner).penalizeReputation(user1.address, 10);
+            expect(await votingToken.balanceOf(user1.address)).to.equal(40);
         });
     });
 });

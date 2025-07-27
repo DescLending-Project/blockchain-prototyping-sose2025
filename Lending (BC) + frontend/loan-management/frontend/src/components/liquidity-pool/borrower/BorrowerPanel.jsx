@@ -24,6 +24,16 @@ export default function BorrowerPanel({ contract, account }) {
     const [selectedCollateral, setSelectedCollateral] = useState(null)
     const [collateralPrices, setCollateralPrices] = useState({})
     const [activeTab, setActiveTab] = useState('collateral') // NEW: tab state
+    const [creditScore, setCreditScore] = useState({
+        currentScore: 0,
+        previousScore: 0,
+        hasImproved: false,
+        improvementPercentage: 0
+    })
+    const [withdrawableAmounts, setWithdrawableAmounts] = useState({})
+    const [showPartialWithdraw, setShowPartialWithdraw] = useState(false)
+    const [partialWithdrawToken, setPartialWithdrawToken] = useState('')
+    const [partialWithdrawAmount, setPartialWithdrawAmount] = useState('')
 
     useEffect(() => {
         if (contract && account) {
@@ -31,6 +41,7 @@ export default function BorrowerPanel({ contract, account }) {
             loadCurrentValues()
             loadCollateralTokens()
             checkNetwork()
+            fetchCreditScore()
         }
     }, [contract, account])
 
@@ -172,6 +183,91 @@ export default function BorrowerPanel({ contract, account }) {
         } catch (err) { }
     }
 
+    const fetchCreditScore = async () => {
+        if (!contract || !account) return
+
+        try {
+            const currentScore = await contract.getCreditScore(account)
+            const scoreNum = Number(currentScore)
+
+            // Get previous score from localStorage for comparison
+            const storageKey = `creditScore_${account}`
+            const previousScore = parseInt(localStorage.getItem(storageKey) || '0')
+
+            const hasImproved = scoreNum > previousScore
+            const improvementPercentage = previousScore > 0 ?
+                ((scoreNum - previousScore) / previousScore) * 100 : 0
+
+            setCreditScore({
+                currentScore: scoreNum,
+                previousScore,
+                hasImproved,
+                improvementPercentage
+            })
+
+            // Store current score for next comparison
+            localStorage.setItem(storageKey, scoreNum.toString())
+
+            // Calculate withdrawable amounts for each token
+            await calculateWithdrawableAmounts(scoreNum)
+        } catch (err) {
+            console.error('Failed to fetch credit score:', err)
+        }
+    }
+
+    const calculateWithdrawableAmounts = async (creditScore) => {
+        if (!contract || !account || creditScore <= 0) return
+
+        try {
+            const amounts = {}
+            for (const token of collateralTokens) {
+                const balance = await contract.getCollateral(account, token)
+                const balanceNum = Number(formatEther(balance))
+
+                if (balanceNum > 0) {
+                    // Base withdrawable amount (10% base)
+                    const baseWithdrawable = balanceNum * 0.1
+
+                    // Credit score bonus: higher score allows more withdrawal
+                    const creditBonus = Math.min((creditScore - 25) / 75, 0.4) // Up to 40% bonus for score 100
+                    const totalWithdrawableRatio = Math.min(0.1 + creditBonus, 0.5) // Max 50% withdrawable
+
+                    const withdrawableAmount = balanceNum * totalWithdrawableRatio
+                    amounts[token] = withdrawableAmount.toFixed(6)
+                }
+            }
+            setWithdrawableAmounts(amounts)
+        } catch (err) {
+            console.error('Failed to calculate withdrawable amounts:', err)
+        }
+    }
+
+    const handlePartialWithdraw = async () => {
+        if (!partialWithdrawToken || !partialWithdrawAmount) return
+
+        try {
+            setIsLoading(true)
+            setError('')
+
+            const tx = await contract.withdrawCollateral(
+                partialWithdrawToken,
+                parseEther(partialWithdrawAmount)
+            )
+            await tx.wait()
+
+            await loadCurrentValues()
+            await fetchCreditScore()
+            setPartialWithdrawAmount('')
+            setPartialWithdrawToken('')
+            setShowPartialWithdraw(false)
+            setError('Partial withdrawal successful!')
+        } catch (err) {
+            setError(err.message || 'Failed to withdraw collateral')
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
     // Helper to get symbol for a token address
     const getTokenSymbol = (address) => {
         return COLLATERAL_TOKENS.find(t => t.address.toLowerCase() === address.toLowerCase())?.symbol || address
@@ -261,17 +357,169 @@ export default function BorrowerPanel({ contract, account }) {
                                 </h3>
                             </div>
                             <div className="p-6 pt-0 space-y-6">
+                                {/* Credit Score Display */}
+                                <div className="p-4 rounded-lg bg-background/50 border">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Credit Score</p>
+                                            <p className="text-2xl font-bold">{creditScore.currentScore}</p>
+                                        </div>
+                                        {creditScore.hasImproved && (
+                                            <div className="flex items-center gap-2 text-green-600">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trending-up">
+                                                    <polyline points="22,7 13.5,15.5 8.5,10.5 2,17"></polyline>
+                                                    <polyline points="16,7 22,7 22,13"></polyline>
+                                                </svg>
+                                                <div className="text-right">
+                                                    <p className="text-sm">Improved +{creditScore.improvementPercentage.toFixed(1)}%</p>
+                                                    <p className="text-xs">More withdrawal available</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
                                 {/* Collateral Position Block */}
                                 <div className="text-sm [&_p]:leading-relaxed text-blue-700">
                                     <div className="space-y-2">
                                         <p className="font-medium">Your Collateral Position:</p>
                                         <ul className="list-disc list-inside space-y-1">
-                                            <li>Current Collateral: 0.0 Token</li>
-                                            <li>Collateral Value in ETH:  ETH</li>
+                                            <li>Current Collateral: {currentValues?.collateralValue || '0.0'} ETH</li>
+                                            <li>Credit Score: {creditScore.currentScore}/100</li>
                                             <li>Required Collateral Ratio: 130% of borrow amount</li>
+                                            {creditScore.currentScore > 25 && (
+                                                <li className="text-green-600">✓ Partial withdrawal available due to good credit</li>
+                                            )}
                                         </ul>
                                     </div>
                                 </div>
+
+                                {/* Enhanced Collateral Table */}
+                                {collateralTokens.length > 0 && (
+                                    <div className="space-y-4">
+                                        <h4 className="font-medium">Your Collateral Tokens:</h4>
+                                        <div className="rounded-md border">
+                                            <table className="w-full">
+                                                <thead>
+                                                    <tr className="border-b">
+                                                        <th className="text-left p-3 text-sm font-medium">Token</th>
+                                                        <th className="text-left p-3 text-sm font-medium">Balance</th>
+                                                        <th className="text-left p-3 text-sm font-medium">Withdrawable</th>
+                                                        <th className="text-left p-3 text-sm font-medium">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {collateralTokens.map((token) => {
+                                                        const tokenInfo = COLLATERAL_TOKENS.find(t =>
+                                                            t.address.toLowerCase() === token.toLowerCase()
+                                                        )
+                                                        const withdrawable = withdrawableAmounts[token] || '0'
+
+                                                        return (
+                                                            <tr key={token} className="border-b last:border-0">
+                                                                <td className="p-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        {tokenInfo?.symbol || 'Unknown'}
+                                                                        {['USDC', 'USDT'].includes(tokenInfo?.symbol) && (
+                                                                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">Stable</span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-3 text-sm">
+                                                                    {collateralBalances[token] ?
+                                                                        Number(collateralBalances[token]).toFixed(6) :
+                                                                        '0.000000'
+                                                                    }
+                                                                </td>
+                                                                <td className="p-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-sm">{withdrawable}</span>
+                                                                        {Number(withdrawable) > 0 && (
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-unlock text-green-500">
+                                                                                <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                                                                                <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                                                                            </svg>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-3">
+                                                                    {Number(withdrawable) > 0 && (
+                                                                        <button
+                                                                            className="px-3 py-1 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors"
+                                                                            onClick={() => {
+                                                                                setPartialWithdrawToken(token)
+                                                                                setShowPartialWithdraw(true)
+                                                                            }}
+                                                                        >
+                                                                            Withdraw
+                                                                        </button>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Partial Withdrawal Modal */}
+                                {showPartialWithdraw && (
+                                    <div className="p-4 border border-green-200 bg-green-50 rounded-lg">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-unlock text-green-600">
+                                                <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                                                <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                                            </svg>
+                                            <h4 className="font-medium text-green-800">Partial Withdrawal Available</h4>
+                                        </div>
+                                        <p className="text-sm text-green-700 mb-3">
+                                            Your improved credit score allows partial collateral withdrawal
+                                        </p>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="text-sm font-medium text-green-800">Token</label>
+                                                <p className="text-sm">{getTokenSymbol(partialWithdrawToken)}</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm font-medium text-green-800">Amount</label>
+                                                <input
+                                                    className="flex h-9 rounded-md border border-green-300 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500 w-full"
+                                                    type="number"
+                                                    placeholder="Enter amount to withdraw"
+                                                    value={partialWithdrawAmount}
+                                                    onChange={(e) => setPartialWithdrawAmount(e.target.value)}
+                                                    max={withdrawableAmounts[partialWithdrawToken]}
+                                                    step="0.000001"
+                                                />
+                                                <p className="text-xs text-green-600 mt-1">
+                                                    Max withdrawable: {withdrawableAmounts[partialWithdrawToken]} tokens
+                                                </p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-green-600 text-white shadow hover:bg-green-700 px-4 py-2"
+                                                    onClick={handlePartialWithdraw}
+                                                    disabled={isLoading || !partialWithdrawAmount}
+                                                >
+                                                    {isLoading ? 'Withdrawing...' : 'Withdraw'}
+                                                </button>
+                                                <button
+                                                    className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-green-300 bg-white shadow-sm hover:bg-green-50 text-green-800 px-4 py-2"
+                                                    onClick={() => {
+                                                        setShowPartialWithdraw(false)
+                                                        setPartialWithdrawToken('')
+                                                        setPartialWithdrawAmount('')
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Deposit/Withdraw UI */}
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Select Token</label>

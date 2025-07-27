@@ -15,7 +15,8 @@ import {
 import { LendingPoolStatus } from '../shared/LendingPoolStatus'
 import { LendingRateSimulator } from '../shared/InterestRateSimulator'
 import InterestRateModelABI from '../../../abis/InterestRateModel.json'
-import { INTEREST_RATE_MODEL_ADDRESS } from '../../../App.jsx'
+const { contracts } = props;
+const interestRateModelAddress = contracts.interestRateModel;
 
 function CountdownTimer({ targetDate, label }) {
     const [timeLeft, setTimeLeft] = useState('')
