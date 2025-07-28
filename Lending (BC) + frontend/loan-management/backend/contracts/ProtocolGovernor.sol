@@ -364,8 +364,8 @@ contract ProtocolGovernor is
             ? borrowMultiplier
             : repayMultiplier;
         uint256 tokens = (sqrt(usdValue) * multiplier) / (10 * 1e18);
-        if (tokens > 1000) {
-            tokens = 1000;
+        if (tokens > 100) {
+            tokens = 100; // Cap at VotingToken's maximum mint amount
         }
         if (tokens > 0) {
             votingToken.mint(user, tokens);

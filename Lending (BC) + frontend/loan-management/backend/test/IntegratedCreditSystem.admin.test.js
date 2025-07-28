@@ -48,13 +48,13 @@ describe("IntegratedCreditSystem - Admin Tests", function() {
         it("should reject invalid weight updates", async function () {
             await expect(
                 creditSystem.connect(owner).updateScoringWeights(40, 40, 30) // Sum = 110
-            ).to.be.revertedWithCustomError("Weights must sum to 100");
+            ).to.be.revertedWith("Weights must sum to 100");
         });
 
         it("should reject weight updates from non-timelock", async function () {
             await expect(
                 creditSystem.connect(user1).updateScoringWeights(40, 40, 20)
-            ).to.be.revertedWithCustomError("Only DAO/Timelock");
+            ).to.be.revertedWith("Only DAO/Timelock");
         });
 
         it("should handle various weight combinations", async function () {
@@ -92,7 +92,7 @@ describe("IntegratedCreditSystem - Admin Tests", function() {
             for (const weights of invalidCombinations) {
                 await expect(
                     creditSystem.connect(owner).updateScoringWeights(weights[0], weights[1], weights[2])
-                ).to.be.revertedWithCustomError("Weights must sum to 100");
+                ).to.be.revertedWith("Weights must sum to 100");
             }
         });
 
@@ -111,17 +111,18 @@ describe("IntegratedCreditSystem - Admin Tests", function() {
 
             await expect(
                 creditSystem.connect(user1).updateScoringWeights(40, 40, 20)
-            ).to.be.revertedWithCustomError("Only DAO/Timelock");
+            ).to.be.revertedWith("Only DAO/Timelock");
         });
 
         it("should allow liquidity pool address to update weights", async function () {
             // Impersonate the liquidity pool contract
+            const liquidityPoolAddress = await mockLiquidityPool.getAddress();
             await network.provider.request({
                 method: "hardhat_impersonateAccount",
-                params: [mockLiquidityPool.address],
+                params: [liquidityPoolAddress],
             });
 
-            const liquidityPoolSigner = await ethers.getSigner(mockLiquidityPool.address);
+            const liquidityPoolSigner = await ethers.getSigner(liquidityPoolAddress);
 
             // Fund the impersonated account
             await owner.sendTransaction({
@@ -147,8 +148,8 @@ describe("IntegratedCreditSystem - Admin Tests", function() {
     describe("Weight Impact on Scoring", function() {
         it("should affect final scores when weights change", async function () {
             // Submit initial proofs
-            const tradFiSeal = ethers.utils.toUtf8Bytes("MOCK_TRADFI_SEAL_WEIGHT_" + Date.now());
-            const tradFiJournal = ethers.utils.defaultAbiCoder.encode(
+            const tradFiSeal = ethers.toUtf8Bytes("MOCK_TRADFI_SEAL_WEIGHT_" + Date.now());
+            const tradFiJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                 ["tuple(string,string,string,string,string)"],
                 [["750", "experian", "2024-01-15", "5 years", "excellent"]]
             );

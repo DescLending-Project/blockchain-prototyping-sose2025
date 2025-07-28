@@ -31,17 +31,17 @@ describe("IntegratedCreditSystem - Account Tests", function() {
             account: user1.address,
             nonce: 100,
             balance: ethers.parseEther("1"),
-            storageRoot: ethers.utils.keccak256("0x1234"),
-            codeHash: ethers.utils.keccak256("0x5678"),
+            storageRoot: ethers.keccak256("0x1234"),
+            codeHash: ethers.keccak256("0x5678"),
             blockNumber: 12345,
-            stateRoot: ethers.utils.keccak256("0x9abc")
+            stateRoot: ethers.keccak256("0x9abc")
         };
     });
 
     describe("Account Proof Submission", function() {
         it("should reject account proof with wrong account address", async function () {
-            const mockSeal = ethers.utils.toUtf8Bytes("MOCK_ACCOUNT_SEAL_WRONG");
-            const mockJournal = ethers.utils.defaultAbiCoder.encode(
+            const mockSeal = ethers.toUtf8Bytes("MOCK_ACCOUNT_SEAL_WRONG");
+            const mockJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                 ["tuple(address,uint256,uint256,bytes32,bytes32,uint256,bytes32)"],
                 [[user2.address, 100, ethers.parseEther("1"),
                 mockAccountProofData.storageRoot, mockAccountProofData.codeHash,
@@ -54,8 +54,8 @@ describe("IntegratedCreditSystem - Account Tests", function() {
         });
 
         it("should successfully submit valid account proof", async function () {
-            const mockSeal = ethers.utils.toUtf8Bytes("MOCK_ACCOUNT_SEAL_VALID");
-            const mockJournal = ethers.utils.defaultAbiCoder.encode(
+            const mockSeal = ethers.toUtf8Bytes("MOCK_ACCOUNT_SEAL_VALID");
+            const mockJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                 ["tuple(address,uint256,uint256,bytes32,bytes32,uint256,bytes32)"],
                 [[user1.address, 100, ethers.parseEther("1"),
                 mockAccountProofData.storageRoot, mockAccountProofData.codeHash,
@@ -81,8 +81,8 @@ describe("IntegratedCreditSystem - Account Tests", function() {
                 const testCase = testCases[i];
                 const testUser = [user1, user2, user3][i];
 
-                const mockSeal = ethers.utils.toUtf8Bytes("MOCK_ACCOUNT_SEAL_" + i + "_" + Date.now());
-                const mockJournal = ethers.utils.defaultAbiCoder.encode(
+                const mockSeal = ethers.toUtf8Bytes("MOCK_ACCOUNT_SEAL_" + i + "_" + Date.now());
+                const mockJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                     ["tuple(address,uint256,uint256,bytes32,bytes32,uint256,bytes32)"],
                     [[testUser.address, testCase.nonce, testCase.balance,
                     mockAccountProofData.storageRoot, mockAccountProofData.codeHash,
@@ -97,12 +97,12 @@ describe("IntegratedCreditSystem - Account Tests", function() {
         });
 
         it("should handle extreme balance values", async function () {
-            const extremeSeal = ethers.utils.toUtf8Bytes("MOCK_ACCOUNT_SEAL_EXTREME_" + Date.now());
-            const extremeJournal = ethers.utils.defaultAbiCoder.encode(
+            const extremeSeal = ethers.toUtf8Bytes("MOCK_ACCOUNT_SEAL_EXTREME_" + Date.now());
+            const extremeJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                 ["tuple(address,uint256,uint256,bytes32,bytes32,uint256,bytes32)"],
                 [[user1.address, 1000000, ethers.parseEther("1000000"),
-                ethers.utils.keccak256("0x1234"), ethers.utils.keccak256("0x5678"),
-                    12345, ethers.utils.keccak256("0x9abc")]]
+                ethers.keccak256("0x1234"), ethers.keccak256("0x5678"),
+                    12345, ethers.keccak256("0x9abc")]]
             );
 
             const tx = await creditSystem.connect(user1).submitAccountProof(extremeSeal, extremeJournal);
@@ -114,8 +114,8 @@ describe("IntegratedCreditSystem - Account Tests", function() {
         });
 
         it("should emit events on successful submission", async function () {
-            const mockSeal = ethers.utils.toUtf8Bytes("MOCK_ACCOUNT_SEAL_EVENT");
-            const mockJournal = ethers.utils.defaultAbiCoder.encode(
+            const mockSeal = ethers.toUtf8Bytes("MOCK_ACCOUNT_SEAL_EVENT");
+            const mockJournal = ethers.AbiCoder.defaultAbiCoder().encode(
                 ["tuple(address,uint256,uint256,bytes32,bytes32,uint256,bytes32)"],
                 [[user1.address, 100, ethers.parseEther("1"),
                 mockAccountProofData.storageRoot, mockAccountProofData.codeHash,

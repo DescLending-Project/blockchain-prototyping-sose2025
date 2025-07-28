@@ -96,15 +96,26 @@ contract StablecoinManager {
         address token
     ) external view returns (bool, uint256, uint256) {
         if (token == address(0)) revert InvalidAddress();
-        return (
-            isStablecoin[token],
-            stablecoinLTV[token] > 0
-                ? stablecoinLTV[token]
-                : DEFAULT_STABLECOIN_LTV,
-            stablecoinLiquidationThreshold[token] > 0
-                ? stablecoinLiquidationThreshold[token]
-                : DEFAULT_STABLECOIN_LIQUIDATION_THRESHOLD
-        );
+
+        uint256 ltv;
+        if (stablecoinLTV[token] > 0) {
+            ltv = stablecoinLTV[token];
+        } else if (isStablecoin[token]) {
+            ltv = DEFAULT_STABLECOIN_LTV;
+        } else {
+            ltv = DEFAULT_VOLATILE_LTV;
+        }
+
+        uint256 threshold;
+        if (stablecoinLiquidationThreshold[token] > 0) {
+            threshold = stablecoinLiquidationThreshold[token];
+        } else if (isStablecoin[token]) {
+            threshold = DEFAULT_STABLECOIN_LIQUIDATION_THRESHOLD;
+        } else {
+            threshold = 0; // No default threshold for volatile tokens
+        }
+
+        return (isStablecoin[token], ltv, threshold);
     }
 
     // Aliases for test/integration compatibility

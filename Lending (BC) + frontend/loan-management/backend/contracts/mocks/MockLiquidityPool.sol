@@ -303,4 +303,8 @@ contract MockLiquidityPool {
             emit Deposit(msg.sender, msg.value);
         }
     }
+
+    function canLend(address user) external view returns (bool) {
+        return creditScores[user] >= 60; // Minimum credit score for lending
+    }
 }

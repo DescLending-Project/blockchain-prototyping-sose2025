@@ -22,43 +22,50 @@ describe("LendingManager - Unit", function() {
         const LendingManager = await ethers.getContractFactory("LendingManager");
         lendingManager = await LendingManager.deploy(
             await liquidityPool.getAddress(),
-            await votingToken.getAddress()
+            owner.address // timelock address
         );
         await lendingManager.waitForDeployment();
+
+        // Set up VotingToken in LendingManager
+        await lendingManager.setVotingToken(await votingToken.getAddress());
+
+        // Set credit scores for users to enable lending
+        await liquidityPool.setCreditScore(user1.address, 80);
     });
 
     describe("Rate Management", function() {
         it("should allow owner to set current daily rate and revert for non-owner or invalid rate", async function () {
-            const newRate = ethers.parseEther("0.001"); // 0.1%
+            const newRate = ethers.parseUnits("1.001", 18); // 1.001 (0.1% daily rate)
 
             await lendingManager.connect(owner).setCurrentDailyRate(newRate);
             expect(await lendingManager.currentDailyRate()).to.equal(newRate);
 
-            // Test non-owner rejection
+            // Test non-timelock rejection
             await expect(
                 lendingManager.connect(user1).setCurrentDailyRate(newRate)
-            ).to.be.revertedWithCustomError("Ownable: caller is not the owner");
+            ).to.be.revertedWithCustomError(lendingManager, "OnlyTimelockLendingManager");
 
             // Test invalid rate (too low)
             await expect(
                 lendingManager.connect(owner).setCurrentDailyRate(ethers.parseEther("0.5"))
-            ).to.be.revertedWithCustomError("Rate must be between 1.0 and 1.01");
+            ).to.be.revertedWith("Invalid rate");
         });
 
         it("should handle lending operations", async function () {
-            await lendingManager.connect(user1).lend({ value: ethers.parseEther("10") });
-            expect(await lendingManager.lenderBalances(user1.address)).to.equal(ethers.parseEther("10"));
+            await lendingManager.connect(user1).depositFunds({ value: ethers.parseEther("10") });
+            const lenderInfo = await lendingManager.getLenderInfo(user1.address);
+            expect(lenderInfo.balance).to.equal(ethers.parseEther("10"));
         });
 
         it("should handle withdrawal requests", async function () {
-            // First lend some funds
-            await lendingManager.connect(user1).lend({ value: ethers.parseEther("10") });
+            // First deposit some funds
+            await lendingManager.connect(user1).depositFunds({ value: ethers.parseEther("10") });
 
             // Then request withdrawal
             await lendingManager.connect(user1).requestWithdrawal(ethers.parseEther("5"));
 
-            const request = await lendingManager.withdrawalRequests(user1.address);
-            expect(request > 0n).to.be.true;
+            const lenderInfo = await lendingManager.lenders(user1.address);
+            expect(lenderInfo.pendingPrincipalWithdrawal).to.equal(ethers.parseEther("5"));
         });
     });
 }); 

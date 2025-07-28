@@ -97,7 +97,11 @@ contract VotingToken is ERC721, AccessControl {
 
         // Initialize delegated votes to self if no delegation exists
         if (_delegates[to] == address(0)) {
+            _delegates[to] = to; // Set self-delegation
             _delegatedVotes[to] += 1;
+        } else {
+            // If already delegated, add votes to the delegatee
+            _delegatedVotes[_delegates[to]] += 1;
         }
     }
 
@@ -117,6 +121,12 @@ contract VotingToken is ERC721, AccessControl {
 
         tokens.pop();
         delete tokenIndex[tokenId];
+
+        // Remove delegated vote
+        address delegatee = _delegates[owner];
+        if (delegatee != address(0)) {
+            _delegatedVotes[delegatee] -= 1;
+        }
 
         super._burn(tokenId);
     }

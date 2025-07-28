@@ -16,7 +16,7 @@ describe("InterestRateModel - Enhanced Coverage", function() {
         const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
         interestRateModel = await InterestRateModel.deploy(
             await mockOracle.getAddress(), // _ethUsdOracle
-            deployer.address, // _timelock
+            owner.address, // _timelock
             ethers.parseUnits("0.02", 18), // _baseRate (2%)
             ethers.parseUnits("0.8", 18), // _kink (80%)
             ethers.parseUnits("0.05", 18), // _slope1 (5%)

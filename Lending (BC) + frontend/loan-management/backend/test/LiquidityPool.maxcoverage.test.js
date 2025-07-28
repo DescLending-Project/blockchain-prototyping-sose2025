@@ -60,13 +60,17 @@ describe("LiquidityPool - Maximum Coverage", function() {
 
         // Deploy LiquidityPool
         const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
-        liquidityPool = await LiquidityPool.deploy(
-            await lendingManager.getAddress(),
-            await stablecoinManager.getAddress(),
-            await interestRateModel.getAddress(),
-            timelock.getAddress()
-        );
+        liquidityPool = await LiquidityPool.deploy();
         await liquidityPool.waitForDeployment();
+
+        // Initialize LiquidityPool
+        await liquidityPool.initialize(
+            await timelock.getAddress(), // timelock
+            await stablecoinManager.getAddress(),
+            await lendingManager.getAddress(),
+            await interestRateModel.getAddress(),
+            ethers.ZeroAddress // creditSystem (optional)
+        );
 
         // Setup roles and permissions
         const MINTER_ROLE = await votingToken.MINTER_ROLE();

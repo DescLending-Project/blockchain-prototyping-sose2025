@@ -36,16 +36,19 @@ describe("LiquidityPool - Comprehensive Coverage", function() {
         stablecoinManager = await StablecoinManager.deploy(timelock.getAddress());
         await stablecoinManager.waitForDeployment();
 
-        // Deploy LiquidityPool with correct constructor (5 arguments)
+        // Deploy LiquidityPool as upgradeable contract
         const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
-        liquidityPool = await LiquidityPool.deploy(
-            timelock.getAddress(),
+        liquidityPool = await LiquidityPool.deploy();
+        await liquidityPool.waitForDeployment();
+
+        // Initialize the LiquidityPool
+        await liquidityPool.initialize(
+            await timelock.getAddress(),
             await stablecoinManager.getAddress(),
             ethers.ZeroAddress, // LendingManager placeholder
             await interestRateModel.getAddress(),
             ethers.ZeroAddress  // CreditSystem placeholder
         );
-        await liquidityPool.waitForDeployment();
 
         // Deploy LendingManager
         const LendingManager = await ethers.getContractFactory("LendingManager");
@@ -56,13 +59,13 @@ describe("LiquidityPool - Comprehensive Coverage", function() {
         await lendingManager.waitForDeployment();
 
         // Set up contracts
-        await liquidityPool.connect(timelock).setLendingManager(await lendingManager.getAddress());
+        await liquidityPool.connect(owner).setLendingManager(await lendingManager.getAddress());
 
         // Set credit scores for testing
-        await liquidityPool.connect(timelock).setCreditScore(borrower1.address, 80);
-        await liquidityPool.connect(timelock).setCreditScore(borrower2.address, 75);
-        await liquidityPool.connect(timelock).setCreditScore(lender1.address, 85);
-        await liquidityPool.connect(timelock).setCreditScore(lender2.address, 90);
+        await liquidityPool.connect(owner).setCreditScore(borrower1.address, 80);
+        await liquidityPool.connect(owner).setCreditScore(borrower2.address, 75);
+        await liquidityPool.connect(owner).setCreditScore(lender1.address, 85);
+        await liquidityPool.connect(owner).setCreditScore(lender2.address, 90);
     });
 
     describe("Initialization", function() {

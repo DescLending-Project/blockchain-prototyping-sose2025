@@ -258,6 +258,7 @@ contract LendingManager is ReentrancyGuard {
             lender.depositTimestamp = block.timestamp;
             lender.lastInterestUpdate = block.timestamp;
             lender.lastDepositTime = block.timestamp;
+            lender.isActive = true; // Activate new lender
             lenderAddresses.push(msg.sender);
         } else if (!lender.isActive && lender.balance == 0) {
             // Reactivate if previously inactive with zero balance

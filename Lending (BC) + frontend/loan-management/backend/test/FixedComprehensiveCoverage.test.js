@@ -11,7 +11,7 @@ describe("Fixed Comprehensive Contract Coverage", function() {
 
         // Deploy VotingToken with correct constructor
         const VotingToken = await ethers.getContractFactory("VotingToken");
-        votingToken = await VotingToken.deploy(owner.address); // Pass DAO address
+        votingToken = await VotingToken.deploy(owner.address);
         await votingToken.waitForDeployment();
 
         // Deploy TimelockController
@@ -35,7 +35,7 @@ describe("Fixed Comprehensive Contract Coverage", function() {
         // Deploy MockPriceFeed
         const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
         mockPriceFeed = await MockPriceFeed.deploy(
-            ethers.parseUnits("2000", 8), // $2000 - using ethers v5 syntax
+            ethers.parseUnits("2000", 8), // $2000
             8
         );
         await mockPriceFeed.waitForDeployment();
@@ -45,26 +45,26 @@ describe("Fixed Comprehensive Contract Coverage", function() {
         mockToken = await MockToken.deploy("Mock Token", "MOCK");
         await mockToken.waitForDeployment();
 
-        // Deploy StablecoinManager with correct constructor
+        // Deploy StablecoinManager
         const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
         stablecoinManager = await StablecoinManager.deploy(await timelock.getAddress());
         await stablecoinManager.waitForDeployment();
 
-        // Deploy InterestRateModel with all required parameters
+        // Deploy InterestRateModel
         const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
         interestRateModel = await InterestRateModel.deploy(
-            await mockPriceFeed.getAddress(), // Use mock price feed instead
+            await mockPriceFeed.getAddress(),
             await timelock.getAddress(),
-            ethers.parseEther("0.05"), // 5% baseRate
-            ethers.parseEther("0.8"),   // 80% kink
-            ethers.parseEther("0.1"),   // 10% slope1
-            ethers.parseEther("0.3"),   // 30% slope2
-            ethers.parseEther("0.1"),   // 10% reserveFactor
-            ethers.parseEther("1.0"),   // 100% maxBorrowRate
-            ethers.parseEther("0.05"),  // 5% maxRateChange
-            ethers.parseEther("0.03"),  // 3% ethPriceRiskPremium
-            ethers.parseEther("0.2"),   // 20% ethVolatilityThreshold
-            86400 // 24h oracleStalenessWindow
+            ethers.parseEther("0.05"),
+            ethers.parseEther("0.8"),
+            ethers.parseEther("0.1"),
+            ethers.parseEther("0.3"),
+            ethers.parseEther("0.1"),
+            ethers.parseEther("1.0"),
+            ethers.parseEther("0.05"),
+            ethers.parseEther("0.03"),
+            ethers.parseEther("0.2"),
+            86400
         );
         await interestRateModel.waitForDeployment();
 
@@ -90,16 +90,16 @@ describe("Fixed Comprehensive Contract Coverage", function() {
         );
         await creditSystem.waitForDeployment();
 
-        // Deploy LiquidityPool using initialize pattern
+        // Deploy LiquidityPool
         const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
         liquidityPool = await LiquidityPool.deploy();
         await liquidityPool.waitForDeployment();
 
-        // Deploy LendingManager first
+        // Deploy LendingManager
         const LendingManager = await ethers.getContractFactory("LendingManager");
         lendingManager = await LendingManager.deploy(
             await liquidityPool.getAddress(),
-            await timelock.getAddress() // timelock
+            await timelock.getAddress()
         );
         await lendingManager.waitForDeployment();
 
@@ -111,29 +111,16 @@ describe("Fixed Comprehensive Contract Coverage", function() {
             await interestRateModel.getAddress(),
             await creditSystem.getAddress()
         );
-            ethers.ZeroAddress, // LendingManager placeholder
-            interestRateModel.address,
-            ethers.ZeroAddress  // CreditSystem placeholder
-        );
-        await liquidityPool.waitForDeployment();
-
-        // Deploy LendingManager with correct constructor
-        const LendingManager = await ethers.getContractFactory("LendingManager");
-        lendingManager = await LendingManager.deploy(
-            liquidityPool.address,
-            votingToken.address
-        );
-        await lendingManager.waitForDeployment();
 
         // Setup connections
-        await liquidityPool.connect(timelock).setLendingManager(lendingManager.address);
-        await votingToken.connect(owner).setLiquidityPool(liquidityPool.address);
-        await votingToken.connect(owner).setProtocolGovernor(governor.address);
+        await liquidityPool.connect(timelock).setLendingManager(await lendingManager.getAddress());
+        await votingToken.connect(owner).setLiquidityPool(await liquidityPool.getAddress());
+        await votingToken.connect(owner).setProtocolGovernor(await governor.getAddress());
 
         // Setup collateral and price feeds
-        await liquidityPool.connect(timelock).setAllowedCollateral(mockToken.address, true);
-        await liquidityPool.connect(timelock).setPriceFeed(mockToken.address, mockPriceFeed.address);
-        await stablecoinManager.connect(timelock).addStablecoin(mockToken.address, 150, 120);
+        await liquidityPool.connect(timelock).setAllowedCollateral(await mockToken.getAddress(), true);
+        await liquidityPool.connect(timelock).setPriceFeed(await mockToken.getAddress(), await mockPriceFeed.getAddress());
+        await stablecoinManager.connect(timelock).addStablecoin(await mockToken.getAddress(), 150, 120);
 
         // Fund mock tokens
         await mockToken.mint(borrower1.address, ethers.parseEther("10000"));

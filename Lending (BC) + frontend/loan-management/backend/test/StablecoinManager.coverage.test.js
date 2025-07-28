@@ -8,14 +8,12 @@ describe("StablecoinManager - Comprehensive Coverage", function() {
     beforeEach(async function () {
         [owner, user1, user2] = await ethers.getSigners();
 
-        // Deploy mock timelock
-        const MockTimelock = await ethers.getContractFactory("MockTimelock");
-        timelock = await MockTimelock.deploy();
-        await timelock.waitForDeployment();
+        // Use owner as timelock for testing
+        timelock = owner;
 
         // Deploy StablecoinManager with correct constructor (1 argument)
         const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
-        stablecoinManager = await StablecoinManager.deploy(timelock.getAddress());
+        stablecoinManager = await StablecoinManager.deploy(owner.address);
         await stablecoinManager.waitForDeployment();
 
         // Deploy mock token
@@ -26,7 +24,7 @@ describe("StablecoinManager - Comprehensive Coverage", function() {
 
     describe("Initialization", function() {
         it("should initialize with correct parameters", async function () {
-            expect(await stablecoinManager.timelock()).to.equal(timelock.getAddress());
+            expect(await stablecoinManager.timelock()).to.equal(timelock.address);
         });
 
         it("should have empty stablecoin list initially", async function () {
@@ -36,68 +34,67 @@ describe("StablecoinManager - Comprehensive Coverage", function() {
 
     describe("Stablecoin Management", function() {
         it("should allow timelock to add stablecoins", async function () {
-            await stablecoinManager.connect(timelock).addStablecoin(
+            await stablecoinManager.connect(timelock).setStablecoinParams(
                 await mockToken.getAddress(),
-                150, // liquidationThreshold
-                120  // borrowThreshold
+                true,  // isStable
+                85,    // LTV
+                110    // liquidationThreshold
             );
 
             expect(await stablecoinManager.isStablecoin(await mockToken.getAddress())).to.be.true;
-            expect(await stablecoinManager.liquidationThresholds(await mockToken.getAddress())).to.equal(150n);
-            expect(await stablecoinManager.borrowThresholds(await mockToken.getAddress())).to.equal(120n);
+            expect(await stablecoinManager.getLTV(await mockToken.getAddress())).to.equal(85n);
+            expect(await stablecoinManager.getLiquidationThreshold(await mockToken.getAddress())).to.equal(110n);
         });
 
         it("should allow timelock to remove stablecoins", async function () {
-            await stablecoinManager.connect(timelock).addStablecoin(await mockToken.getAddress(), 150, 120);
-            await stablecoinManager.connect(timelock).removeStablecoin(await mockToken.getAddress());
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), true, 85, 110);
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), false, 85, 110);
 
             expect(await stablecoinManager.isStablecoin(await mockToken.getAddress())).to.be.false;
         });
 
         it("should allow threshold updates", async function () {
-            await stablecoinManager.connect(timelock).addStablecoin(await mockToken.getAddress(), 150, 120);
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), true, 85, 110);
 
-            await stablecoinManager.connect(timelock).updateLiquidationThreshold(await mockToken.getAddress(), 160);
-            expect(await stablecoinManager.liquidationThresholds(await mockToken.getAddress())).to.equal(160n);
+            // Update with new threshold
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), true, 85, 115);
+            expect(await stablecoinManager.getLiquidationThreshold(await mockToken.getAddress())).to.equal(115n);
 
-            await stablecoinManager.connect(timelock).updateBorrowThreshold(await mockToken.getAddress(), 130);
-            expect(await stablecoinManager.borrowThresholds(await mockToken.getAddress())).to.equal(130n);
+            // Update with new LTV
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), true, 80, 115);
+            expect(await stablecoinManager.getLTV(await mockToken.getAddress())).to.equal(80n);
         });
 
         it("should reject unauthorized operations", async function () {
             await expect(
-                stablecoinManager.connect(user1).addStablecoin(await mockToken.getAddress(), 150, 120)
-            ).to.be.revertedWithCustomError("Only timelock");
-
-            await expect(
-                stablecoinManager.connect(user1).removeStablecoin(await mockToken.getAddress())
-            ).to.be.revertedWithCustomError("Only timelock");
+                stablecoinManager.connect(user1).setStablecoinParams(await mockToken.getAddress(), true, 85, 110)
+            ).to.be.revertedWithCustomError(stablecoinManager, "OnlyTimelockStablecoinManager");
         });
     });
 
     describe("Edge Cases", function() {
         it("should handle duplicate additions", async function () {
-            await stablecoinManager.connect(timelock).addStablecoin(await mockToken.getAddress(), 150, 120);
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), true, 85, 110);
 
-            await expect(
-                stablecoinManager.connect(timelock).addStablecoin(await mockToken.getAddress(), 160, 130)
-            ).to.be.revertedWithCustomError("Already a stablecoin");
+            // Setting again should work (update)
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), true, 80, 115);
+            expect(await stablecoinManager.getLTV(await mockToken.getAddress())).to.equal(80n);
         });
 
         it("should handle removal of non-existent stablecoins", async function () {
-            await expect(
-                stablecoinManager.connect(timelock).removeStablecoin(await mockToken.getAddress())
-            ).to.be.revertedWithCustomError("Not a stablecoin");
+            // Disabling a non-stablecoin should work (no-op)
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), false, 85, 110);
+            expect(await stablecoinManager.isStablecoin(await mockToken.getAddress())).to.be.false;
         });
 
         it("should handle invalid threshold values", async function () {
             await expect(
-                stablecoinManager.connect(timelock).addStablecoin(await mockToken.getAddress(), 50, 120)
-            ).to.be.revertedWithCustomError("Invalid liquidation threshold");
+                stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), true, 95, 110)
+            ).to.be.revertedWithCustomError(stablecoinManager, "LTVTooHigh");
 
             await expect(
-                stablecoinManager.connect(timelock).addStablecoin(await mockToken.getAddress(), 150, 50)
-            ).to.be.revertedWithCustomError("Invalid borrow threshold");
+                stablecoinManager.connect(timelock).setStablecoinParams(await mockToken.getAddress(), true, 85, 105)
+            ).to.be.revertedWithCustomError(stablecoinManager, "ThresholdTooLow");
         });
     });
 });
@@ -109,14 +106,12 @@ describe("StablecoinManager - Coverage Boost", function() {
     beforeEach(async function () {
         [owner, user1] = await ethers.getSigners();
 
-        // Deploy mock timelock
-        const MockTimelock = await ethers.getContractFactory("MockTimelock");
-        timelock = await MockTimelock.deploy();
-        await timelock.waitForDeployment();
+        // Use owner as timelock for testing
+        timelock = owner;
 
         // Deploy StablecoinManager with correct constructor (1 argument)
         const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
-        stablecoinManager = await StablecoinManager.deploy(timelock.getAddress());
+        stablecoinManager = await StablecoinManager.deploy(owner.address);
         await stablecoinManager.waitForDeployment();
 
         // Deploy mock tokens
@@ -130,27 +125,28 @@ describe("StablecoinManager - Coverage Boost", function() {
 
     describe("Advanced Functionality", function() {
         it("should initialize with correct parameters", async function () {
-            expect(await stablecoinManager.timelock()).to.equal(timelock.getAddress());
+            expect(await stablecoinManager.timelock()).to.equal(timelock.address);
         });
 
         it("should handle multiple stablecoins", async function () {
-            await stablecoinManager.connect(timelock).addStablecoin(mockToken1.getAddress(), 150, 120);
-            await stablecoinManager.connect(timelock).addStablecoin(mockToken2.getAddress(), 140, 110);
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken1.getAddress(), true, 85, 110);
+            await stablecoinManager.connect(timelock).setStablecoinParams(await mockToken2.getAddress(), true, 80, 115);
 
-            expect(await stablecoinManager.isStablecoin(mockToken1.getAddress())).to.be.true;
-            expect(await stablecoinManager.isStablecoin(mockToken2.getAddress())).to.be.true;
+            expect(await stablecoinManager.isStablecoin(await mockToken1.getAddress())).to.be.true;
+            expect(await stablecoinManager.isStablecoin(await mockToken2.getAddress())).to.be.true;
         });
 
         it("should handle batch operations", async function () {
-            const tokens = [mockToken1.getAddress(), mockToken2.getAddress()];
-            const liquidationThresholds = [150, 140];
-            const borrowThresholds = [120, 110];
+            const tokens = [await mockToken1.getAddress(), await mockToken2.getAddress()];
+            const ltvs = [85, 80];
+            const thresholds = [110, 115];
 
             for (let i = 0; i < tokens.length; i++) {
-                await stablecoinManager.connect(timelock).addStablecoin(
+                await stablecoinManager.connect(timelock).setStablecoinParams(
                     tokens[i],
-                    liquidationThresholds[i],
-                    borrowThresholds[i]
+                    true,
+                    ltvs[i],
+                    thresholds[i]
                 );
             }
 

@@ -10,7 +10,7 @@ describe("ProtocolGovernor - Coverage Boost", function() {
 
         // Deploy VotingToken
         const VotingToken = await ethers.getContractFactory("VotingToken");
-        votingToken = await VotingToken.deploy();
+        votingToken = await VotingToken.deploy(owner.address);
         await votingToken.waitForDeployment();
 
         // Deploy TimelockController
