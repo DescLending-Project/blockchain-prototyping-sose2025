@@ -15,8 +15,8 @@ import {
 import { LendingPoolStatus } from '../shared/LendingPoolStatus'
 import { LendingRateSimulator } from '../shared/InterestRateSimulator'
 import InterestRateModelABI from '../../../abis/InterestRateModel.json'
-const { contracts } = props;
-const interestRateModelAddress = contracts.interestRateModel;
+//const { contracts } = props;
+//const interestRateModelAddress = contracts.interestRateModel;
 
 function CountdownTimer({ targetDate, label }) {
     const [timeLeft, setTimeLeft] = useState('')
@@ -122,7 +122,8 @@ function useInterestRates(utilization) {
     return { borrowRate, supplyRate };
 }
 
-export function LenderPanel({ contract, liquidityPoolContract, account }) {
+export function LenderPanel({ contract, liquidityPoolContract, account, contracts }) {
+    const INTEREST_RATE_MODEL_ADDRESS = contracts?.InterestRateModel || contracts?.interestRateModel || "0x0000000000000000000000000000000000000000";
     const [lenderInfo, setLenderInfo] = useState(null)
     const [depositAmount, setDepositAmount] = useState('')
     const [withdrawAmount, setWithdrawalAmount] = useState('')

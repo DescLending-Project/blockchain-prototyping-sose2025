@@ -14,7 +14,8 @@ const contracts = [
     'SimpleRISC0Test',
     'MockRiscZeroVerifier'
 ];
-const srcDir = path.join(__dirname, '../../artifacts/backend/contracts');
+//const srcDir = path.join(__dirname, '../../artifacts/backend/contracts');
+const srcDir = path.join(__dirname, '../../backend/artifacts/contracts');
 const destDir = path.join(__dirname, '../../frontend/src/abis');
 
 if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
@@ -33,7 +34,8 @@ const mockContracts = [
     'MockPriceFeed',
     'OracleMock'
 ];
-const mockSrcDir = path.join(__dirname, '../../artifacts/backend/contracts/mocks');
+//const mockSrcDir = path.join(__dirname, '../../artifacts/backend/contracts/mocks');
+const mockSrcDir = path.join(__dirname, '../../backend/artifacts/contracts/mocks');
 mockContracts.forEach(name => {
     const artifact = path.join(mockSrcDir, `${name}.sol/${name}.json`);
     if (fs.existsSync(artifact)) {

@@ -9,8 +9,14 @@ import { parseEther } from 'ethers'
 import { ArrowUpDown, AlertCircle, Coins } from 'lucide-react'
 import { LendingPoolStatus } from '../shared/LendingPoolStatus'
 import { COLLATERAL_TOKENS } from '../../../App'
+import TLSNExtensionTrigger from './TLSNTrigger';
 
 export default function BorrowerPanel({ contract, account }) {
+
+    const [tlsnDataCollected, setTlsnDataCollected] = useState(false);
+    const [tlsnData, setTlsnData] = useState(null);
+    const [showTlsnSection, setShowTlsnSection] = useState(true);
+
     const [userInfo, setUserInfo] = useState(null)
     const [borrowAmount, setBorrowAmount] = useState('')
     const [repayAmount, setRepayAmount] = useState('')
@@ -579,6 +585,23 @@ export default function BorrowerPanel({ contract, account }) {
                         </div>
                     </div>
                 )}
+
+                {/* TLSN Verification Section */}
+<div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+    <div className="flex items-start gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-check text-blue-600 mt-0.5">
+            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+            <path d="m9 12 2 2 4-4"/>
+        </svg>
+        <div className="flex-1">
+            <h4 className="font-medium text-blue-900 mb-2">Enhance Your Credit Profile</h4>
+            <p className="text-sm text-blue-800 mb-3">
+                Use TLS Notary to verify your financial data and potentially improve your credit score and borrowing terms.
+            </p>
+            <TLSNExtensionTrigger />
+        </div>
+    </div>
+</div>
 
                 {/* Borrow Tab */}
                 {activeTab === "borrow" && (

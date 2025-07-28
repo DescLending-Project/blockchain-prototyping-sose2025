@@ -19,9 +19,10 @@ interface DashboardProps {
     isAdmin: boolean;
     isLiquidator: boolean;
     provider?: ethers.Provider;
+    contracts?: any;
 }
 
-export function Dashboard({ contract, lendingManagerContract, account, isAdmin, isLiquidator, provider }: DashboardProps) {
+export function Dashboard({ contract, lendingManagerContract, account, isAdmin, isLiquidator, provider, contracts }: DashboardProps) {
     const [showAdminControls, setShowAdminControls] = useState(false)
 
     return (
@@ -65,7 +66,14 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
 
                 <TabsContent value="lend">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <LenderPanel contract={lendingManagerContract} liquidityPoolContract={contract} account={account || ''} />
+                       <LenderPanel 
+    {...{
+        contract: lendingManagerContract,
+        liquidityPoolContract: contract,
+        account: account || '',
+        contracts: contracts
+    } as any}
+/>
                     </Card>
                 </TabsContent>
 
