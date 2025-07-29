@@ -42,7 +42,7 @@ describe("IntegratedCreditSystem - Basic Tests", function() {
             expect(await creditSystem.risc0Verifier()).to.equal(await mockRisc0Verifier.getAddress());
             expect(await creditSystem.liquidityPool()).to.equal(await mockLiquidityPool.getAddress());
             expect(await creditSystem.VERIFICATION_VALIDITY_PERIOD()).to.equal(BigInt(30 * 24 * 60 * 60));
-            expect(await creditSystem.MIN_CREDIT_SCORE()).to.equal(25n);
+            expect(await creditSystem.MIN_CREDIT_SCORE()).to.equal(35n);
         });
 
         it("should have correct initial scoring weights", async function () {
@@ -63,7 +63,7 @@ describe("IntegratedCreditSystem - Basic Tests", function() {
     describe("Utility Functions", function() {
         it("should return minimum credit score", async function () {
             const minScore = await creditSystem.getMinimumCreditScore();
-            expect(minScore).to.equal(25n);
+            expect(minScore).to.equal(35n);
         });
 
         it("should check borrowing eligibility for new users", async function () {

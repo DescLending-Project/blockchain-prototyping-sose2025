@@ -185,6 +185,14 @@ contract InterestRateModel {
     }
 
     // --- View Functions ---
+    function getUtilizationRate(
+        uint256 totalSupplied,
+        uint256 totalBorrowed
+    ) public pure returns (uint256) {
+        if (totalSupplied == 0) return 0;
+        return (totalBorrowed * 1e18) / totalSupplied;
+    }
+
     function getCurrentRates(
         uint256 totalBorrowed,
         uint256 totalSupplied

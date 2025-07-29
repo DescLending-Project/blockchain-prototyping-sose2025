@@ -688,6 +688,10 @@ contract LiquidityPool is
         userDebt[msg.sender] -= repayAmount;
         totalRepaidAllTime += repayAmount;
 
+        // Update borrowed amount by risk tier
+        RiskTier tier = getRiskTier(msg.sender);
+        borrowedAmountByRiskTier[tier] -= repayAmount;
+
         // Clear liquidation status
         if (isLiquidatable[msg.sender]) {
             isLiquidatable[msg.sender] = false;

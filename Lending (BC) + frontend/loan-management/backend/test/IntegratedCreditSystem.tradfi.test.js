@@ -8,9 +8,14 @@ describe("IntegratedCreditSystem - TradFi Tests", function() {
     beforeEach(async function () {
         [owner, user1, user2, user3] = await ethers.getSigners();
 
-        // Deploy SimpleRISC0Test
+        // Deploy MockRiscZeroVerifier first
+        const MockRiscZeroVerifier = await ethers.getContractFactory("MockRiscZeroVerifier");
+        const mockVerifier = await MockRiscZeroVerifier.deploy();
+        await mockVerifier.waitForDeployment();
+
+        // Deploy SimpleRISC0Test with the mock verifier
         const SimpleRISC0Test = await ethers.getContractFactory("SimpleRISC0Test");
-        mockRisc0Verifier = await SimpleRISC0Test.deploy(owner.address);
+        mockRisc0Verifier = await SimpleRISC0Test.deploy(await mockVerifier.getAddress());
         await mockRisc0Verifier.waitForDeployment();
         await mockRisc0Verifier.setDemoMode(true);
 

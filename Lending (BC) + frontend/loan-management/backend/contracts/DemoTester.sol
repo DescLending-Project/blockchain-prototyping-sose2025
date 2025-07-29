@@ -283,13 +283,7 @@ contract DemoTester {
     }
 
     /// @notice Check demo readiness
-    function isDemoReady() external view returns (bool) {
-        return risc0Verifier.isDemoMode();
-    }
-
-    /// @notice Enable demo mode on risc0 verifier (admin only)
-    function enableDemoMode() external {
-        // This should be called by the owner of SimpleRISC0Test
-        // For demo: risc0Verifier.setDemoMode(true);
+    function isDemoReady() external pure returns (bool) {
+        return true; // Always ready since we removed demo mode
     }
 }

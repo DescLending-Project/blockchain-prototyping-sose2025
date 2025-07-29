@@ -66,7 +66,8 @@ contract IntegratedCreditSystem {
 
     // System configuration
     uint256 public constant VERIFICATION_VALIDITY_PERIOD = 30 days;
-    uint256 public constant MIN_CREDIT_SCORE = 25; // Minimum score to borrow
+    uint256 public constant MIN_CREDIT_SCORE = 35; // Minimum score to borrow (above "Very Poor" threshold)
+
 
     // Scoring weights
     uint256 public tradFiWeight = 50;
@@ -574,4 +575,6 @@ contract IntegratedCreditSystem {
     function getMinimumCreditScore() external pure returns (uint256) {
         return MIN_CREDIT_SCORE;
     }
+
+
 }

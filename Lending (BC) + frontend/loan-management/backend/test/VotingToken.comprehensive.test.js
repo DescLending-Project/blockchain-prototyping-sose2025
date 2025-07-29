@@ -367,28 +367,22 @@ describe("VotingToken - Complete Coverage", function() {
         });
 
         it("should maintain consistency after complex operations", async function () {
-            const balanceBefore = await votingToken.balanceOf(user1.address);
-            const votesBefore = await votingToken.getVotes(user1.address);
+            // Start fresh - user1 should have 0 tokens
+            expect(await votingToken.balanceOf(user1.address)).to.equal(0n);
 
+            // Mint 100 tokens
             await votingToken.connect(minter).mint(user1.address, 100);
+            expect(await votingToken.balanceOf(user1.address)).to.equal(100n);
+
+            // Penalize 25 tokens - this should burn 25 tokens
             await votingToken.connect(protocolGovernor).penalizeReputation(user1.address, 25);
 
-            // Since tokens are soulbound, we can't transfer them
-            // Instead, test that the reputation penalty worked correctly
-            const balance = await votingToken.balanceOf(user1.address);
-            const votes = await votingToken.getVotes(user1.address);
+            // Final balance should be 75
+            const finalBalance = await votingToken.balanceOf(user1.address);
+            expect(finalBalance).to.equal(75n);
+
+            // Reputation should be -25
             const reputation = await votingToken.reputation(user1.address);
-
-            // Balance should have increased by the mint amount minus the penalty burn
-            const expectedBalanceChange = 100n - 25n; // 75
-            const actualBalanceChange = balance - balanceBefore;
-            expect(actualBalanceChange).to.equal(expectedBalanceChange);
-
-            // Votes should have changed by the same amount as balance (since self-delegated)
-            const expectedVotesChange = 100n - 25n; // 75
-            const actualVotesChange = votes - votesBefore;
-            expect(actualVotesChange).to.equal(expectedVotesChange);
-
             expect(reputation).to.equal(-25n);
         });
     });

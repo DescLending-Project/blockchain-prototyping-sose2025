@@ -50,7 +50,7 @@ describe("IntegratedCreditSystem - Account Tests", function() {
 
             await expect(
                 creditSystem.connect(user1).submitAccountProof(mockSeal, mockJournal)
-            ).to.be.revertedWithCustomError("Account mismatch");
+            ).to.be.revertedWith("Account mismatch");
         });
 
         it("should successfully submit valid account proof", async function () {

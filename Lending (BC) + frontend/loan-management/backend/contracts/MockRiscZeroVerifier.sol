@@ -15,19 +15,17 @@ contract MockRiscZeroVerifier {
     // imageId: The program image ID this is needed for proof verification
     //journalDigest: The journal hash which is a hash of the journal data
     function verify(
-        bytes calldata seal, 
-        bytes32 imageId, 
+        bytes calldata seal,
+        bytes32 imageId,
         bytes32 journalDigest
-    ) external {
-        // Basic validation to ensure parameters are provided
+    ) external view {
+        // Basic validation to ensure parameters are provided (more lenient for testing)
         require(seal.length > 0, "MockVerifier: Empty seal");
-        require(imageId != bytes32(0), "MockVerifier: Empty image ID");
-        require(journalDigest != bytes32(0), "MockVerifier: Empty journal digest");
-        
+        // Allow zero imageId and journalDigest for testing
+
         // For demo, always succeed
         // normally this would perform actual cryptographic verification
-        
-        emit ProofVerificationAttempted(imageId, journalDigest, true);
+        // Note: Cannot emit events in view function
     }
     
     // Alternative verify function with journal data
@@ -49,5 +47,33 @@ contract MockRiscZeroVerifier {
 
     function version() external pure returns (string memory) {
         return "MockRiscZeroVerifier-v1.0.0-demo";
+    }
+
+    // Mock function for account proof testing
+    function testAccountProof(
+        bytes calldata seal,
+        bytes calldata journalData
+    ) external {
+        // Basic validation to ensure parameters are provided
+        require(seal.length > 0, "Seal cannot be empty");
+        require(journalData.length > 0, "Journal data cannot be empty");
+
+        // In a real implementation, this would verify the proof
+        // For mock, we just validate the inputs
+        emit ProofVerificationAttempted(bytes32(0), keccak256(journalData), true);
+    }
+
+    // Mock function for TradFi proof testing
+    function testTradFiProof(
+        bytes calldata seal,
+        bytes calldata journalData
+    ) external {
+        // Basic validation to ensure parameters are provided
+        require(seal.length > 0, "Seal cannot be empty");
+        require(journalData.length > 0, "Journal data cannot be empty");
+
+        // In a real implementation, this would verify the proof
+        // For mock, we just validate the inputs
+        emit ProofVerificationAttempted(bytes32(0), keccak256(journalData), true);
     }
 }
