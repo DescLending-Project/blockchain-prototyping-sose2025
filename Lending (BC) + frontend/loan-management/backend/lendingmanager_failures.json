@@ -1,0 +1,8 @@
+
+> loan-management-backend@1.0.0 test
+> npx hardhat test --grep LendingManager - Comprehensive Coverage --reporter json
+
+[dotenv@17.2.1] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+Error HH305: Unrecognized param --reporter
+
+For more info go to https://hardhat.org/HH305 or run Hardhat with --show-stack-traces
