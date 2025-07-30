@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { config } from './config';;
+import { config } from './config';
 import { requestLogger } from './middleware/logger';
 import tunnelRouter from './routes/tunnels';
 

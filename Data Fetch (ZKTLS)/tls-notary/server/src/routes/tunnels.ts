@@ -12,7 +12,7 @@ const tunnelRouter = Router();
 let tunnels: Tunnel[] = [];
 const activeProcesses: Map<string, ChildProcess> = new Map();
 
-const WEBSOCKET_HOST = config.webSocketHost || 'localhost';
+const WEBSOCKET_HOST = config.webSocketHost || '127.0.0.1';
 
 function generateTunnelId(localPort: number, remoteHost: string, remotePort: number): string {
   const hash = crypto.createHash('sha256').update(remoteHost).digest('hex').slice(0, 8);
@@ -61,9 +61,9 @@ tunnelRouter.post('/',
 
     const remote = `${remoteHost}:${remotePort}`;
     const websocketProxyUrl = `ws://${WEBSOCKET_HOST}:${localPort}`;
-    console.log(`Starting tunnel: 127.0.0.1:${localPort} -> ${remote}`);
+    console.log(`Starting tunnel:${WEBSOCKET_HOST}:${localPort} -> ${remote}`);
 
-    const proc = spawn('wstcp', ['--bind-addr', `127.0.0.1:${localPort}`, remote], { stdio: 'inherit' });
+    const proc = spawn('wstcp', ['--bind-addr', `0.0.0.0:${localPort}`, remote], { stdio: 'inherit' });
     const tunnel: Tunnel = { id: tunnelId, localPort, remoteHost, remotePort, pid: proc.pid ?? -1, websocketProxyUrl };
 
     tunnels.push(tunnel);
