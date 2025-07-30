@@ -8,6 +8,12 @@ import { Button } from './components/ui/button'
 import { Wallet, AlertCircle, RefreshCw, LogOut } from 'lucide-react'
 import LiquidityPoolABI from './abis/LiquidityPool.json'
 import LendingManagerABI from './abis/LendingManager.json'
+import StablecoinManagerABI from './abis/StablecoinManager.json'  
+import GlintTokenABI from './abis/GlintToken.json'                
+import VotingTokenABI from './abis/VotingToken.json'              
+import ProtocolGovernorABI from './abis/ProtocolGovernor.json'    
+import IntegratedCreditSystemABI from './abis/IntegratedCreditSystem.json' 
+import SimpleRISC0TestABI from './abis/SimpleRISC0Test.json'      // (if exists)
 import addresses from './addresses.json';
 import { LenderPanel } from './components/liquidity-pool/lender/LenderPanel'
 import BorrowerPanel from './components/liquidity-pool/borrower/BorrowerPanel'
@@ -134,37 +140,37 @@ export default function App() {
       try {
         contractInstances.liquidityPool = new ethers.Contract(
           addresses.liquidityPool,
-          LiquidityPoolABI,
+          LiquidityPoolABI.abi,
           signer
         );
 
         contractInstances.lendingManager = new ethers.Contract(
           addresses.lendingManager,
-          LendingManagerABI,
+          LendingManagerABI.abi,
           signer
         );
 
         contractInstances.stablecoinManager = new ethers.Contract(
           addresses.stablecoinManager,
-          StablecoinManagerABI,
+          StablecoinManagerABI.abi,
           signer
         );
 
         contractInstances.glintToken = new ethers.Contract(
           addresses.glintToken,
-          GlintTokenABI,
+          GlintTokenABI.abi,
           signer
         );
 
         contractInstances.votingToken = new ethers.Contract(
           addresses.votingToken,
-          VotingTokenABI,
+          VotingTokenABI.abi,
           signer
         );
 
         contractInstances.protocolGovernor = new ethers.Contract(
           addresses.protocolGovernor,
-          ProtocolGovernorABI,
+          ProtocolGovernorABI.abi,
           signer
         );
 
@@ -172,7 +178,7 @@ export default function App() {
         if (addresses.creditSystem) {
           contractInstances.creditSystem = new ethers.Contract(
             addresses.creditSystem,
-            IntegratedCreditSystemABI,
+            IntegratedCreditSystemABI.abi,
             signer
           );
         }
@@ -180,7 +186,7 @@ export default function App() {
         if (addresses.risc0Test) {
           contractInstances.risc0Test = new ethers.Contract(
             addresses.risc0Test,
-            SimpleRISC0TestABI,
+            SimpleRISC0TestABI.abi,
             signer
           );
         }
@@ -609,6 +615,7 @@ export default function App() {
             isAdmin={isAdmin}
             isLiquidator={isLiquidator}
             provider={provider}
+            contracts={contracts}
           />
         )}
       </div>

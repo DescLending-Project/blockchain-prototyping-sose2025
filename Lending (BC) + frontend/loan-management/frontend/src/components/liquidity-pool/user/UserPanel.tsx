@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress"
 import { Contract } from "ethers"
 import { COLLATERAL_TOKENS } from "../../../App"
 import { CollateralPanel } from './CollateralPanel';
+import { ZKProofPanel } from "./ZKProofPanel"
 
 interface UserPanelProps {
     contract: Contract;
@@ -361,13 +362,7 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <p className="text-sm text-muted-foreground">Total native tokens in the pool (from lending and repayments)</p>
-                        {/* TODO: Fetch and display actual total pool balance */}
                         <p className="text-2xl font-bold">{totalLent} {tokenSymbol || 'ETH'}</p>
-                        {/* APY is not directly trackable for individual contributions via receive() */}
-                        {/* <div className="p-4 rounded-lg bg-background/50 border>
-                                <p className="text-sm text-muted-foreground">Current APY</p>
-                                <p className="text-2xl font-bold">{lendingAPY}%</p>
-                            </div> */}
                     </CardContent>
                 </Card>
 
@@ -403,7 +398,6 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                         >
                             {isLoading ? "Processing..." : "Lend Native Tokens"}
                         </Button>
-                        {/* Removed Withdraw button */}
                     </CardContent>
                 </Card>
             </div>
@@ -414,11 +408,6 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         <div className="space-y-6 max-w-4xl mx-auto">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-semibold">User Dashboard</h2>
-                {/* Wallet connection is now handled in App.jsx header */}
-                {/* <Button variant="outline" className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4" />
-                    Connect Wallet
-                </Button> */}
             </div>
 
             {error && (
@@ -475,10 +464,13 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             </Card>
 
             <Tabs defaultValue="collateral" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="borrow">Borrow</TabsTrigger>
                     <TabsTrigger value="repay">Repay</TabsTrigger>
+                    <TabsTrigger value="zkproof">ZK Proofs</TabsTrigger>
                 </TabsList>
+
+                
 
                 <TabsContent value="borrow">
                     <Card className="bg-gradient-to-br from-background to-muted/50">
@@ -552,6 +544,10 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                     </Card>
                 </TabsContent>
 
+                <TabsContent value="zkproof">
+                    <ZKProofPanel contract={contract} account={account || ''} />
+                </TabsContent>
+
             </Tabs>
 
             {/* Health Check Section */}
@@ -574,4 +570,4 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             </Card>
         </div>
     )
-} 
+}

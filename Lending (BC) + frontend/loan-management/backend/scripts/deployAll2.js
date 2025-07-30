@@ -1,5 +1,5 @@
 console.log('==============================');
-console.log('🚀 Starting deployAll.js script');
+console.log('🚀 Starting deployAll2.js script');
 console.log('==============================');
 const { ethers, upgrades, network } = require("hardhat");
 const { execSync } = require('child_process');
@@ -257,12 +257,16 @@ async function main() {
 
     // Grant MINTER_ROLE to TimelockController immediately after deployment
     const MINTER_ROLE = await votingToken.MINTER_ROLE();
-    await votingToken.grantRole(MINTER_ROLE, await timelock.getAddress());
+    console.log('Granting MINTER_ROLE to TimelockController...');
+    const grantMinterTx = await votingToken.grantRole(MINTER_ROLE, await timelock.getAddress(), { gasLimit: 1000000 });
+    await grantMinterTx.wait();
     console.log('VotingToken MINTER_ROLE granted to TimelockController:', await votingToken.hasRole(MINTER_ROLE, await timelock.getAddress()));
 
     // Grant DEFAULT_ADMIN_ROLE to TimelockController
     const DEFAULT_ADMIN_ROLE = await votingToken.DEFAULT_ADMIN_ROLE();
-    await votingToken.grantRole(DEFAULT_ADMIN_ROLE, await timelock.getAddress());
+    console.log('Granting DEFAULT_ADMIN_ROLE to TimelockController...');
+    const grantAdminTx = await votingToken.grantRole(DEFAULT_ADMIN_ROLE, await timelock.getAddress(), { gasLimit: 1000000 });
+    await grantAdminTx.wait();
     console.log('VotingToken DEFAULT_ADMIN_ROLE granted to TimelockController:', await votingToken.hasRole(DEFAULT_ADMIN_ROLE, await timelock.getAddress()));
     console.log('VotingToken DAO:', await votingToken.dao());
 
@@ -273,23 +277,34 @@ async function main() {
     console.log("ProtocolGovernor deployed at:", await governor.getAddress());
     console.log(`[DEPLOYED] ProtocolGovernor at: ${await governor.getAddress()} (new deployment)`);
     // Grant MINTER_ROLE to Governor immediately after deployment
-    await votingToken.grantRole(MINTER_ROLE, await governor.getAddress());
+    console.log('Granting MINTER_ROLE to Governor...');
+    const grantMinterToGovTx = await votingToken.grantRole(MINTER_ROLE, await governor.getAddress(), { gasLimit: 1000000 });
+    await grantMinterToGovTx.wait();
+    
     // Set DAO to Governor immediately after deployment
-    await votingToken.setDAO(await governor.getAddress());
+    console.log('Setting DAO to Governor...');
+    const setDAOTx = await votingToken.setDAO(await governor.getAddress(), { gasLimit: 1000000 });
+    await setDAOTx.wait();
+    
     // Debug prints for role assignment
     const hasMinterRole = await votingToken.hasRole(MINTER_ROLE, await governor.getAddress());
     console.log('MINTER_ROLE:', MINTER_ROLE);
     console.log('Governor address:', await governor.getAddress());
     console.log('VotingToken has MINTER_ROLE for Governor:', hasMinterRole);
+    
     // Grant PROPOSER_ROLE to Governor on TimelockController
     const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
-    await timelock.grantRole(PROPOSER_ROLE, await governor.getAddress());
+    console.log('Granting PROPOSER_ROLE to Governor...');
+    const grantProposerTx = await timelock.grantRole(PROPOSER_ROLE, await governor.getAddress(), { gasLimit: 1000000 });
+    await grantProposerTx.wait();
     console.log('TimelockController PROPOSER_ROLE granted to Governor:', await timelock.hasRole(PROPOSER_ROLE, await governor.getAddress()));
 
     // Grant roles on TimelockController
     const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
     // Grant EXECUTOR_ROLE to AddressZero (anyone can execute after delay)
-    await timelock.grantRole(EXECUTOR_ROLE, ethers.ZeroAddress);
+    console.log('Granting EXECUTOR_ROLE to AddressZero...');
+    const grantExecutorTx = await timelock.grantRole(EXECUTOR_ROLE, ethers.ZeroAddress, { gasLimit: 1000000 });
+    await grantExecutorTx.wait();
 
     // DON'T revoke admin role from deployer yet - do it at the very end
     // await timelock.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address); // REMOVE THIS LINE
@@ -405,11 +420,24 @@ async function main() {
     console.log(`[DEPLOYED] LendingManager at: ${await lendingManager.getAddress()} (new deployment)`);
 
     // 7.1 Set credit scores for two users (lender, borrower) before admin transfer
-    const lender = accounts[1];
-    const borrower = accounts[2];
-    await liquidityPool.setCreditScore(lender.address, 85);
-    await liquidityPool.setCreditScore(borrower.address, 80);
-    console.log(`Set credit scores: lender (${lender.address}) = 85, borrower (${borrower.address}) = 80`);
+    console.log('Setting credit scores for test accounts...');
+    if (accounts.length >= 3) {
+        const lender = accounts[1];
+        const borrower = accounts[2];
+        
+        console.log('Lender account:', lender.address);
+        console.log('Borrower account:', borrower.address);
+        
+        const setCreditScore1Tx = await liquidityPool.setCreditScore(lender.address, 85, { gasLimit: 100000 });
+        await setCreditScore1Tx.wait();
+        
+        const setCreditScore2Tx = await liquidityPool.setCreditScore(borrower.address, 80, { gasLimit: 100000 });
+        await setCreditScore2Tx.wait();
+        
+        console.log(`✅ Set credit scores: lender (${lender.address}) = 85, borrower (${borrower.address}) = 80`);
+    } else {
+        console.log('⚠️ Not enough accounts available for setting credit scores (need at least 3 accounts)');
+    }
 
     // 8. Update LiquidityPool with LendingManager address (deployer is admin)
     console.log("Updating LiquidityPool with LendingManager address...");
