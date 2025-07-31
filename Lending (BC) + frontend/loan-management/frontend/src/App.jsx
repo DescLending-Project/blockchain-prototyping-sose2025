@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
-import { WagmiProvider } from 'wagmi'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@radix-ui/react-tabs'
 import { Card } from './components/ui/card'
 import { Alert, AlertDescription } from './components/ui/alert'

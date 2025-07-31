@@ -253,6 +253,15 @@ npx hardhat run scripts/run-mockup-after-deploy.js --network localhost
 - ✅ Verify you're on the "Localhost 8545" network
 - ✅ Check that the Hardhat node is running
 
+#### MetaMask Loads But Won't Connect
+If MetaMask opens but doesn't connect to the application:
+- ✅ **Open MetaMask in a separate tab**: Click the MetaMask extension icon and select "Expand view" to open it in a full browser tab
+- ✅ **Keep MetaMask tab open**: Leave the expanded MetaMask tab open while using the application
+- ✅ **Log in manually**: Make sure you're logged into MetaMask in the expanded tab
+- ✅ **Try connecting again**: Return to the application and click "Connect Wallet"
+
+> **💡 Tip**: Sometimes MetaMask needs to be opened and logged into separately before it can connect to web applications. Opening it in an expanded view helps establish a stable connection.
+
 #### "Transaction Failed" Errors
 - ✅ Ensure you have enough ETH for gas fees
 - ✅ Try refreshing the page

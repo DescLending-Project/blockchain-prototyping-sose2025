@@ -24,6 +24,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['wagmi']
+    include: []
   }
 })
