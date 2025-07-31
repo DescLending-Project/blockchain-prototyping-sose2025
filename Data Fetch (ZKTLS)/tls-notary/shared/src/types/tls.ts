@@ -5,22 +5,22 @@ import type { PresentationJSON } from 'tlsn-js/build/types';
 import { TunnelCreateResponse, TunnelCreateRequest} from './dto';
 
 export const HttpMethod = {
-  GET: 'GET',
-  POST: 'POST',
-  PUT: 'PUT',
-  DELETE: 'DELETE',
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  DELETE: "DELETE",
 } as const;
 
 export type HttpMethod = (typeof HttpMethod)[keyof typeof HttpMethod];
 
 
 export const RequestStatus = {
-  Error : 'Error',
-  Sending: 'Sending',
-  Received : 'Received',
-  Pending: 'Pending',
-  Verified: 'Verified',
-  Failed: 'Failed',
+  Error : "Error",
+  Sending: "Sending",
+  Received : "Received",
+  Pending: "Pending",
+  Verified: "Verified",
+  Failed: "Failed",
 } as const;
 
 export type RequestStatus = (typeof RequestStatus)[keyof typeof RequestStatus];
@@ -49,11 +49,6 @@ export interface ProofRecord {
   verifyProofResult?: VerifyProofResult;
 }
 
-
-
-
-
-
 export interface TLSCallRequest {
     notaryUrl: string;
     serverDNS : string;
@@ -67,7 +62,6 @@ export interface TLSCallRequest {
         body: string;
     }
 }
-
 
 export interface VerifyProofResult {
     time: number;
@@ -84,4 +78,4 @@ export interface TLSCallResponse {
     presentationJSON: PresentationJSON;
 }
 
-export { TunnelCreateResponse as Tunnel };
+export { TunnelCreateResponse as Tunnel }

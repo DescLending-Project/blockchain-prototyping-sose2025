@@ -4,9 +4,8 @@ export interface TunnelCreateRequest {
   remotePort: number;
 }
 
-
 export interface TunnelCreateResponse {
-  id?: number;
+  id: number;
   localPort: number;
   remoteHost: string;
   remotePort: number;

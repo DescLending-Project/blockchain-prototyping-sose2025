@@ -15,6 +15,8 @@ import {
 import { LendingPoolStatus } from '../shared/LendingPoolStatus'
 import { LendingRateSimulator } from '../shared/InterestRateSimulator'
 import InterestRateModelABI from '../../../abis/InterestRateModel.json'
+//const { contracts } = props;
+//const interestRateModelAddress = contracts.interestRateModel;
 
 function CountdownTimer({ targetDate, label }) {
     const [timeLeft, setTimeLeft] = useState('')
@@ -79,7 +81,7 @@ function CountdownTimer({ targetDate, label }) {
 }
 
 // Hook to fetch real-time rates from InterestRateModel
-function useInterestRates(utilization) {
+function useInterestRates(utilization, contracts) {
     const [borrowRate, setBorrowRate] = useState(null);
     const [supplyRate, setSupplyRate] = useState(null);
 
@@ -88,12 +90,13 @@ function useInterestRates(utilization) {
         let interval;
         async function fetchRates() {
             try {
-                if (!window.ethereum) return;
+                if (!window.ethereum || !contracts?.interestRateModel ) return;
                 const provider = new ethers.BrowserProvider(window.ethereum);
                 // Convert utilization to 1e18 fixed-point BigInt
                 const utilizationFixed = BigInt(Math.floor(utilization * 1e18));
                 const irm = new ethers.Contract(
-                    INTEREST_RATE_MODEL_ADDRESS,
+                    //INTEREST_RATE_MODEL_ADDRESS,
+                    contracts?.interestRateModel,
                     InterestRateModelABI.abi,
                     provider
                 );
@@ -120,7 +123,7 @@ function useInterestRates(utilization) {
     return { borrowRate, supplyRate };
 }
 
-export function LenderPanel({ contract, liquidityPoolContract, account }) {
+export function LenderPanel({ contract, liquidityPoolContract, account, contracts }) {
     const [lenderInfo, setLenderInfo] = useState(null)
     const [depositAmount, setDepositAmount] = useState('')
     const [withdrawAmount, setWithdrawalAmount] = useState('')
@@ -144,7 +147,7 @@ export function LenderPanel({ contract, liquidityPoolContract, account }) {
     const [utilization, setUtilization] = useState(0);
     const [refreshProgress, setRefreshProgress] = useState(0);
     // Fetch real-time rates
-    const { borrowRate, supplyRate } = useInterestRates(utilization);
+    const { borrowRate, supplyRate } = useInterestRates(utilization, contracts);
 
     useEffect(() => {
         if (contract && account) {
