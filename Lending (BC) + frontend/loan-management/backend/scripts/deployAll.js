@@ -13,7 +13,7 @@ try {
     process.exit(1);
 }
 
-const iface = new ethers.utils.Interface([
+const iface = new ethers.Interface([
     "function setPriceFeed(address asset, address feed)",
     "function setAllowedContract(address contractAddr, bool allowed)",
     "function setQuorumPercentage(uint256)"

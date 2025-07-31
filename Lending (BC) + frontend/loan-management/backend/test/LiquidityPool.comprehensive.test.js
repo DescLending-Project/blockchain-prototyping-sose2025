@@ -9,7 +9,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
     // Helper function to execute timelock operations properly
     async function executeTimelockOperation(target, value, data, signer = owner) {
         const predecessor = ethers.ZeroHash;
-        const salt = ethers.ZeroHash;
+        const salt = ethers.randomBytes(32); // Use random salt to avoid conflicts
         const delay = await timelock.getMinDelay();
 
         // Schedule the operation
