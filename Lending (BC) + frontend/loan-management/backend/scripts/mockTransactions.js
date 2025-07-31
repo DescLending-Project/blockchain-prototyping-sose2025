@@ -114,79 +114,134 @@ async function main() {
     // Impersonate timelock for admin actions
     const timelockSigner = await ethers.getImpersonatedSigner(addresses.TimelockController);
 
-    // --- Set credit scores for lenders and borrowers ---
-    console.log('Mock: Setting credit scores');
+    // --- Owner/Admin Activities (Deployer) ---
+    console.log('Mock: Owner/Admin activities');
+
+    // Set credit scores for users
+    console.log('Mock: Admin sets credit score for lender1');
     await LiquidityPool.connect(timelockSigner).setCreditScore(lender1.address, 85);
+
+    console.log('Mock: Admin sets credit score for lender2');
     await LiquidityPool.connect(timelockSigner).setCreditScore(lender2.address, 90);
+
+    console.log('Mock: Admin sets credit score for borrower1');
     await LiquidityPool.connect(timelockSigner).setCreditScore(borrower1.address, 80);
+
+    console.log('Mock: Admin sets credit score for borrower2');
     await LiquidityPool.connect(timelockSigner).setCreditScore(borrower2.address, 75);
 
-    // --- Assume a mock ERC20 token is deployed and whitelisted as collateral ---
-    // For this mock, use GlintToken as the collateral token
+    // --- More Admin Activities ---
     const glintTokenAddress = addresses.GlintToken;
     const GlintToken = await ethers.getContractAt('GlintToken', glintTokenAddress);
-    // Whitelist GlintToken as collateral (assume timelock/admin role)
+
+    console.log('Mock: Admin whitelists GlintToken as collateral');
     await LiquidityPool.connect(timelockSigner).setAllowedCollateral(glintTokenAddress, true);
-    // Transfer GlintToken to borrower1 and approve/deposit as collateral
-    await GlintToken.connect(deployer).transfer(borrower1.address, ethers.parseEther('1000'));
-    await GlintToken.connect(borrower1).approve(await LiquidityPool.getAddress(), ethers.parseEther('1000'));
-    console.log('Mock: Borrower1 deposits 100 GlintToken as collateral');
-    await LiquidityPool.connect(borrower1).depositCollateral(glintTokenAddress, ethers.parseEther('100'));
 
     // Set price feed for GlintToken using MockPriceFeed
     const mockPriceFeedAddress = addresses.MockPriceFeed;
+    console.log('Mock: Admin sets price feed for GlintToken');
     await LiquidityPool.connect(timelockSigner).setPriceFeed(glintTokenAddress, mockPriceFeedAddress);
 
-    // --- Mock Lender Deposits ETH ---
-    console.log('Mock: Lender1 deposits 10 ETH');
-    await lender1.sendTransaction({
-        to: await LiquidityPool.getAddress(),
-        value: ethers.parseEther('10')
-    });
-    console.log('Mock: Lender2 deposits 5 ETH');
-    await lender2.sendTransaction({
-        to: await LiquidityPool.getAddress(),
-        value: ethers.parseEther('5')
-    });
+    // Admin transfers tokens to borrowers for collateral
+    console.log('Mock: Admin transfers GlintTokens to borrowers');
+    await GlintToken.connect(deployer).transfer(borrower1.address, ethers.parseEther('1000'));
+    await GlintToken.connect(deployer).transfer(borrower2.address, ethers.parseEther('800'));
 
-    // --- Mock Lender Withdraws Interest Multiple Times ---
-    for (let i = 1; i <= 3; i++) {
-        // Simulate passage of time for interest accrual
-        await network.provider.send('evm_increaseTime', [24 * 3600]);
-        await network.provider.send('evm_mine');
-        console.log(`Mock: Lender1 withdraws interest (iteration ${i})`);
-        // In a real system, you would call a claim/withdraw interest function if available
-        // Here, we just log the action as a placeholder
-        // e.g., await LiquidityPool.connect(lender1).claimInterest();
+    // --- Mock Lender Activities ---
+    console.log('Mock: Lender1 deposits 10 ETH via LendingManager');
+    await LendingManager.connect(lender1).depositFunds({ value: ethers.parseEther('10') });
+
+    console.log('Mock: Lender2 deposits 5 ETH via LendingManager');
+    await LendingManager.connect(lender2).depositFunds({ value: ethers.parseEther('5') });
+
+    // Simulate time passage for interest accrual
+    await network.provider.send('evm_increaseTime', [7 * 24 * 3600]); // 7 days
+    await network.provider.send('evm_mine');
+
+    // --- Mock Lender Withdrawals ---
+    console.log('Mock: Lender1 requests withdrawal of 2 ETH');
+    await LendingManager.connect(lender1).requestWithdrawal(ethers.parseEther('2'));
+
+    // Wait for cooldown period
+    await network.provider.send('evm_increaseTime', [24 * 3600 + 1]); // 1 day + 1 second
+    await network.provider.send('evm_mine');
+
+    console.log('Mock: Lender1 completes withdrawal');
+    await LendingManager.connect(lender1).completeWithdrawal();
+
+    // More time passage
+    await network.provider.send('evm_increaseTime', [3 * 24 * 3600]); // 3 days
+    await network.provider.send('evm_mine');
+
+    console.log('Mock: Lender2 requests withdrawal of 1 ETH');
+    await LendingManager.connect(lender2).requestWithdrawal(ethers.parseEther('1'));
+
+    // Wait for cooldown and complete
+    await network.provider.send('evm_increaseTime', [24 * 3600 + 1]); // 1 day + 1 second
+    await network.provider.send('evm_mine');
+
+    console.log('Mock: Lender2 completes withdrawal');
+    await LendingManager.connect(lender2).completeWithdrawal();
+
+    // Additional deposit from lender1
+    console.log('Mock: Lender1 makes additional deposit of 3 ETH');
+    await LendingManager.connect(lender1).depositFunds({ value: ethers.parseEther('3') });
+
+    // Lender claims interest
+    await network.provider.send('evm_increaseTime', [5 * 24 * 3600]); // 5 days
+    await network.provider.send('evm_mine');
+
+    console.log('Mock: Lender1 claims interest');
+    try {
+        await LendingManager.connect(lender1).claimInterest();
+    } catch (error) {
+        console.log('Mock: No interest to claim yet for Lender1');
     }
 
-    // --- At the end, lender withdraws interest (no collateral withdrawal needed) ---
-    // --- Mock Borrower Borrows and Repays ---
-    const poolBalanceBefore = await provider.getBalance(await LiquidityPool.getAddress());
-    const borrowerBalanceBefore = await provider.getBalance(borrower1.address);
-    console.log('LiquidityPool ETH balance before borrow:', ethers.formatEther(poolBalanceBefore));
-    console.log('Borrower1 ETH balance before borrow:', ethers.formatEther(borrowerBalanceBefore));
+    // --- Mock Borrower Activities ---
+
+    // Borrower1 activities
+    console.log('Mock: Borrower1 deposits 100 GlintToken as collateral');
+    await GlintToken.connect(borrower1).approve(await LiquidityPool.getAddress(), ethers.parseEther('1000'));
+    await LiquidityPool.connect(borrower1).depositCollateral(glintTokenAddress, ethers.parseEther('100'));
+
     console.log('Mock: Borrower1 borrows 0.5 ETH');
     await LiquidityPool.connect(borrower1).borrow(ethers.parseEther('0.5'));
-    const poolBalanceAfter = await provider.getBalance(await LiquidityPool.getAddress());
-    const borrowerBalanceAfter = await provider.getBalance(borrower1.address);
-    console.log('LiquidityPool ETH balance after borrow:', ethers.formatEther(poolBalanceAfter));
-    console.log('Borrower1 ETH balance after borrow:', ethers.formatEther(borrowerBalanceAfter));
-    // Print borrower's debt and loan after borrowing
-    const debtAfterBorrow = await LiquidityPool.userDebt(borrower1.address);
-    const loanAfterBorrow = await LiquidityPool.loans(borrower1.address);
-    console.log('Borrower1 debt after borrow:', debtAfterBorrow.toString());
-    console.log('Borrower1 loan after borrow:', loanAfterBorrow);
+
     // Simulate some time passing
-    await network.provider.send('evm_increaseTime', [3600]);
+    await network.provider.send('evm_increaseTime', [5 * 24 * 3600]); // 5 days
     await network.provider.send('evm_mine');
-    console.log('Mock: Borrower1 repays 0.5 ETH');
-    await LiquidityPool.connect(borrower1).repay({ value: ethers.parseEther('0.5') });
-    // Print borrower's debt and loan after repay
-    const debtAfterRepay = await LiquidityPool.userDebt(borrower1.address);
-    const loanAfterRepay = await LiquidityPool.loans(borrower1.address);
-    console.log('Borrower1 debt after repay:', debtAfterRepay.toString());
-    console.log('Borrower1 loan after repay:', loanAfterRepay);
+
+    console.log('Mock: Borrower1 repays 0.3 ETH (partial repayment)');
+    await LiquidityPool.connect(borrower1).repay({ value: ethers.parseEther('0.3') });
+
+    // More time passing
+    await network.provider.send('evm_increaseTime', [2 * 24 * 3600]); // 2 days
+    await network.provider.send('evm_mine');
+
+    console.log('Mock: Borrower1 repays remaining debt');
+    const remainingDebt = await LiquidityPool.userDebt(borrower1.address);
+    if (remainingDebt > 0) {
+        await LiquidityPool.connect(borrower1).repay({ value: remainingDebt });
+    }
+
+    // Borrower2 activities
+    console.log('Mock: Borrower2 deposits 80 GlintToken as collateral');
+    await GlintToken.connect(borrower2).approve(await LiquidityPool.getAddress(), ethers.parseEther('800'));
+    await LiquidityPool.connect(borrower2).depositCollateral(glintTokenAddress, ethers.parseEther('80'));
+
+    console.log('Mock: Borrower2 borrows 0.3 ETH');
+    await LiquidityPool.connect(borrower2).borrow(ethers.parseEther('0.3'));
+
+    // Time passing
+    await network.provider.send('evm_increaseTime', [3 * 24 * 3600]); // 3 days
+    await network.provider.send('evm_mine');
+
+    console.log('Mock: Borrower2 repays loan');
+    const borrower2Debt = await LiquidityPool.userDebt(borrower2.address);
+    if (borrower2Debt > 0) {
+        await LiquidityPool.connect(borrower2).repay({ value: borrower2Debt });
+    }
 
     // --- All setup is done, now create and vote on proposal ---
     // --- Mock Proposal Creation and Execution ---

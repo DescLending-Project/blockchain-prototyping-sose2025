@@ -53,9 +53,15 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
         } else {
             console.log('TLSN Extension not available');
             console.log('Available functions:', Object.keys(window).filter(key => key.includes('tlsn')));
-            
-            setTlsnStatus('TLSN Extension not found. Please install the extension first.');
+
+            setTlsnStatus('TLSN Extension not found. This is a demo feature - extension not required for basic functionality.');
             setTlsnStatusType('error');
+
+            // Clear warning message after 5 seconds
+            setTimeout(() => {
+                setTlsnStatus('');
+                setTlsnStatusType('');
+            }, 5000);
         }
     };
 

@@ -23,9 +23,10 @@ FTM_RPC_URL=https://rpc.blaze.soniclabs.com
 SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
 ```
 
-**⚠️ Important**: 
+**⚠️ Important**:
 - Remove the `0x` prefix from your private key
 - For local development, you can use any test private key
+- **To export from MetaMask**: Go to Account Details → Export Private Key
 - Never use real funds or mainnet private keys
 
 ## 🚀 Quick Start Guide
@@ -55,9 +56,8 @@ Before you begin, make sure you have these installed on your computer:
 
 ### Step 1: Clone the Repository
 ```bash
-git clone <your-repository-url>
-cd "Lending (BC) + frontend"
-cd loan-management
+git clone https://github.com/DescLending-Project/blockchain-prototyping-sose2025.git
+cd "blockchain-prototyping-sose2025/Lending (BC) + frontend/loan-management"
 ```
 
 ### Step 2: Install Dependencies
@@ -81,7 +81,7 @@ cd ..
 
 ## 🔧 Development Setup
 
-### Step 1: Start the Blockchain Network
+### Step 1: Start the Local Blockchain Network (Hardhat)
 Open a terminal and navigate to the backend folder:
 ```bash
 cd backend
