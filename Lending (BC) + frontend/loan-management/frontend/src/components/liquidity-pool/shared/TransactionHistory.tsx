@@ -14,6 +14,7 @@ import {
     CheckCircle,
     XCircle,
     AlertTriangle,
+    AlertTriangle,
     RefreshCw,
     Filter,
     ExternalLink,
@@ -122,6 +123,18 @@ export function TransactionHistory({ contract, lendingManagerContract, account, 
                 "Repaid",
                 "LiquidationStarted",
                 "LiquidationExecuted",
+                "PartialLiquidation",
+                "GracePeriodExtended",
+                "UserError",
+                "ZKProofValidationFailed",
+                "FeeCollected",
+                "LoanApplied",
+                "LoanApproved",
+                "LoanRejected",
+                "LoanDisbursed",
+                "LoanInstallmentPaid",
+                "LoanFullyRepaid",
+                "LoanLatePenaltyApplied",
                 "CreditScoreAssigned",
                 "Extracted",
                 "EmergencyPaused"
@@ -135,7 +148,15 @@ export function TransactionHistory({ contract, lendingManagerContract, account, 
                 "InterestCredited",
                 "WithdrawalRequested",
                 "WithdrawalCancelled",
-                "EarlyWithdrawalPenalty"
+                "EarlyWithdrawalPenalty",
+                "MintFailed",
+                "InterestAvailable",
+                "PrincipalWithdrawalRequested",
+                "LiquidationExecuted",
+                "PartialLiquidation",
+                "FeeCollected",
+                "BatchInterestCredited",
+                "BatchWithdrawalsProcessed"
             ])
 
             // Sort by timestamp descending
@@ -175,7 +196,7 @@ export function TransactionHistory({ contract, lendingManagerContract, account, 
 
         setFilteredTransactions(filtered.map(tx => ({
             ...tx,
-            type: tx.event,
+            type: mapEventToType(tx.event),
             amount: tx.args.amount ? ethers.formatEther(tx.args.amount) : tx.args.value ? ethers.formatEther(tx.args.value) : '',
             token: tx.args.token,
             status: 'confirmed',
@@ -213,6 +234,56 @@ export function TransactionHistory({ contract, lendingManagerContract, account, 
         window.URL.revokeObjectURL(url)
     }
 
+    const mapEventToType = (event: string): string => {
+        const eventTypeMap: Record<string, string> = {
+            // Collateral & Borrowing
+            CollateralDeposited: 'deposit',
+            CollateralWithdrawn: 'withdraw',
+            Borrowed: 'borrow',
+            Repaid: 'repay',
+
+            // Liquidation
+            LiquidationStarted: 'liquidate',
+            LiquidationExecuted: 'liquidate',
+            PartialLiquidation: 'liquidate',
+            GracePeriodExtended: 'liquidate',
+
+            // Lending
+            FundsDeposited: 'lend',
+            FundsWithdrawn: 'withdraw',
+            InterestClaimed: 'interest',
+            InterestCredited: 'interest',
+            InterestAvailable: 'interest',
+            WithdrawalRequested: 'withdraw',
+            WithdrawalCancelled: 'withdraw',
+            PrincipalWithdrawalRequested: 'withdraw',
+            EarlyWithdrawalPenalty: 'withdraw',
+
+            // Loans
+            LoanApplied: 'borrow',
+            LoanApproved: 'borrow',
+            LoanRejected: 'borrow',
+            LoanDisbursed: 'borrow',
+            LoanInstallmentPaid: 'repay',
+            LoanFullyRepaid: 'repay',
+            LoanLatePenaltyApplied: 'repay',
+
+            // Fees & Errors
+            FeeCollected: 'fee',
+            UserError: 'error',
+            ZKProofValidationFailed: 'error',
+            MintFailed: 'error',
+
+            // System
+            CreditScoreAssigned: 'system',
+            BatchInterestCredited: 'interest',
+            BatchWithdrawalsProcessed: 'withdraw',
+            Extracted: 'system',
+            EmergencyPaused: 'system'
+        }
+        return eventTypeMap[event] || 'default'
+    }
+
     const getTransactionIcon = (type: string) => {
         switch (type) {
             case 'deposit':
@@ -229,6 +300,12 @@ export function TransactionHistory({ contract, lendingManagerContract, account, 
                 return <AlertTriangle className="h-4 w-4 text-red-600" />
             case 'interest':
                 return <DollarSign className="h-4 w-4 text-green-600" />
+            case 'error':
+                return <AlertTriangle className="h-4 w-4 text-red-500" />
+            case 'fee':
+                return <DollarSign className="h-4 w-4 text-yellow-600" />
+            case 'system':
+                return <Shield className="h-4 w-4 text-gray-600" />
             default:
                 return <History className="h-4 w-4 text-gray-600" />
         }
@@ -282,22 +359,50 @@ export function TransactionHistory({ contract, lendingManagerContract, account, 
 
     function formatAction(event: string, contract: string) {
         const map: Record<string, string> = {
+            // Collateral & Borrowing
             CollateralDeposited: "Deposit Collateral",
             CollateralWithdrawn: "Withdraw Collateral",
-            Borrowed: "Borrow",
-            Repaid: "Repay",
-            LiquidationStarted: "Liquidation Started",
-            LiquidationExecuted: "Liquidation Executed",
-            CreditScoreAssigned: "Credit Score Assigned",
-            Extracted: "Funds Extracted",
-            EmergencyPaused: "Emergency Pause",
+            Borrowed: "Borrow Funds",
+            Repaid: "Repay Loan",
+
+            // Liquidation Events
+            LiquidationStarted: "⚠️ Liquidation Warning",
+            LiquidationExecuted: "🔴 Position Liquidated",
+            PartialLiquidation: "🟡 Partial Liquidation",
+            GracePeriodExtended: "⏰ Grace Period Extended",
+
+            // Lending Events
             FundsDeposited: "Deposit Funds",
             FundsWithdrawn: "Withdraw Funds",
             InterestClaimed: "Claim Interest",
             InterestCredited: "Interest Credited",
+            InterestAvailable: "💰 Interest Available",
             WithdrawalRequested: "Withdrawal Requested",
             WithdrawalCancelled: "Withdrawal Cancelled",
-            EarlyWithdrawalPenalty: "Early Withdrawal Penalty"
+            PrincipalWithdrawalRequested: "Principal Withdrawal Requested",
+            EarlyWithdrawalPenalty: "⚠️ Early Withdrawal Penalty",
+
+            // Loan Application & Management
+            LoanApplied: "📋 Loan Application Submitted",
+            LoanApproved: "✅ Loan Approved",
+            LoanRejected: "❌ Loan Rejected",
+            LoanDisbursed: "💸 Loan Disbursed",
+            LoanInstallmentPaid: "💳 Installment Paid",
+            LoanFullyRepaid: "🎉 Loan Fully Repaid",
+            LoanLatePenaltyApplied: "⚠️ Late Payment Penalty",
+
+            // Fees & System Events
+            FeeCollected: "💰 Fee Collected",
+            UserError: "❌ Transaction Error",
+            ZKProofValidationFailed: "🔒 ZK Proof Validation Failed",
+            MintFailed: "❌ Token Mint Failed",
+            CreditScoreAssigned: "📊 Credit Score Updated",
+            BatchInterestCredited: "💰 Batch Interest Credited",
+            BatchWithdrawalsProcessed: "📦 Batch Withdrawals Processed",
+
+            // Admin Events
+            Extracted: "🏦 Admin Fund Extraction",
+            EmergencyPaused: "🚨 Emergency Pause"
         }
         return `${map[event] || event} (${contract})`
     }
@@ -330,14 +435,25 @@ export function TransactionHistory({ contract, lendingManagerContract, account, 
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All</SelectItem>
-                                <SelectItem value="CollateralDeposited">Deposits</SelectItem>
-                                <SelectItem value="CollateralWithdrawn">Withdrawals</SelectItem>
-                                <SelectItem value="Borrowed">Borrows</SelectItem>
+                                <SelectItem value="all">All Transactions</SelectItem>
+                                <SelectItem value="CollateralDeposited">Collateral Deposits</SelectItem>
+                                <SelectItem value="CollateralWithdrawn">Collateral Withdrawals</SelectItem>
+                                <SelectItem value="Borrowed">Borrowing</SelectItem>
                                 <SelectItem value="Repaid">Repayments</SelectItem>
-                                <SelectItem value="FundsDeposited">Lending</SelectItem>
-                                <SelectItem value="InterestClaimed">Interest</SelectItem>
-                                <SelectItem value="LiquidationStarted">Liquidations</SelectItem>
+                                <SelectItem value="FundsDeposited">Lending Deposits</SelectItem>
+                                <SelectItem value="FundsWithdrawn">Lending Withdrawals</SelectItem>
+                                <SelectItem value="InterestClaimed">Interest Claims</SelectItem>
+                                <SelectItem value="InterestCredited">Interest Credits</SelectItem>
+                                <SelectItem value="LiquidationStarted">Liquidation Warnings</SelectItem>
+                                <SelectItem value="LiquidationExecuted">Full Liquidations</SelectItem>
+                                <SelectItem value="PartialLiquidation">Partial Liquidations</SelectItem>
+                                <SelectItem value="LoanApplied">Loan Applications</SelectItem>
+                                <SelectItem value="LoanApproved">Loan Approvals</SelectItem>
+                                <SelectItem value="LoanDisbursed">Loan Disbursements</SelectItem>
+                                <SelectItem value="LoanInstallmentPaid">Loan Payments</SelectItem>
+                                <SelectItem value="FeeCollected">Fees</SelectItem>
+                                <SelectItem value="UserError">Errors</SelectItem>
+                                <SelectItem value="CreditScoreAssigned">Credit Scores</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button
