@@ -126,7 +126,7 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
 
     // 9. Queue the proposal
     console.log('Queueing proposal...');
-    const descriptionHash = ethers.utils.id(description);
+    const descriptionHash = ethers.id(description);
     state = await governor.state(proposalId);
     const currentBlockTs = (await ethers.provider.getBlock('latest')).timestamp;
     const snapshot = await governor.proposalSnapshot(proposalId);
@@ -212,62 +212,62 @@ async function main() {
     // 1. Deploy TimelockController first
     const minDelay = 3600; // 1 hour
     const proposers = [deployer.address];
-    const executors = [ethers.constants.AddressZero];
+    const executors = [ethers.ZeroAddress];
     const TimelockController = await ethers.getContractFactory("TimelockController");
     const timelock = await TimelockController.deploy(minDelay, proposers, executors, deployer.address);
-    await timelock.deployed();
-    console.log("TimelockController deployed at:", timelock.address);
-    console.log(`[DEPLOYED] TimelockController at: ${timelock.address} (new deployment)`);
+    await timelock.waitForDeployment();
+    console.log("TimelockController deployed at:", await timelock.getAddress());
+    console.log(`[DEPLOYED] TimelockController at: ${await timelock.getAddress()} (new deployment)`);
 
     // 2. Deploy VotingToken with Timelock as DAO
     const VotingToken = await ethers.getContractFactory("VotingToken");
-    const votingToken = await VotingToken.deploy(timelock.address);
-    await votingToken.deployed();
-    console.log("VotingToken deployed at:", votingToken.address);
-    console.log(`[DEPLOYED] VotingToken at: ${votingToken.address} (new deployment)`);
+    const votingToken = await VotingToken.deploy(await timelock.getAddress());
+    await votingToken.waitForDeployment();
+    console.log("VotingToken deployed at:", await votingToken.getAddress());
+    console.log(`[DEPLOYED] VotingToken at: ${await votingToken.getAddress()} (new deployment)`);
 
     // Grant MINTER_ROLE to TimelockController immediately after deployment
     const MINTER_ROLE = await votingToken.MINTER_ROLE();
-    await votingToken.grantRole(MINTER_ROLE, timelock.address);
-    console.log('VotingToken MINTER_ROLE granted to TimelockController:', await votingToken.hasRole(MINTER_ROLE, timelock.address));
+    await votingToken.grantRole(MINTER_ROLE, await timelock.getAddress());
+    console.log('VotingToken MINTER_ROLE granted to TimelockController:', await votingToken.hasRole(MINTER_ROLE, await timelock.getAddress()));
 
     // Grant DEFAULT_ADMIN_ROLE to TimelockController
     const DEFAULT_ADMIN_ROLE = await votingToken.DEFAULT_ADMIN_ROLE();
-    await votingToken.grantRole(DEFAULT_ADMIN_ROLE, timelock.address);
-    console.log('VotingToken DEFAULT_ADMIN_ROLE granted to TimelockController:', await votingToken.hasRole(DEFAULT_ADMIN_ROLE, timelock.address));
+    await votingToken.grantRole(DEFAULT_ADMIN_ROLE, await timelock.getAddress());
+    console.log('VotingToken DEFAULT_ADMIN_ROLE granted to TimelockController:', await votingToken.hasRole(DEFAULT_ADMIN_ROLE, await timelock.getAddress()));
     console.log('VotingToken DAO:', await votingToken.dao());
 
     // 3. Deploy ProtocolGovernor
     const ProtocolGovernor = await ethers.getContractFactory("ProtocolGovernor");
-    const governor = await ProtocolGovernor.deploy(votingToken.address, timelock.address);
-    await governor.deployed();
-    console.log("ProtocolGovernor deployed at:", governor.address);
-    console.log(`[DEPLOYED] ProtocolGovernor at: ${governor.address} (new deployment)`);
+    const governor = await ProtocolGovernor.deploy(await votingToken.getAddress(), await timelock.getAddress());
+    await governor.waitForDeployment();
+    console.log("ProtocolGovernor deployed at:", await governor.getAddress());
+    console.log(`[DEPLOYED] ProtocolGovernor at: ${await governor.getAddress()} (new deployment)`);
     // Grant MINTER_ROLE to Governor immediately after deployment
-    await votingToken.grantRole(MINTER_ROLE, governor.address);
+    await votingToken.grantRole(MINTER_ROLE, await governor.getAddress());
     // Set DAO to Governor immediately after deployment
-    await votingToken.setDAO(governor.address);
+    await votingToken.setDAO(await governor.getAddress());
     // Debug prints for role assignment
-    const hasMinterRole = await votingToken.hasRole(MINTER_ROLE, governor.address);
+    const hasMinterRole = await votingToken.hasRole(MINTER_ROLE, await governor.getAddress());
     console.log('MINTER_ROLE:', MINTER_ROLE);
-    console.log('Governor address:', governor.address);
+    console.log('Governor address:', await governor.getAddress());
     console.log('VotingToken has MINTER_ROLE for Governor:', hasMinterRole);
     // Grant PROPOSER_ROLE to Governor on TimelockController
     const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
-    await timelock.grantRole(PROPOSER_ROLE, governor.address);
-    console.log('TimelockController PROPOSER_ROLE granted to Governor:', await timelock.hasRole(PROPOSER_ROLE, governor.address));
+    await timelock.grantRole(PROPOSER_ROLE, await governor.getAddress());
+    console.log('TimelockController PROPOSER_ROLE granted to Governor:', await timelock.hasRole(PROPOSER_ROLE, await governor.getAddress()));
 
     // Grant roles on TimelockController
     const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
     // Grant EXECUTOR_ROLE to AddressZero (anyone can execute after delay)
-    await timelock.grantRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
+    await timelock.grantRole(EXECUTOR_ROLE, ethers.ZeroAddress);
 
     // DON'T revoke admin role from deployer yet - do it at the very end
     // await timelock.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address); // REMOVE THIS LINE
 
     // Verify roles
-    const governorIsProposer = await timelock.hasRole(PROPOSER_ROLE, governor.address);
-    const zeroIsExecutor = await timelock.hasRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
+    const governorIsProposer = await timelock.hasRole(PROPOSER_ROLE, await governor.getAddress());
+    const zeroIsExecutor = await timelock.hasRole(EXECUTOR_ROLE, ethers.ZeroAddress);
     if (!governorIsProposer || !zeroIsExecutor) {
         throw new Error("Timelock roles not properly configured!");
     }
@@ -288,36 +288,36 @@ async function main() {
     // Deploy MockPriceFeed for USDC with initial price of 1.00 and 8 decimals
     console.log("\nDeploying MockPriceFeed for USDC...");
     const usdcMockFeed = await MockPriceFeed.deploy(
-        ethers.utils.parseUnits("1.00", 18),
+        ethers.parseUnits("1.00", 18),
         8
     );
-    await usdcMockFeed.deployed();
-    const usdcMockFeedAddress = await usdcMockFeed.address;
+    await usdcMockFeed.waitForDeployment();
+    const usdcMockFeedAddress = await usdcMockFeed.getAddress();
     console.log("MockPriceFeed for USDC deployed to:", usdcMockFeedAddress);
 
     // Deploy MockPriceFeed for USDT with initial price of 1.00 and 8 decimals
     console.log("\nDeploying MockPriceFeed for USDT...");
     const usdtMockFeed = await MockPriceFeed.deploy(
-        ethers.utils.parseUnits("1.00", 18),
+        ethers.parseUnits("1.00", 18),
         8
     );
-    await usdtMockFeed.deployed();
-    const usdtMockFeedAddress = await usdtMockFeed.address;
+    await usdtMockFeed.waitForDeployment();
+    const usdtMockFeedAddress = await usdtMockFeed.getAddress();
     console.log("MockPriceFeed for USDT deployed to:", usdtMockFeedAddress);
 
     // 5. Deploy protocol contracts with Timelock as admin
     console.log("Deploying StablecoinManager...");
     const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
-    const stablecoinManager = await StablecoinManager.deploy(timelock.address);
-    await stablecoinManager.deployed();
-    const stablecoinManagerAddress = stablecoinManager.address;
+    const stablecoinManager = await StablecoinManager.deploy(await timelock.getAddress());
+    await stablecoinManager.waitForDeployment();
+    const stablecoinManagerAddress = await stablecoinManager.getAddress();
     console.log("StablecoinManager:", stablecoinManagerAddress);
     console.log(`[DEPLOYED] StablecoinManager at: ${stablecoinManagerAddress} (new deployment)`);
 
     // --- PATCHED: Use real initialization parameters for InterestRateModel ---
     const initializationParams = [
         "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419", // Chainlink ETH/USD Oracle (mainnet)
-        timelock.address, // Timelock contract
+        await timelock.getAddress(), // Timelock contract
         "50000000000000000", // 5% baseRate (0.05 * 1e18)
         "800000000000000000", // 80% kink (0.8 * 1e18)
         "100000000000000000", // 10% slope1 (0.1 * 1e18)
@@ -332,37 +332,37 @@ async function main() {
     console.log("Deploying InterestRateModel...");
     const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
     const interestRateModel = await InterestRateModel.deploy(...initializationParams);
-    await interestRateModel.deployed();
-    const interestRateModelAddress = interestRateModel.address;
+    await interestRateModel.waitForDeployment();
+    const interestRateModelAddress = await interestRateModel.getAddress();
     console.log("InterestRateModel:", interestRateModelAddress);
     console.log(`[DEPLOYED] InterestRateModel at: ${interestRateModelAddress} (new deployment)`);
 
     // 6. Deploy IntegratedCreditSystem first (as before)
     const IntegratedCreditSystem = await ethers.getContractFactory("IntegratedCreditSystem");
     const creditSystem = await IntegratedCreditSystem.deploy(
-        ethers.constants.AddressZero, // SimpleRISC0Test placeholder
-        ethers.constants.AddressZero  // LiquidityPool placeholder
+        ethers.ZeroAddress, // SimpleRISC0Test placeholder
+        ethers.ZeroAddress  // LiquidityPool placeholder
     );
-    await creditSystem.deployed();
-    console.log("IntegratedCreditSystem deployed at:", creditSystem.address);
+    await creditSystem.waitForDeployment();
+    console.log("IntegratedCreditSystem deployed at:", await creditSystem.getAddress());
 
     // Deploy LiquidityPool with DAO as admin and creditSystem address as 5th param
     const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
         deployer.address, // LOCAL/DEV: deployer is admin
         stablecoinManagerAddress,
-        ethers.constants.AddressZero, // LendingManager placeholder
+        ethers.ZeroAddress, // LendingManager placeholder
         interestRateModelAddress,
-        creditSystem.address
+        await creditSystem.getAddress()
     ], {
         initializer: "initialize",
     });
-    await liquidityPool.deployed();
-    console.log("LiquidityPool deployed at:", liquidityPool.address);
+    await liquidityPool.waitForDeployment();
+    console.log("LiquidityPool deployed at:", await liquidityPool.getAddress());
 
     // Set LiquidityPool address in IntegratedCreditSystem (if setter exists)
     if (creditSystem.setLiquidityPool) {
-        const tx = await creditSystem.setLiquidityPool(liquidityPool.address);
+        const tx = await creditSystem.setLiquidityPool(await liquidityPool.getAddress());
         await tx.wait();
         console.log("LiquidityPool address set in IntegratedCreditSystem.");
     }
@@ -370,10 +370,10 @@ async function main() {
     // 7. Deploy LendingManager
     console.log("\nDeploying LendingManager...");
     const LendingManager = await ethers.getContractFactory("LendingManager");
-    const lendingManager = await LendingManager.deploy(liquidityPool.address, timelock.address);
-    await lendingManager.deployed();
-    console.log("LendingManager deployed at:", lendingManager.address);
-    console.log(`[DEPLOYED] LendingManager at: ${lendingManager.address} (new deployment)`);
+    const lendingManager = await LendingManager.deploy(await liquidityPool.getAddress(), await timelock.getAddress());
+    await lendingManager.waitForDeployment();
+    console.log("LendingManager deployed at:", await lendingManager.getAddress());
+    console.log(`[DEPLOYED] LendingManager at: ${await lendingManager.getAddress()} (new deployment)`);
 
     // 7.1 Set credit scores for two users (lender, borrower) before admin transfer
     const lender = accounts[1];
@@ -384,62 +384,62 @@ async function main() {
 
     // 8. Update LiquidityPool with LendingManager address (deployer is admin)
     console.log("Updating LiquidityPool with LendingManager address...");
-    await liquidityPool.setLendingManager(lendingManager.address);
+    await liquidityPool.setLendingManager(await lendingManager.getAddress());
     console.log("LiquidityPool updated.");
 
     // 9. Transfer LiquidityPool admin to Timelock (for full governance)
     console.log("Transferring LiquidityPool admin to Timelock...");
-    await liquidityPool.setAdmin(timelock.address);
+    await liquidityPool.setAdmin(await timelock.getAddress());
     console.log("LiquidityPool admin transferred to Timelock.");
 
     // 3. Deploy GlintToken
     const GlintToken = await ethers.getContractFactory("GlintToken");
-    const glintToken = await GlintToken.deploy(ethers.utils.parseEther('1000000'));
-    await glintToken.deployed();
-    const glintTokenAddress = glintToken.address;
+    const glintToken = await GlintToken.deploy(ethers.parseEther('1000000'));
+    await glintToken.waitForDeployment();
+    const glintTokenAddress = await glintToken.getAddress();
     console.log("GlintToken deployed at:", glintTokenAddress);
 
     // 10. Deploy MockPriceFeed for GlintToken
     console.log("\nDeploying MockPriceFeed for GlintToken...");
     const glintMockFeed = await MockPriceFeed.deploy(
-        ethers.utils.parseUnits("1.00", 8), // 1.00 with 8 decimals
+        ethers.parseUnits("1.00", 8), // 1.00 with 8 decimals
         8
     );
-    await glintMockFeed.deployed();
-    const glintMockFeedAddress = glintMockFeed.address;
+    await glintMockFeed.waitForDeployment();
+    const glintMockFeedAddress = await glintMockFeed.getAddress();
     console.log("MockPriceFeed for GlintToken deployed to:", glintMockFeedAddress);
 
     // (Remove duplicate USDC/USDT MockPriceFeed deployment here, as it was already done above.)
 
     // Output all addresses
     console.log("\nDeployment complete:");
-    console.log("VotingToken:", votingToken.address);
-    console.log("TimelockController:", timelock.address);
-    console.log("ProtocolGovernor:", governor.address);
+    console.log("VotingToken:", await votingToken.getAddress());
+    console.log("TimelockController:", await timelock.getAddress());
+    console.log("ProtocolGovernor:", await governor.getAddress());
     console.log("StablecoinManager:", stablecoinManagerAddress);
     console.log("InterestRateModel:", interestRateModelAddress);
-    console.log("LiquidityPool:", liquidityPool.address);
-    console.log("LendingManager:", lendingManager.address);
-    console.log("GlintToken:", glintToken.address);
-    console.log("MockPriceFeed (Glint):", glintMockFeed.address); // <-- Fix here
-    console.log("MockPriceFeed USDC:", usdcMockFeed.address);
-    console.log("MockPriceFeed USDT:", usdtMockFeed.address);
-    console.log("IntegratedCreditSystem:", creditSystem.address);
+    console.log("LiquidityPool:", await liquidityPool.getAddress());
+    console.log("LendingManager:", await lendingManager.getAddress());
+    console.log("GlintToken:", await glintToken.getAddress());
+    console.log("MockPriceFeed (Glint):", await glintMockFeed.getAddress()); // <-- Fix here
+    console.log("MockPriceFeed USDC:", await usdcMockFeed.getAddress());
+    console.log("MockPriceFeed USDT:", await usdtMockFeed.getAddress());
+    console.log("IntegratedCreditSystem:", await creditSystem.getAddress());
 
     // Optionally update frontend/app addresses
     const addressesObj = {
-        VotingToken: votingToken.address,
-        TimelockController: timelock.address,
-        ProtocolGovernor: governor.address,
-        StablecoinManager: stablecoinManager.address,
-        InterestRateModel: interestRateModel.address,
-        LiquidityPool: liquidityPool.address,
-        LendingManager: lendingManager.address,
-        GlintToken: glintToken.address,
-        MockPriceFeed: glintMockFeed.address, // <-- Fix here
-        MockPriceFeedUSDC: usdcMockFeed.address,
-        MockPriceFeedUSDT: usdtMockFeed.address,
-        IntegratedCreditSystem: creditSystem.address
+        VotingToken: await votingToken.getAddress(),
+        TimelockController: await timelock.getAddress(),
+        ProtocolGovernor: await governor.getAddress(),
+        StablecoinManager: stablecoinManagerAddress,
+        InterestRateModel: interestRateModelAddress,
+        LiquidityPool: await liquidityPool.getAddress(),
+        LendingManager: await lendingManager.getAddress(),
+        GlintToken: await glintToken.getAddress(),
+        MockPriceFeed: await glintMockFeed.getAddress(), // <-- Fix here
+        MockPriceFeedUSDC: await usdcMockFeed.getAddress(),
+        MockPriceFeedUSDT: await usdtMockFeed.getAddress(),
+        IntegratedCreditSystem: await creditSystem.getAddress()
     };
     // Also write to frontend/src/addresses.json for compatibility
     const fs = require('fs');
@@ -483,7 +483,7 @@ export const getContractAddresses = (networkName) => {
     console.log("\nFinalizing permissions...");
 
     // Revoke DEFAULT_ADMIN_ROLE from deployer on VotingToken (only if timelock has it)
-    const timelockHasVotingTokenAdmin = await votingToken.hasRole(DEFAULT_ADMIN_ROLE, timelock.address);
+    const timelockHasVotingTokenAdmin = await votingToken.hasRole(DEFAULT_ADMIN_ROLE, await timelock.getAddress());
     if (timelockHasVotingTokenAdmin) {
         try {
             await votingToken.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address);
@@ -496,5 +496,17 @@ export const getContractAddresses = (networkName) => {
     timelock.removeAllListeners();
 }
 
-// No top-level await or promise usage outside functions. main() is only called if run directly.
+// Execute main function if this script is run directly
+if (require.main === module) {
+    main()
+        .then(() => {
+            console.log("✅ Deployment completed successfully!");
+            process.exit(0);
+        })
+        .catch((error) => {
+            console.error("❌ Deployment failed:", error);
+            process.exit(1);
+        });
+}
+
 module.exports = { main };
