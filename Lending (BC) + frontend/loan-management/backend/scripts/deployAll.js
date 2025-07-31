@@ -18,8 +18,6 @@ const iface = new ethers.Interface([
     "function setAllowedContract(address contractAddr, bool allowed)",
     "function setQuorumPercentage(uint256)"
 ]);
-// EVM time sanity check and short periods for local testing
-// (Removed: now handled in mockTransactions.js)
 
 async function debugTiming(governor, proposalId) {
     let proposal;
@@ -55,7 +53,14 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
         { gasLimit: 500000 }
     );
     const proposeReceipt = await proposeTx.wait();
-    const proposalId = proposeReceipt.events.find(e => e.event === 'ProposalCreated').args.proposalId;
+    const proposalId = proposeReceipt.logs.find(log => {
+        try {
+            const parsed = governor.interface.parseLog(log);
+            return parsed.name === 'ProposalCreated';
+        } catch {
+            return false;
+        }
+    }).args.proposalId;
     console.log(`Proposal created with ID: ${proposalId}`);
 
     // 3. Get proposal details (try proposals mapping, fallback to votingPeriod)
@@ -73,7 +78,7 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
     } else {
         // fallback: use votingPeriod blocks * average block time (assume 1s for dev)
         const votingPeriodBlocks = await governor.votingPeriod();
-        votingPeriodSec = votingPeriodBlocks.toNumber();
+        votingPeriodSec = Number(votingPeriodBlocks);
         console.log(`Voting period (blocks): ${votingPeriodBlocks}`);
     }
 
@@ -116,7 +121,7 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
     // 8. Mine enough blocks to end the voting period (ensure proposal moves to Succeeded)
     let votingBlocks = 20; // fallback default
     try {
-        votingBlocks = (await governor.votingPeriod()).toNumber();
+        votingBlocks = Number(await governor.votingPeriod());
     } catch { }
     for (let i = 0; i < votingBlocks + 2; i++) {
         await network.provider.send("evm_mine");
@@ -151,7 +156,7 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
     const timelock = await ethers.getContractAt("TimelockController", await governor.timelock());
     const delay = await timelock.getMinDelay();
     console.log(`Fast-forwarding ${delay} seconds for timelock...`);
-    await network.provider.send("evm_increaseTime", [delay.toNumber() + 1]);
+    await network.provider.send("evm_increaseTime", [Number(delay) + 1]);
     await network.provider.send("evm_mine");
 
     // 11. Execute proposal
@@ -205,14 +210,25 @@ function sqrtBigInt(n) {
 }
 
 async function main() {
-    const [deployer] = await ethers.getSigners();
-    const accounts = await ethers.getSigners();
-    console.log("Deploying with account:", deployer.address);
+    console.log("🔧 Main function started");
+    
+    let deployer, accounts;
+    try {
+        [deployer] = await ethers.getSigners();
+        accounts = await ethers.getSigners();
+        console.log("✅ Got signers successfully");
+        console.log("Deploying with account:", deployer.address);
+    } catch (error) {
+        console.error("❌ Failed to get signers:", error);
+        throw error;
+    }
 
     // 1. Deploy TimelockController first
+    console.log("🏗️  Step 1: Deploying TimelockController");
     const minDelay = 3600; // 1 hour
     const proposers = [deployer.address];
     const executors = [ethers.ZeroAddress];
+  
     const TimelockController = await ethers.getContractFactory("TimelockController");
     const timelock = await TimelockController.deploy(minDelay, proposers, executors, deployer.address);
     await timelock.waitForDeployment();
@@ -409,8 +425,6 @@ async function main() {
     const glintMockFeedAddress = await glintMockFeed.getAddress();
     console.log("MockPriceFeed for GlintToken deployed to:", glintMockFeedAddress);
 
-    // (Remove duplicate USDC/USDT MockPriceFeed deployment here, as it was already done above.)
-
     // Output all addresses
     console.log("\nDeployment complete:");
     console.log("VotingToken:", await votingToken.getAddress());
@@ -421,7 +435,7 @@ async function main() {
     console.log("LiquidityPool:", await liquidityPool.getAddress());
     console.log("LendingManager:", await lendingManager.getAddress());
     console.log("GlintToken:", await glintToken.getAddress());
-    console.log("MockPriceFeed (Glint):", await glintMockFeed.getAddress()); // <-- Fix here
+    console.log("MockPriceFeed (Glint):", await glintMockFeed.getAddress()); 
     console.log("MockPriceFeed USDC:", await usdcMockFeed.getAddress());
     console.log("MockPriceFeed USDT:", await usdtMockFeed.getAddress());
     console.log("IntegratedCreditSystem:", await creditSystem.getAddress());
@@ -436,7 +450,7 @@ async function main() {
         LiquidityPool: await liquidityPool.getAddress(),
         LendingManager: await lendingManager.getAddress(),
         GlintToken: await glintToken.getAddress(),
-        MockPriceFeed: await glintMockFeed.getAddress(), // <-- Fix here
+        MockPriceFeed: await glintMockFeed.getAddress(),
         MockPriceFeedUSDC: await usdcMockFeed.getAddress(),
         MockPriceFeedUSDT: await usdtMockFeed.getAddress(),
         IntegratedCreditSystem: await creditSystem.getAddress()

@@ -25,6 +25,7 @@
     "stream-browserify": "^3.0.0",
     "style-loader": "^4.0.0",
     "tlsn-js": "^0.1.0-alpha.10",
+    "tls-notary-shared": "file:../shared",
     "vm-browserify": "^1.1.2"
   },
   "devDependencies": {

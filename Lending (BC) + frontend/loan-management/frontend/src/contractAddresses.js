@@ -16,6 +16,19 @@ export const CONTRACT_ADDRESSES = {
 },
   sepolia: {
     // Add Sepolia addresses when deployed
+    "VotingToken": "0x649BEDB7e135feB48B94DA42be428b6AD16a25E4",
+    "TimelockController": "0x8833506Eb035f01c1FC1C3CE81c1D78294D5F59c",
+    "ProtocolGovernor": "0x1069B4CdA3E4ECE5a64545E7AabC22F7A545662A",
+    "StablecoinManager": "0x484A682A3f7601B83470E2E7F1486895a6907D82",
+    "InterestRateModel": "0x62Ab36b011573F4cB5B0f87b1431bB4609bae49C",
+    "LiquidityPool": "0x9dB8EbdcFFa382d6F10399b0fe5E4Bfeb235e498",
+    "LendingManager": "0xfc3cF44709cD4809E80D4083a18a8168d5f80971",
+    "GlintToken": "0xd460D931f3F4c7433Af8FbdDCF87b990C631E5d3",
+    "MockPriceFeed (Glint)": "0x70B9AF303cbE4751f756266960a969e702D770a5",
+    "MockPriceFeed USDC": "0xD8efb39Bf8f1156be174C8B810F69E590606740b",
+    "MockPriceFeed USDT": "0x290a24Ae5E2AA0EeBeadf65E6AF76FD6f687835c",
+    "IntegratedCreditSystem": "0x36fBCF3c0C8DC8A7930aC0cb29c839acc552ABCE"
+
   },
   sonic: {
     // Add Sonic addresses when deployed

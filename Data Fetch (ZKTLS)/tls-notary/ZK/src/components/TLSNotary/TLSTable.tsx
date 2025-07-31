@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ProofRecord } from '../../types/tls';
-import { getStatusDot } from '../common';
+import { getStatusDot } from '../../utils/common';
+import type { ProofRecord } from 'tls-notary-shared';
 
 interface TLSTableProps {
   entries: ProofRecord[];
