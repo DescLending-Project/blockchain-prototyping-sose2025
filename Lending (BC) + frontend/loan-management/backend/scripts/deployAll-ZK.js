@@ -47,8 +47,8 @@ async function deployZKComponents(deployer, config, liquidityPoolAddress) {
             console.log("🎭 Deploying Mock RISC Zero Verifier...");
             const MockRiscZeroVerifier = await ethers.getContractFactory("MockRiscZeroVerifier");
             const mockVerifier = await MockRiscZeroVerifier.deploy();
-            await mockVerifier.deployed();
-            verifierAddress = await mockVerifier.address;
+            await mockVerifier.waitForDeployment();
+            verifierAddress = await mockVerifier.getAddress();
             console.log("✅ Mock verifier deployed:", verifierAddress);
         }
 
@@ -56,8 +56,8 @@ async function deployZKComponents(deployer, config, liquidityPoolAddress) {
         console.log("\n📋 Deploying SimpleRISC0Test...");
         const SimpleRISC0Test = await ethers.getContractFactory("SimpleRISC0Test");
         const simpleRisc0Test = await SimpleRISC0Test.deploy(verifierAddress);
-        await simpleRisc0Test.deployed();
-        simpleRisc0TestAddress = await simpleRisc0Test.address;
+        await simpleRisc0Test.waitForDeployment();
+        simpleRisc0TestAddress = await simpleRisc0Test.getAddress();
         console.log("✅ SimpleRISC0Test deployed:", simpleRisc0TestAddress);
 
         // Enable demo mode for mock verifier
@@ -73,8 +73,8 @@ async function deployZKComponents(deployer, config, liquidityPoolAddress) {
             simpleRisc0TestAddress,
             liquidityPoolAddress
         );
-        await creditSystem.deployed();
-        creditSystemAddress = await creditSystem.address;
+        await creditSystem.waitForDeployment();
+        creditSystemAddress = await creditSystem.getAddress();
         console.log("✅ IntegratedCreditSystem deployed:", creditSystemAddress);
 
         console.log("\n✅ ZK Proof System deployed successfully!");
@@ -134,71 +134,71 @@ async function main() {
     }
 
     const [deployer] = await ethers.getSigners();
-    const networkName = hre.network.name;
+    const networkName = network.name;
     const config = networkConfig[networkName];
 
     console.log(`Deploying to network: ${networkName}`);
     console.log("Deploying contracts with account:", deployer.address);
-    console.log("Account balance:", ethers.utils.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH");
+    console.log("Account balance:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH");
 
     // Deploy in correct order with proper error handling
     try {
         // 1. Deploy basic tokens first
         console.log("\n1️⃣ Deploying GlintToken...");
         const GlintToken = await ethers.getContractFactory("GlintToken");
-        const initialSupply = ethers.utils.parseUnits("1000000", 18);
+        const initialSupply = ethers.parseUnits("1000000", 18);
         const glintToken = await GlintToken.deploy(initialSupply);
-        await glintToken.deployed();
-        const glintTokenAddress = await glintToken.address;
+        await glintToken.waitForDeployment();
+        const glintTokenAddress = await glintToken.getAddress();
         console.log("✅ GlintToken deployed to:", glintTokenAddress);
 
         // 2. Deploy StablecoinManager
         console.log("\n2️⃣ Deploying StablecoinManager...");
         const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
         const stablecoinManager = await StablecoinManager.deploy(deployer.address); // Use deployer as initial timelock
-        await stablecoinManager.deployed();
-        const stablecoinManagerAddress = await stablecoinManager.address;
+        await stablecoinManager.waitForDeployment();
+        const stablecoinManagerAddress = await stablecoinManager.getAddress();
         console.log("✅ StablecoinManager deployed to:", stablecoinManagerAddress);
 
         // Deploy MockPriceFeed for GlintToken with initial price of 1.50 and 8 decimals
         console.log("\nDeploying MockPriceFeed for GlintToken...");
         const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
         const glintFeed = await MockPriceFeed.deploy(
-            ethers.utils.parseUnits("1.50", 18),
+            ethers.parseUnits("1.50", 18),
             8
         );
-        await glintFeed.deployed();
-        const glintFeedAddress = await glintFeed.address;
+        await glintFeed.waitForDeployment();
+        const glintFeedAddress = await glintFeed.getAddress();
         console.log("MockPriceFeed for GlintToken deployed to:", glintFeedAddress);
 
         // Deploy MockPriceFeed for CORAL with initial price of 1.00 and 8 decimals (before deploying LiquidityPool)
         console.log("\nDeploying MockPriceFeed for CORAL...");
         const coralFeed = await MockPriceFeed.deploy(
-            ethers.utils.parseUnits("1.00", 18),
+            ethers.parseUnits("1.00", 18),
             8
         );
-        await coralFeed.deployed();
-        const coralFeedAddress = await coralFeed.address;
+        await coralFeed.waitForDeployment();
+        const coralFeedAddress = await coralFeed.getAddress();
         console.log("MockPriceFeed for CORAL deployed to:", coralFeedAddress);
 
         // Deploy MockPriceFeed for USDC with initial price of 1.00 and 8 decimals
         console.log("\nDeploying MockPriceFeed for USDC...");
         const usdcMockFeed = await MockPriceFeed.deploy(
-            ethers.utils.parseUnits("1.00", 18),
+            ethers.parseUnits("1.00", 18),
             8
         );
-        await usdcMockFeed.deployed();
-        const usdcMockFeedAddress = await usdcMockFeed.address;
+        await usdcMockFeed.waitForDeployment();
+        const usdcMockFeedAddress = await usdcMockFeed.getAddress();
         console.log("MockPriceFeed for USDC deployed to:", usdcMockFeedAddress);
 
         // Deploy MockPriceFeed for USDT with initial price of 1.00 and 8 decimals
         console.log("\nDeploying MockPriceFeed for USDT...");
         const usdtMockFeed = await MockPriceFeed.deploy(
-            ethers.utils.parseUnits("1.00", 18),
+            ethers.parseUnits("1.00", 18),
             8
         );
-        await usdtMockFeed.deployed();
-        const usdtMockFeedAddress = await usdtMockFeed.address;
+        await usdtMockFeed.waitForDeployment();
+        const usdtMockFeedAddress = await usdtMockFeed.getAddress();
         console.log("MockPriceFeed for USDT deployed to:", usdtMockFeedAddress);
 
         // Deploy LiquidityPool first (without LendingManager for now)
@@ -213,22 +213,22 @@ async function main() {
         ], {
             initializer: "initialize",
         });
-        await liquidityPool.deployed();
-        const liquidityPoolAddress = await liquidityPool.address;
+        await liquidityPool.waitForDeployment();
+        const liquidityPoolAddress = await liquidityPool.getAddress();
         console.log("LiquidityPool deployed to:", liquidityPoolAddress);
 
         // Deploy LendingManager with proper constructor
         console.log("\nDeploying LendingManager...");
         const LendingManager = await ethers.getContractFactory("LendingManager");
-        const lendingManager = await LendingManager.deploy(liquidityPoolAddress);
-        await lendingManager.deployed();
-        const lendingManagerAddress = await lendingManager.address;
+        const lendingManager = await LendingManager.deploy(liquidityPoolAddress, deployer.address); // Use deployer as timelock for now
+        await lendingManager.waitForDeployment();
+        const lendingManagerAddress = await lendingManager.getAddress();
         console.log("LendingManager deployed to:", lendingManagerAddress);
 
         // Set timelock if available
-        if (typeof timelock !== 'undefined' && timelock.address) {
+        if (typeof timelock !== 'undefined' && timelock.getAddress) {
             try {
-                await lendingManager.setTimelock(timelock.address);
+                await lendingManager.setTimelock(await timelock.getAddress());
                 console.log("LendingManager timelock set");
             } catch (e) {
                 console.log("Note: Could not set timelock on LendingManager:", e.message);
@@ -363,49 +363,52 @@ async function main() {
             await setupPriceFeed(usdtAddress, usdtMockFeedAddress);
         }
 
-        // Set up stablecoin parameters
-        console.log("\nSetting stablecoin parameters...");
-        await stablecoinManager.setStablecoinParams(
-            usdcAddress,
-            true,
-            85, // 85% LTV
-            110 // 110% liquidation threshold
-        );
-        await stablecoinManager.setStablecoinParams(
-            usdtAddress,
-            true,
-            85, // 85% LTV
-            110 // 110% liquidation threshold
-        );
+        // Set up stablecoin parameters (skip for localhost with zero addresses)
+        const usdcAddress = config.USDC;
+        const usdtAddress = config.USDT;
+        if (networkName !== "localhost" && usdcAddress !== "0x0000000000000000000000000000000000000000") {
+            console.log("\nSetting stablecoin parameters...");
+            await stablecoinManager.setStablecoinParams(
+                usdcAddress,
+                true,
+                85, // 85% LTV
+                110 // 110% liquidation threshold
+            );
+            await stablecoinManager.setStablecoinParams(
+                usdtAddress,
+                true,
+                85, // 85% LTV
+                110 // 110% liquidation threshold
+            );
+        } else {
+            console.log("\nSkipping stablecoin parameters setup for localhost");
+        }
 
         // Deploy InterestRateModel
         console.log("\nDeploying InterestRateModel...");
         const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
-        // Example parameters, adjust as needed
-        const irmParams = [
-            ethers.utils.parseUnits("0.02", 18), // baseRate
-            ethers.utils.parseUnits("0.8", 18),  // kink
-            ethers.utils.parseUnits("0.20", 18), // slope1
-            ethers.utils.parseUnits("1.00", 18), // slope2
-            ethers.utils.parseUnits("0.10", 18), // reserveFactor
-            ethers.utils.parseUnits("2.00", 18), // maxBorrowRate
-            ethers.utils.parseUnits("0.05", 18), // maxRateChange
-            ethers.utils.parseUnits("0.02", 18), // ethPriceRiskPremium
-            ethers.utils.parseUnits("0.05", 18), // ethVolatilityThreshold
-            3600 // oracleStalenessWindow
-        ];
         // Use deployer.address and a mock oracle for now
         const OracleMock = await ethers.getContractFactory("OracleMock");
         const oracleMock = await OracleMock.deploy();
-        await oracleMock.deployed();
-        const oracleAddress = await oracleMock.address;
+        await oracleMock.waitForDeployment();
+        const oracleAddress = await oracleMock.getAddress();
+
         const irm = await InterestRateModel.deploy(
-            deployer.address,
-            oracleAddress,
-            irmParams
+            oracleAddress, // _ethUsdOracle
+            deployer.address, // _timelock
+            ethers.parseUnits("0.02", 18), // _baseRate
+            ethers.parseUnits("0.8", 18),  // _kink
+            ethers.parseUnits("0.20", 18), // _slope1
+            ethers.parseUnits("1.00", 18), // _slope2
+            ethers.parseUnits("0.10", 18), // _reserveFactor
+            ethers.parseUnits("2.00", 18), // _maxBorrowRate
+            ethers.parseUnits("0.05", 18), // _maxRateChange
+            ethers.parseUnits("0.02", 18), // _ethPriceRiskPremium
+            ethers.parseUnits("0.05", 18), // _ethVolatilityThreshold
+            3600 // _oracleStalenessWindow
         );
-        await irm.deployed();
-        const irmAddress = await irm.address;
+        await irm.waitForDeployment();
+        const irmAddress = await irm.getAddress();
         console.log("InterestRateModel deployed to:", irmAddress);
 
         // Deployment summary with ZK components
@@ -516,5 +519,17 @@ async function main() {
     }
 }
 
-// No top-level await or promise usage outside functions. main() is only called if run directly.
+// Execute main function if this script is run directly
+if (require.main === module) {
+    main()
+        .then(() => {
+            console.log("✅ ZK Deployment completed successfully!");
+            process.exit(0);
+        })
+        .catch((error) => {
+            console.error("❌ ZK Deployment failed:", error);
+            process.exit(1);
+        });
+}
+
 module.exports = { main };

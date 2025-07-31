@@ -228,25 +228,12 @@ async function main() {
     const minDelay = 3600; // 1 hour
     const proposers = [deployer.address];
     const executors = [ethers.ZeroAddress];
-    
-    let TimelockController, timelock;
-    try {
-        TimelockController = await ethers.getContractFactory("TimelockController");
-        console.log("✅ TimelockController factory created");
-        
-        timelock = await TimelockController.deploy(minDelay, proposers, executors, deployer.address);
-        console.log("✅ TimelockController deployment transaction sent");
-        
-        await timelock.waitForDeployment();
-        console.log("✅ TimelockController deployment confirmed");
-        
-        const timelockAddress = await timelock.getAddress();
-        console.log("TimelockController deployed at:", timelockAddress);
-        console.log(`[DEPLOYED] TimelockController at: ${timelockAddress} (new deployment)`);
-    } catch (error) {
-        console.error("❌ Failed to deploy TimelockController:", error);
-        throw error;
-    }
+  
+    const TimelockController = await ethers.getContractFactory("TimelockController");
+    const timelock = await TimelockController.deploy(minDelay, proposers, executors, deployer.address);
+    await timelock.waitForDeployment();
+    console.log("TimelockController deployed at:", await timelock.getAddress());
+    console.log(`[DEPLOYED] TimelockController at: ${await timelock.getAddress()} (new deployment)`);
 
     // 2. Deploy VotingToken with Timelock as DAO
     const VotingToken = await ethers.getContractFactory("VotingToken");
@@ -438,8 +425,6 @@ async function main() {
     const glintMockFeedAddress = await glintMockFeed.getAddress();
     console.log("MockPriceFeed for GlintToken deployed to:", glintMockFeedAddress);
 
-    // (Remove duplicate USDC/USDT MockPriceFeed deployment here, as it was already done above.)
-
     // Output all addresses
     console.log("\nDeployment complete:");
     console.log("VotingToken:", await votingToken.getAddress());
@@ -449,8 +434,8 @@ async function main() {
     console.log("InterestRateModel:", interestRateModelAddress);
     console.log("LiquidityPool:", await liquidityPool.getAddress());
     console.log("LendingManager:", await lendingManager.getAddress());
-    console.log("GlintToken:", glintTokenAddress);
-    console.log("MockPriceFeed (Glint):", await glintMockFeed.getAddress());
+    console.log("GlintToken:", await glintToken.getAddress());
+    console.log("MockPriceFeed (Glint):", await glintMockFeed.getAddress()); 
     console.log("MockPriceFeed USDC:", await usdcMockFeed.getAddress());
     console.log("MockPriceFeed USDT:", await usdtMockFeed.getAddress());
     console.log("IntegratedCreditSystem:", await creditSystem.getAddress());
@@ -464,7 +449,7 @@ async function main() {
         InterestRateModel: interestRateModelAddress,
         LiquidityPool: await liquidityPool.getAddress(),
         LendingManager: await lendingManager.getAddress(),
-        GlintToken: glintTokenAddress,
+        GlintToken: await glintToken.getAddress(),
         MockPriceFeed: await glintMockFeed.getAddress(),
         MockPriceFeedUSDC: await usdcMockFeed.getAddress(),
         MockPriceFeedUSDT: await usdtMockFeed.getAddress(),
@@ -525,16 +510,15 @@ export const getContractAddresses = (networkName) => {
     timelock.removeAllListeners();
 }
 
-// Run main function if this script is executed directly
+// Execute main function if this script is run directly
 if (require.main === module) {
     main()
         .then(() => {
-            console.log("✅ Deployment completed successfully");
+            console.log("✅ Deployment completed successfully!");
             process.exit(0);
         })
         .catch((error) => {
-            console.error("❌ Deployment failed:");
-            console.error(error);
+            console.error("❌ Deployment failed:", error);
             process.exit(1);
         });
 }
