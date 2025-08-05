@@ -1,34 +1,35 @@
 // This file is automatically updated by the deployment script
 export const CONTRACT_ADDRESSES = {
   localhost: {
-    "VotingToken": "0x649BEDB7e135feB48B94DA42be428b6AD16a25E4",
-    "TimelockController": "0x8833506Eb035f01c1FC1C3CE81c1D78294D5F59c",
-    "ProtocolGovernor": "0x1069B4CdA3E4ECE5a64545E7AabC22F7A545662A",
-    "StablecoinManager": "0x484A682A3f7601B83470E2E7F1486895a6907D82",
-    "InterestRateModel": "0x62Ab36b011573F4cB5B0f87b1431bB4609bae49C",
-    "LiquidityPool": "0x9dB8EbdcFFa382d6F10399b0fe5E4Bfeb235e498",
-    "LendingManager": "0xfc3cF44709cD4809E80D4083a18a8168d5f80971",
-    "GlintToken": "0xd460D931f3F4c7433Af8FbdDCF87b990C631E5d3",
-    "MockPriceFeed": "0x70B9AF303cbE4751f756266960a969e702D770a5",
-    "MockPriceFeedUSDC": "0xD8efb39Bf8f1156be174C8B810F69E590606740b",
-    "MockPriceFeedUSDT": "0x290a24Ae5E2AA0EeBeadf65E6AF76FD6f687835c",
-    "IntegratedCreditSystem": "0x36fBCF3c0C8DC8A7930aC0cb29c839acc552ABCE"
+    "VotingToken": "0x25e941f166c1d66C3f28af6cEa8EA465772EE1a6",
+    "TimelockController": "0xb38180DBd8090c0f0136E78FB1A93654f6f3f481",
+    "ProtocolGovernor": "0x61c46a5c20f3D784E3aC2e101021be7fc9E1d5CA",
+    "StablecoinManager": "0x9fB31F93427C02115894fab862276322F99cEF07",
+    "InterestRateModel": "0x99E8Dd36081Cae946964B5F4b261fE4fACE18ed1",
+    "LiquidityPool": "0x4a95320F2B6368B5a5fF0b10562481AeA99d6D39",
+    "LendingManager": "0x04Eed63A8531c4281F58B466337D6675e3dE5dCE",
+    "GlintToken": "0xdDE6E8896a39b9b79769Cd1C4543049F1eAa39d4",
+    "MockPriceFeed": "0x8620a5ffD787b8bB66aB9FD876A6bd18adF39AD1",
+    "MockPriceFeedUSDC": "0xAEac90f45a46458cdE517d380b9592D34E28a6aB",
+    "MockPriceFeedUSDT": "0x2bDc52d037b7E8A5d98B387eF904b7b9dDB7D77C",
+    "IntegratedCreditSystem": "0x06ae7e9CB04A60347547a47124E65CE2985304f1",
+    "creditScoreVerifier": "0xE3F3a75ef923023FFeb9a502c3Bc7dF30c334B6a"
 },
   sepolia: {
     // Add Sepolia addresses when deployed
-    "VotingToken": "0x649BEDB7e135feB48B94DA42be428b6AD16a25E4",
-    "TimelockController": "0x8833506Eb035f01c1FC1C3CE81c1D78294D5F59c",
-    "ProtocolGovernor": "0x1069B4CdA3E4ECE5a64545E7AabC22F7A545662A",
-    "StablecoinManager": "0x484A682A3f7601B83470E2E7F1486895a6907D82",
-    "InterestRateModel": "0x62Ab36b011573F4cB5B0f87b1431bB4609bae49C",
-    "LiquidityPool": "0x9dB8EbdcFFa382d6F10399b0fe5E4Bfeb235e498",
-    "LendingManager": "0xfc3cF44709cD4809E80D4083a18a8168d5f80971",
-    "GlintToken": "0xd460D931f3F4c7433Af8FbdDCF87b990C631E5d3",
-    "MockPriceFeed (Glint)": "0x70B9AF303cbE4751f756266960a969e702D770a5",
-    "MockPriceFeed USDC": "0xD8efb39Bf8f1156be174C8B810F69E590606740b",
-    "MockPriceFeed USDT": "0x290a24Ae5E2AA0EeBeadf65E6AF76FD6f687835c",
-    "IntegratedCreditSystem": "0x36fBCF3c0C8DC8A7930aC0cb29c839acc552ABCE"
-
+        "VotingToken": "0x25e941f166c1d66C3f28af6cEa8EA465772EE1a6",
+    "TimelockController": "0xb38180DBd8090c0f0136E78FB1A93654f6f3f481",
+    "ProtocolGovernor": "0x61c46a5c20f3D784E3aC2e101021be7fc9E1d5CA",
+    "StablecoinManager": "0x9fB31F93427C02115894fab862276322F99cEF07",
+    "InterestRateModel": "0x99E8Dd36081Cae946964B5F4b261fE4fACE18ed1",
+    "LiquidityPool": "0x4a95320F2B6368B5a5fF0b10562481AeA99d6D39",
+    "LendingManager": "0x04Eed63A8531c4281F58B466337D6675e3dE5dCE",
+    "GlintToken": "0xdDE6E8896a39b9b79769Cd1C4543049F1eAa39d4",
+    "MockPriceFeed": "0x8620a5ffD787b8bB66aB9FD876A6bd18adF39AD1",
+    "MockPriceFeedUSDC": "0xAEac90f45a46458cdE517d380b9592D34E28a6aB",
+    "MockPriceFeedUSDT": "0x2bDc52d037b7E8A5d98B387eF904b7b9dDB7D77C",
+    "IntegratedCreditSystem": "0x06ae7e9CB04A60347547a47124E65CE2985304f1",
+    "creditScoreVerifier": "0xE3F3a75ef923023FFeb9a502c3Bc7dF30c334B6a"
   },
   sonic: {
     // Add Sonic addresses when deployed

@@ -12,6 +12,15 @@ import "./InterestRateModel.sol";
 import "./IntegratedCreditSystem.sol";
 import "./VotingToken.sol";
 
+//interface for verifier
+interface ICreditScore {
+    function getCreditScore(address user) external view returns (
+        uint64 score,
+        bool isValid,
+        uint256 timestamp
+    );
+}
+
 contract LiquidityPool is
     Initializable,
     AccessControlUpgradeable,
@@ -60,6 +69,11 @@ contract LiquidityPool is
     // ZK-Proof Integration
     IntegratedCreditSystem public creditSystem;
     bool public zkProofRequired; // Whether ZK proofs are required for borrowing
+
+    // NEW: RISC0 Credit Score Integration
+    ICreditScore public creditScoreContract;
+    bool public useRISC0CreditScores; // Toggle for RISC0 vs local scores
+    uint256 public constant SCORE_EXPIRY_PERIOD = 90 days; // How long RISC0 scores are valid
 
     // Risk Tier Definitions (0-100 score range)
     enum RiskTier {
@@ -131,6 +145,19 @@ contract LiquidityPool is
     );
     event ZKProofRequirementToggled(bool required);
     event ZKProofValidationFailed(address indexed user, string reason);
+
+    // NEW: RISC0 Integration Events
+    event CreditScoreContractUpdated(
+        address indexed oldContract,
+        address indexed newContract
+    );
+    event RISC0ScoreToggled(bool useRISC0);
+    event CreditScoreSourceUsed(
+        address indexed user,
+        string source,
+        uint256 score,
+        uint256 convertedScore
+    );
 
     // --- New for Partial Liquidation and Tiered Fees ---
     uint256 public constant SAFETY_BUFFER = 10; // 10% over-collateralization
@@ -244,6 +271,9 @@ contract LiquidityPool is
             zkProofRequired = true; // Enable ZK proof requirement by default
         }
 
+        // NEW: Initialize RISC0 integration
+        useRISC0CreditScores = false; // Disabled by default until contract is set
+
         _initializeRiskTiers();
         minPartialLiquidationAmount = 1e16;
     }
@@ -264,6 +294,175 @@ contract LiquidityPool is
 
         // Tier 5: 0-59 score, not eligible for standard borrowing
         borrowTierConfigs.push(BorrowTierConfig(0, 59, 200, 30, 0));
+    }
+
+    // NEW: RISC0 Credit Score Integration Functions
+
+    /**
+     * @notice Set the RISC0 credit score contract address
+     * @param _creditScoreContract Address of the CreditScore contract
+     */
+    function setCreditScoreContract(address _creditScoreContract) external onlyTimelock {
+        address oldContract = address(creditScoreContract);
+        creditScoreContract = ICreditScore(_creditScoreContract);
+        
+        // Auto-enable RISC0 scores if a valid contract is set
+        if (_creditScoreContract != address(0)) {
+            useRISC0CreditScores = true;
+        }
+        
+        emit CreditScoreContractUpdated(oldContract, _creditScoreContract);
+    }
+
+    /**
+     * @notice Toggle RISC0 credit score usage
+     * @param _useRISC0 Whether to use RISC0 scores
+     */
+    function toggleRISC0CreditScores(bool _useRISC0) external onlyTimelock {
+        useRISC0CreditScores = _useRISC0;
+        emit RISC0ScoreToggled(_useRISC0);
+    }
+
+    /**
+     * @notice Convert FICO score (300-850) to contract score (0-100)
+     * @param ficoScore FICO score from RISC0 verification
+     * @return Contract score (0-100)
+     */
+    function convertFICOToContractScore(uint64 ficoScore) public pure returns (uint256) {
+        if (ficoScore <= 300) return 0;
+        if (ficoScore >= 850) return 100;
+        
+        // Linear mapping: (FICO - 300) / 550 * 100
+        return ((ficoScore - 300) * 100) / 550;
+    }
+
+    /**
+     * @notice Enhanced credit score retrieval with RISC0 integration
+     * @param user Address of the user
+     * @return score Credit score (0-100)
+     * @return source Source of the credit score
+     * @return isVerified Whether the score is RISC0 verified
+     */
+    function getCreditScoreWithSource(address user) external view returns (
+        uint256 score,
+        string memory source,
+        bool isVerified
+    ) {
+        // Try RISC0 verified score first
+        if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
+            try creditScoreContract.getCreditScore(user) returns (
+                uint64 ficoScore,
+                bool isValid,
+                uint256 timestamp
+            ) {
+                if (isValid && ficoScore > 0) {
+                    // Check if score is not expired
+                    if (block.timestamp <= timestamp + SCORE_EXPIRY_PERIOD) {
+                        uint256 convertedScore = convertFICOToContractScore(ficoScore);
+                        return (convertedScore, "RISC0_VERIFIED", true);
+                    }
+                }
+            } catch {
+                // Fall through to next source
+            }
+        }
+
+        // Try IntegratedCreditSystem
+        if (address(creditSystem) != address(0)) {
+            try creditSystem.getUserCreditProfile(user) returns (
+                bool hasTradFi,
+                bool hasAccount,
+                bool hasNesting,
+                uint256 finalScore,
+                bool isEligible,
+                uint256 lastUpdate
+            ) {
+                if (finalScore > 0) {
+                    return (finalScore, "INTEGRATED_SYSTEM", false);
+                }
+            } catch {
+                // Fall through to final source
+            }
+        }
+
+        // Use local stored score as final fallback
+        uint256 localScore = creditScore[user];
+        return (localScore, "LOCAL_STORAGE", false);
+    }
+
+    /**
+     * @notice Internal function to get credit score with RISC0 priority
+     * @param user Address of the user
+     * @return Credit score (0-100)
+     */
+    function _getCreditScore(address user) internal view returns (uint256) {
+        // Try RISC0 verified score first
+        if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
+            try creditScoreContract.getCreditScore(user) returns (
+                uint64 ficoScore,
+                bool isValid,
+                uint256 timestamp
+            ) {
+                if (isValid && ficoScore > 0) {
+                    // Check if score is not expired
+                    if (block.timestamp <= timestamp + SCORE_EXPIRY_PERIOD) {
+                        return convertFICOToContractScore(ficoScore);
+                    }
+                }
+            } catch {
+                // Fall through to existing logic
+            }
+        }
+        
+        // Existing fallback logic from your original contract
+        if (address(creditSystem) != address(0)) {
+            try creditSystem.getUserCreditProfile(user) returns (
+                bool hasTradFi,
+                bool hasAccount,
+                bool hasNesting,
+                uint256 finalScore,
+                bool isEligible,
+                uint256 lastUpdate
+            ) {
+                if (finalScore > 0) {
+                    return finalScore;
+                }
+            } catch {
+                // Fall back to stored score if ZK system fails
+            }
+        }
+        return creditScore[user];
+    }
+
+    /**
+     * @notice Check if user has a valid RISC0 verified credit score
+     * @param user Address of the user
+     * @return hasValidScore Whether user has valid RISC0 score
+     * @return score The RISC0 verified score
+     * @return timestamp When the score was verified
+     */
+    function hasValidRISC0Score(address user) external view returns (
+        bool hasValidScore,
+        uint256 score,
+        uint256 timestamp
+    ) {
+        if (!useRISC0CreditScores || address(creditScoreContract) == address(0)) {
+            return (false, 0, 0);
+        }
+
+        try creditScoreContract.getCreditScore(user) returns (
+            uint64 ficoScore,
+            bool isValid,
+            uint256 scoreTimestamp
+        ) {
+            if (isValid && ficoScore > 0 && block.timestamp <= scoreTimestamp + SCORE_EXPIRY_PERIOD) {
+                return (true, convertFICOToContractScore(ficoScore), scoreTimestamp);
+            }
+        } catch {
+            // Return false if call fails
+        }
+        
+        return (false, 0, 0);
     }
 
     function getAllUsers() public view returns (address[] memory) {
@@ -458,8 +657,9 @@ contract LiquidityPool is
     }
 
     // Get user's risk tier
+    // Get user's risk tier (UPDATED to use RISC0 scores)
     function getRiskTier(address user) public view returns (RiskTier) {
-        uint256 score = creditScore[user];
+        uint256 score = _getCreditScore(user); // Now uses RISC0 if available
 
         for (uint256 i = 0; i < borrowTierConfigs.length; i++) {
             if (
@@ -569,31 +769,37 @@ contract LiquidityPool is
         });
     }
 
-    //  TODO: uncomment the modifier when ZK-proof integration is ready
     function borrow(
         uint256 amount
-    ) external payable whenNotPaused noReentrancy /*requiresZKProof*/ {
+    ) external payable whenNotPaused noReentrancy {
         // 1. Check for existing debt
         require(userDebt[msg.sender] == 0, "Repay your existing debt first");
 
-        // 2. Check for credit score (TIER_5)
+        // 2. Get credit score (now uses RISC0 if available)
+        uint256 userCreditScore = _getCreditScore(msg.sender);
+        
+        // NEW: Log which credit score source was used
+        (uint256 score, string memory source, bool isVerified) = this.getCreditScoreWithSource(msg.sender);
+        emit CreditScoreSourceUsed(msg.sender, source, score, userCreditScore);
+
+        // 3. Check for credit score (TIER_5)
         RiskTier tier = getRiskTier(msg.sender);
         require(tier != RiskTier.TIER_5, "Credit score too low");
 
-        // 3. Check for available lending capacity (not more than half the pool)
+        // 4. Check for available lending capacity (not more than half the pool)
         require(
             amount <= totalFunds / 2,
             "Borrow amount exceeds available lending capacity"
         );
 
-        // 4. Check for tier limit
+        // 5. Check for tier limit
         (, , uint256 maxLoanAmount) = getBorrowTerms(msg.sender);
         require(
             amount <= maxLoanAmount,
             "Borrow amount exceeds your tier limit"
         );
 
-        // 5. Check for sufficient collateral
+        // 6. Check for sufficient collateral
         (uint256 requiredRatio, , ) = getBorrowTerms(msg.sender);
         uint256 collateralValue = getTotalCollateralValue(msg.sender);
         require(
@@ -601,7 +807,7 @@ contract LiquidityPool is
             "Insufficient collateral for this loan"
         );
 
-        // 6. Calculate and apply origination fee
+        // 7. Calculate and apply origination fee
         uint256 originationFee = 0;
         if (reserveAddress != address(0)) {
             originationFee =
@@ -610,7 +816,7 @@ contract LiquidityPool is
         }
         uint256 netAmount = amount - originationFee;
 
-        // 7. Transfer origination fee to reserve if applicable
+        // 8. Transfer origination fee to reserve if applicable
         if (originationFee > 0) {
             payable(reserveAddress).transfer(originationFee);
             emit FeeCollected(
@@ -621,20 +827,20 @@ contract LiquidityPool is
             );
         }
 
-        // 8. Calculate dynamic rate
+        // 9. Calculate dynamic rate
         uint256 adjustedRate = _calculateBorrowRate(amount, tier);
 
-        // 9. Create loan
+        // 10. Create loan
         require(amount >= 12, "Loan amount too small for amortization");
         _createLoan(amount, adjustedRate);
 
-        // 10. Update state
+        // 11. Update state
         userDebt[msg.sender] = amount;
         borrowTimestamp[msg.sender] = block.timestamp;
         borrowedAmountByRiskTier[tier] += amount;
         totalBorrowedAllTime += amount;
 
-        // 11. Transfer net amount to borrower (after deducting origination fee)
+        // 12. Transfer net amount to borrower (after deducting origination fee)
         payable(msg.sender).transfer(netAmount);
 
         emit LoanDisbursed(msg.sender, amount, adjustedRate);
@@ -732,7 +938,7 @@ contract LiquidityPool is
         emit CreditScoreAssigned(user, score);
     }
 
-    function _getCreditScore(address user) internal view returns (uint256) {
+    /*function _getCreditScore(address user) internal view returns (uint256) {
         // If ZK-proof system is active, try to get score from there first
         if (address(creditSystem) != address(0)) {
             try creditSystem.getUserCreditProfile(user) returns (
@@ -751,7 +957,7 @@ contract LiquidityPool is
             }
         }
         return creditScore[user];
-    }
+    }*/
 
     function updateCreditScoreFromZK(address user, uint256 score) external {
         require(
@@ -924,7 +1130,9 @@ contract LiquidityPool is
 
     // Add a public function to check if a user can lend (has a nonzero credit score)
     function canLend(address user) public view returns (bool) {
-        return creditScore[user] > 0;
+        //return creditScore[user] > 0;
+        return _getCreditScore(user) > 0;  // Now uses RISC0/ZK/local priority
+        
     }
 
     receive() external payable {
@@ -977,7 +1185,7 @@ contract LiquidityPool is
     }
 
     // Oracle health check for a token
-    function isOracleHealthy(address token) public view returns (bool) {
+    /*function isOracleHealthy(address token) public view returns (bool) {
         address feedAddress = priceFeed[token];
         if (feedAddress == address(0)) return false;
         AggregatorV3Interface pf = AggregatorV3Interface(feedAddress);
@@ -986,7 +1194,7 @@ contract LiquidityPool is
         if (block.timestamp - updatedAt > _getMaxPriceAge(token)) return false;
         if (answeredInRound < roundId) return false;
         return true;
-    }
+    }*/
 
     // --- Price feed with staleness check ---
     function _getFreshPrice(
@@ -1257,8 +1465,10 @@ contract LiquidityPool is
         return baseRequirement; // No reduction if criteria not met
     }
 
+    // SIZE CONCERN
+
     // View function to check potential collateral reduction for a user
-    function getCollateralReductionInfo(
+    /*function getCollateralReductionInfo(
         address user
     )
         external
@@ -1292,9 +1502,9 @@ contract LiquidityPool is
             potentialReductionPercent = 0;
         }
     }
-
+    // SIZE CONCERN
     // Enhanced function to check maximum withdrawable collateral
-    function getMaxWithdrawableCollateral(
+    /*function getMaxWithdrawableCollateral(
         address user,
         address token
     ) external view returns (uint256 maxWithdrawable) {
@@ -1329,7 +1539,7 @@ contract LiquidityPool is
         if (maxWithdrawable > currentBalance) {
             maxWithdrawable = currentBalance;
         }
-    }
+    }*/
 }
 
 error OnlyTimelockLiquidityPool();
