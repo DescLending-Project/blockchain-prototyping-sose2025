@@ -200,8 +200,7 @@ npx hardhat test
 cd backend
 npx hardhat coverage
 ```
-
-![Coverage_results](/coverage/coverage.png)
+<img width="738" height="364" alt="coverage" src="https://github.com/user-attachments/assets/54c94d6e-052d-4c64-b5b8-fcf39156779f" />
 
 ### Generate Mock Transactions
 To populate the frontend with realistic data:
