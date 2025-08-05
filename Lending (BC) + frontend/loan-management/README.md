@@ -201,7 +201,7 @@ cd backend
 npx hardhat coverage
 ```
 
-![Coverage_results](coverage/coverage.png)
+![Coverage_results](/coverage/coverage.png)
 
 ### Generate Mock Transactions
 To populate the frontend with realistic data:
