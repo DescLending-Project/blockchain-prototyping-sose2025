@@ -45,7 +45,7 @@ jobs:
         uses: Leechael/phala-deploy-action@v2
         with:
           phala-api-key: ${{ secrets.PHALA_CLOUD_API_KEY }}
-          app-id : cca9b4af5419d0e175884f7350dabe0e0c7cf231
+          app-id : 5bc711d2610565cbc9609527aba1a7846c6f2237
           cvm-name: ${{ secrets.APP_NAME }}
           compose-file: './tlsn-verifier/docker-compose.phala.yml'
           vcpu: '4'

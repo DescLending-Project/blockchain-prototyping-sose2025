@@ -4,7 +4,7 @@ TLSNotary Verifier is a secure service running in a Trusted Execution Environmen
 
 ## Deployed on
 
-Phala Cloud : [https://cca9b4af5419d0e175884f7350dabe0e0c7cf231-8080.dstack-prod8.phala.network](https://cca9b4af5419d0e175884f7350dabe0e0c7cf231-8080.dstack-prod8.phala.network)
+Phala Cloud : [https://5bc711d2610565cbc9609527aba1a7846c6f2237-8080.dstack-prod7.phala.network](https://5bc711d2610565cbc9609527aba1a7846c6f2237-8080.dstack-prod7.phala.network)
 
 via : `../github/workflows/deploy.yml`
 
