@@ -129,7 +129,7 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
 
                 <TabsContent value="user">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <UserPanel contract={contract} account={account || ''} />
+                        <UserPanel contract={contract} account={account || ''} contracts={contracts} />
                     </Card>
                 </TabsContent>
 

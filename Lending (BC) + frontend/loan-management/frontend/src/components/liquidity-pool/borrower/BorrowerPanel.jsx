@@ -384,7 +384,14 @@ export default function BorrowerPanel({ contract, account, contracts }) {
         try {
             setIsLoading(true)
             setError('')
-            const tx = await contract.borrow(parseEther(borrowAmount))
+
+            // Generate fresh nullifier for this borrow
+            const { nullifier, accounts } = await generateBorrowNullifier();
+        
+            console.log('Borrowing with nullifier:', nullifier);
+            console.log('Using accounts:', accounts);
+
+            const tx = await contract.borrow(parseEther(borrowAmount), nullifier)
             await tx.wait()
             await loadUserInfo()
             await loadCurrentValues()
@@ -492,6 +499,28 @@ export default function BorrowerPanel({ contract, account, contracts }) {
     const getTokenName = (address) => {
         return COLLATERAL_TOKENS.find(t => t.address.toLowerCase() === address.toLowerCase())?.name || address
     }
+
+    const generateBorrowNullifier = async () => {
+    if (!contracts?.nullifierRegistry || !account) {
+        throw new Error('Nullifier registry not available');
+    }
+
+    // Get user's selected accounts
+    const userAccounts = await contracts.nullifierRegistry.getUserAccounts(account);
+    if (userAccounts.length === 0) {
+        throw new Error('No accounts selected for credit scoring');
+    }
+
+    // Generate nullifier for this specific borrow operation
+    const timestamp = Math.floor(Date.now() / 1000);
+    const nullifier = await contracts.nullifierRegistry.generateNullifier(
+        account,
+        ethers.parseEther(borrowAmount),
+        timestamp
+    );
+
+    return { nullifier, accounts: userAccounts, timestamp };
+};
 
     return (
         <div className="space-y-4">

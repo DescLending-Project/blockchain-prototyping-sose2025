@@ -11,6 +11,7 @@ import "./LendingManager.sol";
 import "./InterestRateModel.sol";
 import "./IntegratedCreditSystem.sol";
 import "./VotingToken.sol";
+import "./NullifierRegistry.sol";
 
 //interface for verifier
 interface ICreditScore {
@@ -63,6 +64,8 @@ contract LiquidityPool is
     LendingManager public lendingManager;
     InterestRateModel public interestRateModel;
     VotingToken public votingToken;
+    NullifierRegistry public nullifierRegistry;
+
 
     address public timelock;
 
@@ -158,6 +161,9 @@ contract LiquidityPool is
         uint256 score,
         uint256 convertedScore
     );
+
+    event BorrowWithNullifier(address indexed user, uint256 amount, bytes32 nullifier);
+
 
     // --- New for Partial Liquidation and Tiered Fees ---
     uint256 public constant SAFETY_BUFFER = 10; // 10% over-collateralization
@@ -257,13 +263,15 @@ contract LiquidityPool is
         address _stablecoinManager,
         address _lendingManager,
         address _interestRateModel,
-        address _creditSystem
+        address _creditSystem,
+        address _nullifierRegistry
     ) public initializer {
         __AccessControl_init();
         timelock = _timelock;
         stablecoinManager = StablecoinManager(_stablecoinManager);
         lendingManager = LendingManager(payable(_lendingManager));
         interestRateModel = InterestRateModel(_interestRateModel);
+        nullifierRegistry = NullifierRegistry(_nullifierRegistry);
 
         // Initialize ZK-proof system
         if (_creditSystem != address(0)) {
@@ -770,10 +778,15 @@ contract LiquidityPool is
     }
 
     function borrow(
-        uint256 amount
+        uint256 amount, bytes32 nullifier
     ) external payable whenNotPaused noReentrancy {
         // 1. Check for existing debt
         require(userDebt[msg.sender] == 0, "Repay your existing debt first");
+        require(!nullifierRegistry.isNullifierUsed(nullifier), "Proof already used!");
+        require(nullifierRegistry.hasSelectedAccounts(msg.sender), "Select accounts first");
+        nullifierRegistry.useNullifier(nullifier, msg.sender);
+
+
 
         // 2. Get credit score (now uses RISC0 if available)
         uint256 userCreditScore = _getCreditScore(msg.sender);
@@ -845,6 +858,7 @@ contract LiquidityPool is
 
         emit LoanDisbursed(msg.sender, amount, adjustedRate);
         emit Borrowed(msg.sender, amount);
+        emit BorrowWithNullifier(msg.sender, amount, nullifier);
     }
 
     function repayInstallment() external payable whenNotPaused {
@@ -1288,8 +1302,9 @@ contract LiquidityPool is
         return loans[user];
     }
 
+    // SIZE CONCERN
     // Get detailed loan information including payment schedule
-    function getLoanDetails(
+    /*function getLoanDetails(
         address user
     )
         external
@@ -1346,7 +1361,7 @@ contract LiquidityPool is
         } else {
             totalInstallmentsRemaining = 0;
         }
-    }
+    }*/
 
     // --- Interface hooks for LendingManager ---
     function clearCollateral(

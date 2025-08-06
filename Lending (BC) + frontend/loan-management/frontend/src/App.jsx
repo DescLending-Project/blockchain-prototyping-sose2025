@@ -15,6 +15,7 @@ import ProtocolGovernorABI from './abis/ProtocolGovernor.json'
 import IntegratedCreditSystemABI from './abis/IntegratedCreditSystem.json' 
 import SimpleRISC0TestABI from './abis/SimpleRISC0Test.json'      // (if exists)
 import CreditScoreABI from './abis/CreditScore.json'
+import nullifierRegistryABI from './abis/NullifierRegistry.json'
 
 import addresses from './addresses.json';
 import { LenderPanel } from './components/liquidity-pool/lender/LenderPanel'
@@ -114,7 +115,8 @@ export default function App() {
       protocolGovernor: addresses.ProtocolGovernor,
       creditSystem: addresses.IntegratedCreditSystem,
       risc0Test: addresses.risc0Test,
-      creditScoreVerifier: addresses.creditScoreVerifier
+      creditScoreVerifier: addresses.creditScoreVerifier,
+      nullifierRegistry: addresses.nullifierRegistry
     };
   };
 
@@ -183,7 +185,12 @@ export default function App() {
           CreditScoreABI.abi,
           signer
       );
-
+        contractInstances.nullifierRegistry = new ethers.Contract(
+          addresses.nullifierRegistry,
+          nullifierRegistryABI.abi,
+          signer
+        );
+        
         // Optional contracts (may not exist on all networks)
         if (addresses.creditSystem) {
           contractInstances.creditSystem = new ethers.Contract(

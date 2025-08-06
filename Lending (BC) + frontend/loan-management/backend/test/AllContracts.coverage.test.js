@@ -1,8 +1,13 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
+// Helper function to generate a unique nullifier for borrow operations
+function generateNullifier(index = 0) {
+    return ethers.keccak256(ethers.toUtf8Bytes(`nullifier_${Date.now()}_${index}`));
+}
+
 describe("Complete Contract Coverage Tests", function () {
-    let liquidityPool, lendingManager, stablecoinManager, interestRateModel, votingToken, glintToken, creditSystem;
+    let liquidityPool, lendingManager, stablecoinManager, interestRateModel, votingToken, glintToken, creditSystem, nullifierRegistry;
     let timelock, protocolGovernor;
     let deployer, user1, user2, user3, borrower1, borrower2, lender1, lender2;
     let mockPriceFeed, mockToken;
@@ -81,13 +86,22 @@ describe("Complete Contract Coverage Tests", function () {
         );
         await lendingManager.waitForDeployment();
 
+        // Deploy NullifierRegistry
+        const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
+        nullifierRegistry = await NullifierRegistry.deploy();
+        await nullifierRegistry.waitForDeployment();
+        
+        // Initialize NullifierRegistry
+        await nullifierRegistry.initialize(deployer.address);
+
         // Initialize LiquidityPool
         await liquidityPool.initialize(
             deployer.address,
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
             await interestRateModel.getAddress(),
-            await creditSystem.getAddress()
+            await creditSystem.getAddress(),
+            await nullifierRegistry.getAddress()
         );
 
         // Set up protocol governor for VotingToken
@@ -98,6 +112,21 @@ describe("Complete Contract Coverage Tests", function () {
         // Set up connections
         await liquidityPool.setLendingManager(await lendingManager.getAddress());
         await votingToken.setLiquidityPool(await liquidityPool.getAddress());
+        
+        // Grant NULLIFIER_CONSUMER_ROLE to LiquidityPool
+        const NULLIFIER_CONSUMER_ROLE = await nullifierRegistry.NULLIFIER_CONSUMER_ROLE();
+        await nullifierRegistry.grantRole(NULLIFIER_CONSUMER_ROLE, await liquidityPool.getAddress());
+        
+        // Each user must select accounts for nullifier generation
+        await nullifierRegistry.connect(deployer).selectAccounts([deployer.address]);
+        await nullifierRegistry.connect(user1).selectAccounts([user1.address]);
+        await nullifierRegistry.connect(user2).selectAccounts([user2.address]);
+        await nullifierRegistry.connect(user3).selectAccounts([user3.address]);
+        await nullifierRegistry.connect(borrower1).selectAccounts([borrower1.address]);
+        await nullifierRegistry.connect(borrower2).selectAccounts([borrower2.address]);
+        await nullifierRegistry.connect(lender1).selectAccounts([lender1.address]);
+        await nullifierRegistry.connect(lender2).selectAccounts([lender2.address]);
+        
         // Deploy GlintToken
         const GlintToken = await ethers.getContractFactory("GlintToken");
         glintToken = await GlintToken.deploy(ethers.parseEther("1000000"));
@@ -273,9 +302,16 @@ describe("Complete Contract Coverage Tests", function () {
             });
 
             expect(await liquidityPool.getBalance()).to.equal(initialBalance + ethers.parseEther("1"));
+            
+            // Setup accounts for nullifier registry (check if not already selected)
+            const hasSelected = await nullifierRegistry.hasSelectedAccounts(user1.address);
+            if (!hasSelected) {
+                await nullifierRegistry.connect(user1).selectAccounts([user1.address, deployer.address]);
+            }
+            
             // Test borrow
             await expect(
-                liquidityPool.connect(user1).borrow(ethers.parseEther("0.5"))
+                liquidityPool.connect(user1).borrow(ethers.parseEther("0.5"), generateNullifier())
             ).to.emit(liquidityPool, "Borrowed");
 
             // Test repay
@@ -318,20 +354,26 @@ describe("Complete Contract Coverage Tests", function () {
         });
 
         it("should handle LiquidityPool edge cases", async function () {
+            // Setup accounts for nullifier registry (check if not already selected)
+            const hasSelected = await nullifierRegistry.hasSelectedAccounts(user2.address);
+            if (!hasSelected) {
+                await nullifierRegistry.connect(user2).selectAccounts([user2.address, deployer.address]);
+            }
+            
             // Test borrow with insufficient collateral
             await expect(
-                liquidityPool.connect(user2).borrow(ethers.parseEther("1"))
+                liquidityPool.connect(user2).borrow(ethers.parseEther("1"), generateNullifier())
             ).to.be.revertedWith("Insufficient collateral for this loan");
 
             // Test borrow with low credit score
             await liquidityPool.setCreditScore(user1.address, 40);
             await expect(
-                liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"))
+                liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"), generateNullifier())
             ).to.be.revertedWith("Credit score too low");
 
             // Test repay overpayment
             await liquidityPool.setCreditScore(user1.address, 80);
-            await liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"));
+            await liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"), generateNullifier());
             const debt = await liquidityPool.userDebt(user1.address);
 
             // Overpayment should be handled gracefully (no revert, excess ignored)
@@ -349,7 +391,7 @@ describe("Complete Contract Coverage Tests", function () {
             // Test operations when paused
             await liquidityPool.togglePause();
             await expect(
-                liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"))
+                liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"), generateNullifier())
             ).to.be.reverted;
         });
 
@@ -596,7 +638,8 @@ describe("Complete Contract Coverage Tests", function () {
             await glintToken.transfer(await borrower1.address, ethers.parseEther("500"));
             await glintToken.connect(borrower1).approve(await liquidityPool.getAddress(), ethers.parseEther("500"));
             await liquidityPool.connect(borrower1).depositCollateral(await glintToken.getAddress(), ethers.parseEther("200"));
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
+            
             // Time passes, interest accrues
             await ethers.provider.send("evm_increaseTime", [86400 * 30]);
             await ethers.provider.send("evm_mine");
@@ -621,7 +664,7 @@ describe("Complete Contract Coverage Tests", function () {
             await glintToken.transfer(await borrower1.address, ethers.parseEther("200"));
             await glintToken.connect(borrower1).approve(await liquidityPool.getAddress(), ethers.parseEther("200"));
             await liquidityPool.connect(borrower1).depositCollateral(await glintToken.getAddress(), ethers.parseEther("150"));
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
 
             // Price drops significantly, making position unhealthy
             await mockPriceFeed.setPrice(ethers.parseUnits("0.001", 8)); // Very low price

@@ -12,7 +12,8 @@ const contracts = [
     'GlintToken',
     'IntegratedCreditSystem',
     'SimpleRISC0Test',
-    'MockRiscZeroVerifier'
+    'MockRiscZeroVerifier',
+    'NullifierRegistry'
 ];
 const srcDir = path.join(__dirname, '../../backend/artifacts/contracts');
 const destDir = path.join(__dirname, '../../frontend/src/abis');

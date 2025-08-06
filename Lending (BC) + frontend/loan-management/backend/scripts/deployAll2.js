@@ -390,6 +390,17 @@ async function main() {
     await creditSystem.waitForDeployment();
     console.log("IntegratedCreditSystem deployed at:", await creditSystem.getAddress());
 
+    // Deploy NullifierRegistry as upgradeable
+    const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
+    const nullifierRegistry = await upgrades.deployProxy(NullifierRegistry, [
+        deployer.address // admin
+    ], {
+        initializer: "initialize",
+    });
+    await nullifierRegistry.waitForDeployment();
+    
+    console.log("NullifierRegistry deployed to:", await nullifierRegistry.getAddress());
+
     // Deploy LiquidityPool with DAO as admin and creditSystem address as 5th param
     const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
@@ -397,7 +408,8 @@ async function main() {
         stablecoinManagerAddress,
         ethers.ZeroAddress, // LendingManager placeholder
         interestRateModelAddress,
-        await creditSystem.getAddress()
+        await creditSystem.getAddress(),
+        await nullifierRegistry.getAddress(),
     ], {
         initializer: "initialize",
     });
@@ -442,9 +454,7 @@ async function main() {
     // 7.2 Setup Credit Score Contract (BEFORE transferring admin to timelock)
     console.log('\n🔗 Setting up RISC0 Credit Score integration...');
     
-    // You can either:
-    // Option A: Set a placeholder address that you'll update later
-    const RISC0_CREDIT_SCORE_ADDRESS = "0xE3F3a75ef923023FFeb9a502c3Bc7dF30c334B6a"; // Your actual RISC0 contract
+    const RISC0_CREDIT_SCORE_ADDRESS = "0xE3F3a75ef923023FFeb9a502c3Bc7dF30c334B6a"; // actual RISC0 contract
     
     // Option B: Deploy a simple mock contract for testing
     // const MockCreditScore = await ethers.getContractFactory("MockCreditScore");
@@ -480,6 +490,22 @@ async function main() {
         console.error('❌ Failed to set credit score contract:', error.message);
         console.log('⚠️ Continuing deployment, you can set this later via governance');
     }
+
+    //console.log("Deploying NullifierRegistry with account:", deployer.address);
+    
+    // Verify initialization (no need to call initialize manually with proxy deployment)
+    const DEFAULT_ADMIN_ROLE_DEBUG = await nullifierRegistry.DEFAULT_ADMIN_ROLE();
+    const isDeployerAdmin = await nullifierRegistry.hasRole(DEFAULT_ADMIN_ROLE_DEBUG, deployer.address);
+    console.log("🔍 Is deployer admin of NullifierRegistry?", isDeployerAdmin);
+
+    
+    // Grant NULLIFIER_CONSUMER_ROLE to LiquidityPool
+    const liquidityPoolAddress = await liquidityPool.getAddress();
+    
+    const NULLIFIER_CONSUMER_ROLE = await nullifierRegistry.NULLIFIER_CONSUMER_ROLE();
+    await nullifierRegistry.grantRole(NULLIFIER_CONSUMER_ROLE, liquidityPoolAddress);
+    
+    console.log("Nullifier setup complete!");
 
     // 7.3 Setup other initial configurations while deployer is still admin
     console.log('\n⚙️ Setting up additional configurations...');

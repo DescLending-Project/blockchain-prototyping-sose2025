@@ -1,6 +1,13 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
+// Helper function to generate a unique nullifier for borrow operations
+function generateNullifier(index = 0) {
+    return ethers.keccak256(ethers.toUtf8Bytes(
+`nullifier_${Date.now()}_${index}`));
+}
+
+
 describe("LiquidityPool - Maximum Coverage", function() {
     let liquidityPool, lendingManager, stablecoinManager, interestRateModel, votingToken;
     let timelock, owner, user1, user2, user3, borrower1, borrower2;
@@ -61,18 +68,38 @@ describe("LiquidityPool - Maximum Coverage", function() {
         liquidityPool = await LiquidityPool.deploy();
         await liquidityPool.waitForDeployment();
 
+        // Deploy NullifierRegistry
+        const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
+        const nullifierRegistry = await NullifierRegistry.deploy();
+        await nullifierRegistry.waitForDeployment();
+        
+        // Initialize NullifierRegistry
+        await nullifierRegistry.initialize(timelock.address);
+
         // Initialize LiquidityPool
         await liquidityPool.initialize(
             await timelock.getAddress(), // timelock
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
             await interestRateModel.getAddress(),
-            ethers.ZeroAddress // creditSystem (optional)
+            ethers.ZeroAddress, // creditSystem (optional)
+            await nullifierRegistry.getAddress()
         );
 
         // Setup roles and permissions
         const MINTER_ROLE = await votingToken.MINTER_ROLE();
         await votingToken.connect(timelock).grantRole(MINTER_ROLE, await liquidityPool.getAddress());
+        
+        // Setup nullifier registry permissions
+        const NULLIFIER_CONSUMER_ROLE = await nullifierRegistry.NULLIFIER_CONSUMER_ROLE();
+        await nullifierRegistry.grantRole(NULLIFIER_CONSUMER_ROLE, await liquidityPool.getAddress());
+        
+        // Each user must select accounts for nullifier generation
+        await nullifierRegistry.connect(timelock).selectAccounts([timelock.address]);
+        await nullifierRegistry.connect(user1).selectAccounts([user1.address]);
+        await nullifierRegistry.connect(user2).selectAccounts([user2.address]);
+        await nullifierRegistry.connect(borrower1).selectAccounts([borrower1.address]);
+        await nullifierRegistry.connect(borrower2).selectAccounts([borrower2.address]);
 
         // Set voting token in pool
         await liquidityPool.connect(timelock).setVotingToken(await votingToken.getAddress());
@@ -242,7 +269,7 @@ describe("LiquidityPool - Maximum Coverage", function() {
             const borrowAmount = ethers.parseEther("1");
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(borrowAmount)
+                liquidityPool.connect(borrower1).borrow(borrowAmount, generateNullifier())
             ).to.emit(liquidityPool, "Borrowed")
                 .withArgs(borrower1.address, borrowAmount);
 
@@ -253,15 +280,15 @@ describe("LiquidityPool - Maximum Coverage", function() {
             await liquidityPool.connect(timelock).setCreditScore(borrower1.address, 40); // TIER_5
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"))
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier())
             ).to.be.revertedWith("Credit score too low");
         });
 
         it("should reject borrowing with existing debt", async function () {
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"))
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier())
             ).to.be.revertedWith("Repay your existing debt first");
         });
 
@@ -269,7 +296,7 @@ describe("LiquidityPool - Maximum Coverage", function() {
             const excessiveAmount = ethers.parseEther("6"); // More than half of pool
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(excessiveAmount)
+                liquidityPool.connect(borrower1).borrow(excessiveAmount, generateNullifier())
             ).to.be.revertedWith("Borrow amount exceeds available lending capacity");
         });
 
@@ -277,13 +304,13 @@ describe("LiquidityPool - Maximum Coverage", function() {
             const largeAmount = ethers.parseEther("5");
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(largeAmount)
+                liquidityPool.connect(borrower1).borrow(largeAmount, generateNullifier())
             ).to.be.revertedWith("Borrow amount exceeds your tier limit");
         });
 
         it("should create loan structure correctly", async function () {
             const borrowAmount = ethers.parseEther("1");
-            await liquidityPool.connect(borrower1).borrow(borrowAmount);
+            await liquidityPool.connect(borrower1).borrow(borrowAmount, generateNullifier());
 
             const loan = await liquidityPool.loans(borrower1.address);
             expect(loan.principal).to.equal(borrowAmount);
@@ -297,7 +324,7 @@ describe("LiquidityPool - Maximum Coverage", function() {
             const borrowAmount = ethers.parseEther("1");
             const balanceBefore = await ethers.provider.getBalance(user2.address);
 
-            await liquidityPool.connect(borrower1).borrow(borrowAmount);
+            await liquidityPool.connect(borrower1).borrow(borrowAmount, generateNullifier());
 
             const balanceAfter = await ethers.provider.getBalance(user2.address);
             expect(balanceAfter).to.be > balanceBefore;
@@ -320,7 +347,7 @@ describe("LiquidityPool - Maximum Coverage", function() {
                 value: ethers.parseEther("10")
             });
 
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
         });
 
         it("should allow full repayment", async function () {
@@ -384,7 +411,7 @@ describe("LiquidityPool - Maximum Coverage", function() {
                 value: ethers.parseEther("50") // More liquidity
             });
 
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5")); // Borrow more to make liquidation possible
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"), generateNullifier()); // Borrow more to make liquidation possible
         });
 
         it("should start liquidation for undercollateralized positions", async function () {
@@ -479,7 +506,7 @@ describe("LiquidityPool - Maximum Coverage", function() {
             expect(await liquidityPool.paused()).to.be.true;
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"))
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier())
             ).to.be.revertedWith("Contract is paused");
         });
 
@@ -551,7 +578,7 @@ describe("LiquidityPool - Maximum Coverage", function() {
             await liquidityPool.connect(timelock).setCreditScore(borrower1.address, 80);
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"))
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier())
             ).to.be.revertedWith("Borrow amount exceeds available lending capacity");
         });
 
@@ -616,7 +643,7 @@ describe("LiquidityPool - Maximum Coverage", function() {
                 value: ethers.parseEther("10")
             });
 
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
             const debt = await liquidityPool.userDebt(borrower1.address);
 
             await liquidityPool.connect(borrower1).repay({ value: debt });
@@ -665,7 +692,7 @@ describe("LiquidityPool - Maximum Coverage", function() {
 
             // Test Borrowed event
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"))
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier())
             ).to.emit(liquidityPool, "Borrowed");
 
             // Test Repaid event
