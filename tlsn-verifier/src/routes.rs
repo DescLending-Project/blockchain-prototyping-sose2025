@@ -1,8 +1,9 @@
 use actix_web::{get, post, HttpResponse, Responder};
+use serde_json;
 use crate::attestation::{get_attestation_report_with_signature};
 use crate::verifier::verify_proof;
 use crate::types::VerificationResponse;
-
+use sha2::{Digest, Sha512};
 /// Health check endpoint for readiness/liveness probes
 #[get("/health")]
 pub async fn health_check() -> impl Responder {
@@ -15,22 +16,24 @@ pub async fn verify_proof_route(body: String) -> impl Responder {
     println!("[verify_proof_route] Starting verification route handler");
 
     // Verify the TLSN presentation from the client body
-    let verification = verify_proof(&body);
-
+    let verification_result = verify_proof(&body);
+    let verification_str = serde_json::to_string(&verification_result).unwrap_or_else(|_| "Failed to serialize verification result".to_string());
+    println!("[verify_proof_route] Verification result: {}", verification_str);
+    let verification_str_hex = hex::encode(verification_str.as_bytes());
     // Generate an attestation quote with signature and key info
-    let attestation = get_attestation_report_with_signature().await;
-
+    let attestation = get_attestation_report_with_signature(&verification_str_hex).await;
+    println!("[verify_proof_route] Attestation report generated successfully");
     // Combine both into a structured response object
     let response = match attestation {
         Ok(report) => {
             VerificationResponse {
-                verification,
+                verification: verification_result,
                 attestation: Ok(report),
             }
         }
         Err(e) => {
             VerificationResponse {
-                verification,
+                verification: verification_result,
                 attestation: Err(e),
             }
         }
@@ -50,7 +53,7 @@ pub async fn attestation_route() -> impl Responder {
     println!("[attestation] Starting attestation route handler");
 
     // Generate and return attestation report with signature
-    let attestation = get_attestation_report_with_signature().await;
+    let attestation = get_attestation_report_with_signature("").await;
     match attestation {
         Ok(report) => HttpResponse::Ok().json(report),               // Success
         Err(e) => HttpResponse::InternalServerError().json(e),       // Failure
