@@ -9,7 +9,7 @@ Phala Cloud : [https://cca9b4af5419d0e175884f7350dabe0e0c7cf231-8080.dstack-prod
 via : `../github/workflows/deploy.yml`
 
 To test the deployment CI/CD locally also see: `../.secrets.template` and create your own `../.secrets` and then run :
-```bashscript
+```shell
 act workflow_dispatch --secret-file .secrets --container-architecture linux/amd64
 ```
 in the parent directory `../`.
