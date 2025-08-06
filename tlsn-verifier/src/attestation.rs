@@ -6,7 +6,6 @@ use crate::utils;
 use crate::tappd_service;
 use crate::key_manager::{try_get_key_material};
 
-
 /// Connects to the TDX quote provider (`tappd`) via Unix socket,
 /// sends a custom attestation request with the report_data derived from the key,
 /// and returns the parsed attestation quote as a `GetQuoteResponse`
