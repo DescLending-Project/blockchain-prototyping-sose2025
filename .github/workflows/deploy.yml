@@ -2,7 +2,6 @@ name: Deploy to Phala Cloud
 
 on:
   push:
-    branches: [feat/tlsn-verification-ms-on-phala]
     paths:
       - tlsn-verifier/Dockerfile
       - tlsn-verifier/docker-compose.phala.yml
