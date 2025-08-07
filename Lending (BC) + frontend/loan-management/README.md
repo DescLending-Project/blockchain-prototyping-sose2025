@@ -1,238 +1,243 @@
-# Decentralized Loan Management Platform
+# 🏦 Decentralized Lending Platform
 
-A comprehensive blockchain-based lending platform with Hardhat backend and React frontend, featuring automated deployment, testing, and realistic mockup simulations.
+A modern blockchain-based lending platform built with React and Ethereum smart contracts. This platform allows users to lend, borrow, and manage liquidity pools with advanced features like governance, credit scoring, and zero-knowledge proofs.
 
-## 🚀 SUPER EASY SETUP (Recommended)
+## ⚙️ Environment Setup
 
-### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
-- MetaMask browser extension
+### Create Environment File
+Before starting, create a `.env` file in the `backend` folder:
 
-### One-Command Setup
-
-```bash
-# Start everything with one command
-./start-dev.sh
-
-# Or use npm
-npm run start
-```
-
-This will:
-- ✅ Install all dependencies
-- ✅ Start Hardhat node
-- ✅ Deploy all contracts
-- ✅ Start frontend server
-- ✅ Show you the next steps
-
-### MetaMask Setup (Required)
-
-After running the setup script, you need to configure MetaMask:
-
-1. **Add Localhost Network:**
-   - Network Name: `Localhost 8545`
-   - RPC URL: `http://127.0.0.1:8545`
-   - Chain ID: `31337`
-   - Currency Symbol: `ETH`
-
-2. **Import Test Account:**
-   - Use Account #0: `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-
-See [METAMASK-SETUP.md](./METAMASK-SETUP.md) for detailed instructions.
-
-### Access Your Application
-
-- **Frontend**: http://localhost:5173
-- **Hardhat Node**: http://localhost:8545
-
-### Stop Development Environment
-
-```bash
-# Stop everything
-./stop-dev.sh
-
-# Or use npm
-npm run stop
-```
-
----
-
-## 🔧 Manual Setup (Alternative)
-
-If you prefer manual control or need to deploy to testnets:
-
-### 1. Install Dependencies
-
-#### Backend (Hardhat)
+1. Copy the example file:
 ```bash
 cd backend
-npm install
+cp .env.example .env
 ```
 
-#### Frontend (React)
-```bash
-cd frontend
-npm install
-```
-
-### 2. Automated Local Development Setup
-
-The easiest way to get started is using our automation script:
-
-```bash
-cd backend
-node scripts/automate-localhost-reset.js
-```
-
-This script will:
-- ✅ Kill any existing Hardhat nodes
-- ✅ Clean up deployment logs
-- ✅ Start a new Hardhat node
-- ✅ Deploy all contracts
-- ✅ Run realistic mockup simulations
-- ✅ Update frontend contract addresses automatically
-
-### 3. Start Frontend
-
-In a new terminal:
-```bash
-cd frontend
-npm run dev
-```
-
-Your frontend will be available at: http://localhost:5173 (or http://localhost:5174 if 5173 is in use)
-
----
-
-## 🔑 Test Accounts for Local Development
-
-### Primary Test Accounts
-
-| Account | Address | Private Key | Role | Purpose |
-|---------|---------|-------------|------|---------|
-| **#0** | `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` | `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80` | **Deployer/Admin** | **Use this for admin functions** |
-| **#1** | `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` | `59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d` | User | General testing |
-| **#2** | `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC` | `5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a` | **Lender** | **Mockup simulation lender** |
-| **#3** | `0x90F79bf6EB2c4f870365E785982E1f101E93b906` | `7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6` | **Borrower** | **Mockup simulation borrower** |
-
-### Mockup Simulation Accounts
-
-The automation script automatically uses these accounts for realistic testing:
-
-- **Lender Account (#2)**: `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC`
-  - Deposits funds into the pool
-  - Earns interest over time
-  - Tests withdrawal functionality
-
-- **Borrower Account (#3)**: `0x90F79bf6EB2c4f870365E785982E1f101E93b906`
-  - Deposits collateral
-  - Borrows funds
-  - Tests repayment scenarios
-
-### How to Import into MetaMask:
-1. Open MetaMask
-2. Click on the account dropdown (top right)
-3. Select "Import Account"
-4. Paste the private key (without the `0x` prefix)
-5. Click "Import"
-
-**💡 Recommendation**: Start with Account #0 (deployer) as it has admin rights and can perform all functions.
-
----
-
-## 🔧 Advanced Manual Setup
-
-If you prefer manual control or need to deploy to testnets:
-
-### 1. Environment Configuration
-
-Create a `.env` file in the `backend` directory:
+2. Edit the `.env` file and add your private key:
 ```env
-# SONIC testnet RPC URL
+# Required: Private key for contract deployment (without 0x prefix)
+PRIVATE_KEY=your_private_key_here_without_0x_prefix
+
+# Optional: RPC URLs for testnets (only needed for testnet deployment)
 FTM_RPC_URL=https://rpc.blaze.soniclabs.com
-
-# Private key of the wallet that will deploy the contract (no quotes)
-PRIVATE_KEY=your_private_key_without_quotes
-
-# Optional: For other networks
 SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
 ```
 
-### 2. Compile Smart Contracts
+**⚠️ Important**:
+- Remove the `0x` prefix from your private key
+- For local development, you can use any test private key
+- **To export from MetaMask**: Go to Account Details → Export Private Key
+- Never use real funds or mainnet private keys
+
+## 🚀 Quick Start Guide
+
+### Prerequisites
+
+Before you begin, make sure you have these installed on your computer:
+
+1. **Node.js** (version 16 or higher)
+   - Download from: https://nodejs.org/
+   - Choose the LTS version
+
+2. **npm** or **yarn** (comes with Node.js)
+   - npm is included with Node.js
+   - For yarn: `npm install -g yarn`
+
+3. **MetaMask Browser Extension**
+   - Install from: https://metamask.io/
+   - Create a wallet if you don't have one
+
+4. **Git** (to clone the repository)
+   - Download from: https://git-scm.com/
+
+---
+
+## 📦 Installation
+
+### Step 1: Clone the Repository
 ```bash
+git clone https://github.com/DescLending-Project/blockchain-prototyping-sose2025.git
+cd "blockchain-prototyping-sose2025/Lending (BC) + frontend/loan-management"
+```
+
+### Step 2: Install Dependencies
+```bash
+# Install root dependencies
+npm install
+
+# Install backend dependencies
 cd backend
-npx hardhat compile
-```
+npm install
 
-### 3. Deploy Contracts
+# Install frontend dependencies
+cd ../frontend
+npm install
 
-#### Local Development
-```bash
-npx hardhat run scripts/deployAll.js --network localhost
-```
-
-#### Sonic Testnet
-```bash
-npx hardhat run scripts/deployAll.js --network sonic
-```
-
-#### Sepolia Testnet
-```bash
-npx hardhat run scripts/deployAll.js --network sepolia
-```
-
-### 4. Update Frontend Addresses
-
-The deployment script automatically updates `frontend/src/App.jsx` with the latest contract addresses. If you need to update manually:
-
-1. Copy the deployed addresses from the deployment output
-2. Update the constants in `frontend/src/App.jsx`:
-   ```javascript
-   const POOL_ADDRESS = "your_liquidity_pool_address";
-   const LENDING_MANAGER_ADDRESS = "your_lending_manager_address";
-   ```
-
-### 5. Start Frontend
-```bash
-cd frontend
-npm run dev
+# Go back to root directory
+cd ..
 ```
 
 ---
 
-## 🧪 Testing
+## 🔧 Development Setup
 
-### Run All Tests
+### Step 1: Start the Local Blockchain Network (Hardhat)
+Open a terminal and navigate to the backend folder:
+```bash
+cd backend
+npx hardhat node
+```
+**Keep this terminal open!** This runs your local blockchain network.
+
+### Step 2: Deploy Smart Contracts
+Open a **new terminal** and navigate to the backend folder:
+```bash
+cd backend
+npx hardhat run scripts/deployAll.js --network localhost
+```
+
+This will:
+- ✅ Compile all smart contracts
+- ✅ Deploy them to your local network
+- ✅ Set up initial configurations
+- ✅ Run automatic mockup simulations
+- ✅ Transfer admin rights to the DAO/Timelock system
+
+### Step 3: Start the Frontend
+Open a **third terminal** and navigate to the root folder:
+```bash
+npm run dev
+```
+
+The frontend will start at: **http://localhost:5173**
+
+---
+
+## 🦊 MetaMask Setup
+
+### Add Local Network to MetaMask
+
+1. Open MetaMask extension
+2. Click the network dropdown (top of MetaMask)
+3. Click "Add network" → "Add network manually"
+4. Fill in these details:
+   - **Network Name**: `Localhost 8545`
+   - **New RPC URL**: `http://127.0.0.1:8545`
+   - **Chain ID**: `31337`
+   - **Currency Symbol**: `ETH`
+5. Click "Save"
+
+### Import Test Accounts
+
+The system creates several test accounts with different roles. Import these into MetaMask:
+
+#### 💰 Lender Accounts
+- **Lender 1**
+  - **Private Key**: `59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
+  - **Address**: `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`
+
+- **Lender 2**
+  - **Private Key**: `5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a`
+  - **Address**: `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC`
+
+#### 🏠 Borrower Accounts
+- **Borrower 1**
+  - **Private Key**: `7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6`
+  - **Address**: `0x90F79bf6EB2c4f870365E785982E1f101E93b906`
+
+- **Borrower 2**
+  - **Private Key**: `47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a`
+  - **Address**: `0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65`
+
+#### 🏛️ Deployer Account (Initial Setup Only)
+- **Role**: Used for initial deployment, then admin rights transfer to DAO
+- **Private Key**: `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+- **Address**: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
+
+**How to import:**
+1. Click MetaMask account dropdown
+2. Select "Import Account"
+3. Paste the private key (without quotes)
+4. Click "Import"
+
+---
+
+## 🎮 Using the Platform
+
+### Step 1: Connect Your Wallet
+1. Visit **http://localhost:5173**
+2. Click "Connect Wallet"
+3. Select MetaMask
+4. Choose one of your imported accounts
+5. Make sure you're on the "Localhost 8545" network
+
+### Step 2: Explore Different Roles
+
+#### As a Lender 💰
+- Switch to a lender account in MetaMask
+- Deposit ETH into the liquidity pool
+- Earn interest on your deposits
+- Withdraw funds when needed
+
+#### As a Borrower 🏠
+- Switch to a borrower account in MetaMask
+- Deposit collateral (GLINT tokens)
+- Borrow ETH against your collateral
+- Repay loans to maintain healthy positions
+
+---
+
+## 🧪 Testing & Development
+
+### Run Tests
 ```bash
 cd backend
 npx hardhat test
 ```
 
-### Run Tests with Coverage
+### Check Test Coverage
 ```bash
 cd backend
 npx hardhat coverage
 ```
+<img width="738" height="364" alt="coverage" src="https://github.com/user-attachments/assets/54c94d6e-052d-4c64-b5b8-fcf39156779f" />
 
-### Run Specific Test File
+### Generate Mock Transactions
+To populate the frontend with realistic data:
 ```bash
-npx hardhat test test/LendingManager.test.js
+cd backend
+npx hardhat run scripts/mockTransactions.js --network localhost
 ```
+
+This creates sample transactions for testing the user interface.
+
+**Note**: After running mock transactions, you may need to refresh your frontend browser tab to see the updated data.
 
 ---
 
-## 📊 Mockup Simulation
+## 🔮 Advanced Features
 
-The platform includes a comprehensive mockup simulation that creates realistic lending and borrowing scenarios:
+### Zero-Knowledge Proofs (ZK)
+The platform includes experimental ZK proof functionality for enhanced privacy:
 
-### Features:
-- **Lender Simulation**: Deposits, interest accrual, withdrawals
-- **Borrower Simulation**: Collateral deposits, borrowing, repayments
-- **Credit Score Management**: Dynamic credit scoring
-- **Transaction History**: Realistic activity patterns
+```bash
+cd backend
+npx hardhat run scripts/deployAll-ZK.js --network localhost
+```
 
-### Run Mockup Manually
+This deploys additional contracts for:
+- Private credit scoring
+- Confidential transaction verification
+- Advanced privacy features
+
+### Automated Mockup Simulation
+The `run-mockup-after-deploy.js` script creates realistic platform activity:
+
+- **Lender Simulation**: 2 months of lending activity with deposits, withdrawals, and interest claims
+- **Borrower Simulation**: Multiple borrow/repay cycles with collateral management
+- **Credit Score Updates**: Dynamic credit scoring based on behavior
+
+This runs automatically after deployment but can be triggered manually:
 ```bash
 cd backend
 npx hardhat run scripts/run-mockup-after-deploy.js --network localhost
@@ -240,80 +245,41 @@ npx hardhat run scripts/run-mockup-after-deploy.js --network localhost
 
 ---
 
-## 🏗️ Contract Architecture
+## 🛠️ Troubleshooting
 
-### Core Contracts:
-- **LiquidityPool**: Manages deposits, withdrawals, and interest distribution
-- **LendingManager**: Handles borrowing, collateral management, and credit scoring
-- **StablecoinManager**: Manages stablecoin parameters and liquidation thresholds
-- **GlintToken**: Native platform token
-- **MockPriceFeed**: Price oracle for local testing
+### Common Issues
 
-### Network Support:
-- **Localhost**: Full local development with mock tokens
-- **Sonic Testnet**: Production-like testing environment
-- **Sepolia Testnet**: Ethereum testnet deployment
+#### "Connect Wallet" Button Not Working
+- ✅ Make sure MetaMask is installed and unlocked
+- ✅ Verify you're on the "Localhost 8545" network
+- ✅ Check that the Hardhat node is running
 
----
+#### MetaMask Loads But Won't Connect
+If MetaMask opens but doesn't connect to the application:
+- ✅ **Open MetaMask in a separate tab**: Click the MetaMask extension icon and select "Expand view" to open it in a full browser tab
+- ✅ **Keep MetaMask tab open**: Leave the expanded MetaMask tab open while using the application
+- ✅ **Log in manually**: Make sure you're logged into MetaMask in the expanded tab
+- ✅ **Try connecting again**: Return to the application and click "Connect Wallet"
 
-## 🔄 Development Workflow
+> **💡 Tip**: Sometimes MetaMask needs to be opened and logged into separately before it can connect to web applications. Opening it in an expanded view helps establish a stable connection.
 
-### Daily Development:
-1. **Start fresh environment:**
-   ```bash
-   cd backend
-   node scripts/automate-localhost-reset.js
-   ```
+#### "Transaction Failed" Errors
+- ✅ Ensure you have enough ETH for gas fees
+- ✅ Try refreshing the page
+- ✅ Switch to a different account if needed
 
-2. **Start frontend:**
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+#### "Contract Not Found" Errors
+- ✅ Make sure contracts are deployed: `npx hardhat run scripts/deployAll.js --network localhost`
+- ✅ Restart the Hardhat node if needed
+- ✅ Clear browser cache and refresh
 
-3. **Make changes and test**
+### Reset Everything
+If something goes wrong, restart from scratch:
 
-4. **Run tests:**
-   ```bash
-   cd backend
-   npx hardhat test
-   npx hardhat coverage
-   ```
-
-### Contract Upgrades:
-To upgrade existing contracts:
-```bash
-npx hardhat run scripts/upgrade.js --network <network_name>
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Common Issues:
-
-#### "You are not inside a Hardhat project"
-- Make sure you're in the `backend` directory when running Hardhat commands
-
-#### "Contract not deployed at address"
-- Run the automation script to redeploy contracts
-- Restart the frontend after deployment
-- Clear browser cache
-
-#### "Failed to initialize contracts"
-- Check that Hardhat node is running
-- Verify contract addresses in `frontend/src/App.jsx`
-- Ensure you're connected to the correct network in MetaMask
-
-#### "Insufficient funds"
-- The automation script funds test accounts automatically
-- For manual testing, transfer ETH to your test accounts
-
-### Reset Everything:
-```bash
-cd backend
-node scripts/automate-localhost-reset.js
-```
+1. Stop all running processes (Ctrl+C in terminals)
+2. Restart Hardhat node: `cd backend && npx hardhat node`
+3. Redeploy contracts: `npx hardhat run scripts/deployAll.js --network localhost`
+4. Restart frontend: `npm run dev`
 
 ---
 
@@ -321,58 +287,64 @@ node scripts/automate-localhost-reset.js
 
 ```
 loan-management/
-├── backend/                 # Hardhat project
-│   ├── contracts/          # Smart contracts
-│   ├── scripts/            # Deployment and automation scripts
-│   ├── test/               # Test files
-│   └── hardhat.config.js   # Hardhat configuration
-├── frontend/               # React application
-│   ├── src/
-│   │   ├── App.jsx         # Main application
-│   │   └── components/     # React components
-│   └── package.json
-└── README.md
+├── backend/                    # Smart contracts and blockchain logic
+│   ├── contracts/             # Solidity smart contracts
+│   ├── scripts/               # Deployment and utility scripts
+│   ├── test/                  # Contract tests
+│   ├── .env                   # Environment variables (create this)
+│   └── hardhat.config.js      # Blockchain configuration
+├── frontend/                  # React web application
+│   ├── src/                   # Frontend source code
+│   └── package.json           # Frontend dependencies
+└── README.md                  # This file
 ```
 
 ---
 
-## 🤝 Contributing
+## 🎯 What You Can Do
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Run the test suite: `npx hardhat test`
-6. Submit a pull request
+### Lending Features
+- 💰 Deposit ETH to earn interest
+- 📈 Track your earnings in real-time
+- 💸 Withdraw funds with flexible terms
+- 📊 View detailed transaction history
+
+### Borrowing Features
+- 🏠 Use crypto as collateral
+- 💳 Borrow against your assets
+- 📱 Monitor loan health ratios
+- 🔄 Flexible repayment options
+
+### Governance Features
+- 🗳️ Vote on protocol changes
+- 📝 Create improvement proposals
+- 🏆 Earn rewards for participation
+- 📈 Track governance analytics
+
+### Advanced Features
+- 🔐 Zero-knowledge privacy proofs
+- 🎯 Dynamic credit scoring
+- 📊 Comprehensive analytics
+- 📱 Mobile-responsive design
 
 ---
 
-## 📄 License
+## 🆘 Need Help?
 
-This project is licensed under the MIT License.
+If you encounter any issues:
 
-## Mock Development Flow (Local Testing)
+1. **Check the browser console** for error messages (F12 → Console)
+2. **Verify all terminals are running** (Hardhat node, frontend server)
+3. **Make sure MetaMask is properly configured** with the localhost network
+4. **Try the troubleshooting steps** above
 
-To run the full mock environment for local development/testing:
+---
 
-1. **Start a Hardhat node**
-   ```bash
-   cd backend
-   npx hardhat node
-   ```
-2. **Deploy contracts**
-   ```bash
-   cd backend
-   npx hardhat run scripts/deployAll.js --network localhost
-   ```
-3. **Run the mock transaction and frontend script**
-   ```bash
-   cd .. # project root
-   bash mock-dev.sh
-   ```
-   - This will run mock transactions (lender/borrower/proposal actions) and start the frontend dev server.
-4. **Open the frontend**
-   - Visit the URL shown in the terminal (e.g., http://localhost:5173/)
+## 🎉 Success!
 
-This will give you a fully mocked environment with realistic protocol activity for frontend testing.
+If everything is working correctly, you should see:
+- ✅ MetaMask connects successfully
+- ✅ Account balances display correctly
+- ✅ Transactions process smoothly
+- ✅ Real-time updates in the interface
 

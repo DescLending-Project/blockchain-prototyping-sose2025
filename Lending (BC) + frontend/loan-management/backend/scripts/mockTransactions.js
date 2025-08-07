@@ -4,7 +4,7 @@ const { ethers, network } = require('hardhat');
 
 async function main() {
     // EVM time sanity check and short periods for local testing
-    const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+    const provider = new ethers.JsonRpcProvider("http://localhost:8545");
     const block = await provider.getBlock("latest");
     console.log("EVM time at script start:", block.timestamp, new Date(block.timestamp * 1000));
     if (block.timestamp > 2_000_000_000) {
@@ -33,13 +33,23 @@ async function main() {
     // Hardhat exposes private keys for local accounts via hardhat.config.js or node output
     // If not available directly, derive from known mnemonic
     const hardhatMnemonic = "test test test test test test test test test test test test junk";
-    const hdNode = ethers.utils.HDNode.fromMnemonic(hardhatMnemonic);
+    let hdNode;
+    try {
+        hdNode = ethers.Mnemonic.fromPhrase(hardhatMnemonic);
+    } catch {
+        hdNode = null;
+    }
 
     roles.forEach(({ name, signer }, idx) => {
         // Always derive from mnemonic for local Hardhat accounts
         let pk;
         try {
-            pk = hdNode.derivePath(`m/44'/60'/0'/0/${idx}`).privateKey;
+            if (hdNode) {
+                const wallet = ethers.HDNodeWallet.fromMnemonic(hdNode, `m/44'/60'/0'/0/${idx}`);
+                pk = wallet.privateKey;
+            } else {
+                pk = 'N/A';
+            }
         } catch {
             pk = 'N/A';
         }
@@ -49,7 +59,12 @@ async function main() {
         let pk;
         const accountIdx = idx + roles.length;
         try {
-            pk = hdNode.derivePath(`m/44'/60'/0'/0/${accountIdx}`).privateKey;
+            if (hdNode) {
+                const wallet = ethers.HDNodeWallet.fromMnemonic(hdNode, `m/44'/60'/0'/0/${accountIdx}`);
+                pk = wallet.privateKey;
+            } else {
+                pk = 'N/A';
+            }
         } catch {
             pk = 'N/A';
         }
@@ -99,86 +114,181 @@ async function main() {
     // Impersonate timelock for admin actions
     const timelockSigner = await ethers.getImpersonatedSigner(addresses.TimelockController);
 
-    // --- Set credit scores for lenders and borrowers ---
-    console.log('Mock: Setting credit scores');
+    // --- Owner/Admin Activities (Deployer) ---
+    console.log('Mock: Owner/Admin activities');
+
+    // Set credit scores for users
+    console.log('Mock: Admin sets credit score for lender1');
     await LiquidityPool.connect(timelockSigner).setCreditScore(lender1.address, 85);
+
+    console.log('Mock: Admin sets credit score for lender2');
     await LiquidityPool.connect(timelockSigner).setCreditScore(lender2.address, 90);
+
+    console.log('Mock: Admin sets credit score for borrower1');
     await LiquidityPool.connect(timelockSigner).setCreditScore(borrower1.address, 80);
+
+    console.log('Mock: Admin sets credit score for borrower2');
     await LiquidityPool.connect(timelockSigner).setCreditScore(borrower2.address, 75);
 
-    // --- Assume a mock ERC20 token is deployed and whitelisted as collateral ---
-    // For this mock, use GlintToken as the collateral token
+    // --- More Admin Activities ---
     const glintTokenAddress = addresses.GlintToken;
     const GlintToken = await ethers.getContractAt('GlintToken', glintTokenAddress);
-    // Whitelist GlintToken as collateral (assume timelock/admin role)
+
+    console.log('Mock: Admin whitelists GlintToken as collateral');
     await LiquidityPool.connect(timelockSigner).setAllowedCollateral(glintTokenAddress, true);
-    // Transfer GlintToken to borrower1 and approve/deposit as collateral
-    await GlintToken.connect(deployer).transfer(borrower1.address, ethers.utils.parseEther('1000'));
-    await GlintToken.connect(borrower1).approve(LiquidityPool.address, ethers.utils.parseEther('1000'));
-    console.log('Mock: Borrower1 deposits 100 GlintToken as collateral');
-    await LiquidityPool.connect(borrower1).depositCollateral(glintTokenAddress, ethers.utils.parseEther('100'));
 
     // Set price feed for GlintToken using MockPriceFeed
     const mockPriceFeedAddress = addresses.MockPriceFeed;
+    console.log('Mock: Admin sets price feed for GlintToken');
     await LiquidityPool.connect(timelockSigner).setPriceFeed(glintTokenAddress, mockPriceFeedAddress);
 
-    // --- Mock Lender Deposits ETH ---
-    console.log('Mock: Lender1 deposits 10 ETH');
-    await lender1.sendTransaction({
-        to: LiquidityPool.address,
-        value: ethers.utils.parseEther('10')
-    });
-    console.log('Mock: Lender2 deposits 5 ETH');
-    await lender2.sendTransaction({
-        to: LiquidityPool.address,
-        value: ethers.utils.parseEther('5')
-    });
+    // Admin transfers tokens to borrowers for collateral
+    console.log('Mock: Admin transfers GlintTokens to borrowers');
+    await GlintToken.connect(deployer).transfer(borrower1.address, ethers.parseEther('1000'));
+    await GlintToken.connect(deployer).transfer(borrower2.address, ethers.parseEther('800'));
 
-    // --- Mock Lender Withdraws Interest Multiple Times ---
-    for (let i = 1; i <= 3; i++) {
-        // Simulate passage of time for interest accrual
-        await network.provider.send('evm_increaseTime', [24 * 3600]);
-        await network.provider.send('evm_mine');
-        console.log(`Mock: Lender1 withdraws interest (iteration ${i})`);
-        // In a real system, you would call a claim/withdraw interest function if available
-        // Here, we just log the action as a placeholder
-        // e.g., await LiquidityPool.connect(lender1).claimInterest();
+    // --- Mock Lender Activities ---
+    console.log('Mock: Lender1 deposits 10 ETH via LendingManager');
+    try {
+        await LendingManager.connect(lender1).depositFunds({ value: ethers.parseEther('10') });
+    } catch (error) {
+        console.log('Mock: LendingManager deposit failed, trying direct pool deposit');
+        // Fallback to direct pool deposit if LendingManager has issues
+        await lender1.sendTransaction({
+            to: await LiquidityPool.getAddress(),
+            value: ethers.parseEther('10')
+        });
     }
 
-    // --- At the end, lender withdraws interest (no collateral withdrawal needed) ---
-    // --- Mock Borrower Borrows and Repays ---
-    const poolBalanceBefore = await provider.getBalance(LiquidityPool.address);
-    const borrowerBalanceBefore = await provider.getBalance(borrower1.address);
-    console.log('LiquidityPool ETH balance before borrow:', ethers.utils.formatEther(poolBalanceBefore));
-    console.log('Borrower1 ETH balance before borrow:', ethers.utils.formatEther(borrowerBalanceBefore));
-    console.log('Mock: Borrower1 borrows 0.5 ETH');
-    await LiquidityPool.connect(borrower1).borrow(ethers.utils.parseEther('0.5'));
-    const poolBalanceAfter = await provider.getBalance(LiquidityPool.address);
-    const borrowerBalanceAfter = await provider.getBalance(borrower1.address);
-    console.log('LiquidityPool ETH balance after borrow:', ethers.utils.formatEther(poolBalanceAfter));
-    console.log('Borrower1 ETH balance after borrow:', ethers.utils.formatEther(borrowerBalanceAfter));
-    // Print borrower's debt and loan after borrowing
-    const debtAfterBorrow = await LiquidityPool.userDebt(borrower1.address);
-    const loanAfterBorrow = await LiquidityPool.loans(borrower1.address);
-    console.log('Borrower1 debt after borrow:', debtAfterBorrow.toString());
-    console.log('Borrower1 loan after borrow:', loanAfterBorrow);
-    // Simulate some time passing
-    await network.provider.send('evm_increaseTime', [3600]);
+    console.log('Mock: Lender2 deposits 5 ETH via LendingManager');
+    try {
+        await LendingManager.connect(lender2).depositFunds({ value: ethers.parseEther('5') });
+    } catch (error) {
+        console.log('Mock: LendingManager deposit failed, trying direct pool deposit');
+        await lender2.sendTransaction({
+            to: await LiquidityPool.getAddress(),
+            value: ethers.parseEther('5')
+        });
+    }
+
+    // Simulate time passage for interest accrual
+    await network.provider.send('evm_increaseTime', [7 * 24 * 3600]); // 7 days
     await network.provider.send('evm_mine');
-    console.log('Mock: Borrower1 repays 0.5 ETH');
-    await LiquidityPool.connect(borrower1).repay({ value: ethers.utils.parseEther('0.5') });
-    // Print borrower's debt and loan after repay
-    const debtAfterRepay = await LiquidityPool.userDebt(borrower1.address);
-    const loanAfterRepay = await LiquidityPool.loans(borrower1.address);
-    console.log('Borrower1 debt after repay:', debtAfterRepay.toString());
-    console.log('Borrower1 loan after repay:', loanAfterRepay);
+
+    // --- Mock Lender Withdrawals ---
+    console.log('Mock: Lender1 requests withdrawal of 2 ETH');
+    try {
+        await LendingManager.connect(lender1).requestWithdrawal(ethers.parseEther('2'));
+
+        // Wait for cooldown period
+        await network.provider.send('evm_increaseTime', [24 * 3600 + 1]); // 1 day + 1 second
+        await network.provider.send('evm_mine');
+
+        console.log('Mock: Lender1 completes withdrawal');
+        await LendingManager.connect(lender1).completeWithdrawal();
+    } catch (error) {
+        console.log('Mock: Withdrawal failed, skipping lender withdrawal activities');
+    }
+
+    // More time passage
+    await network.provider.send('evm_increaseTime', [3 * 24 * 3600]); // 3 days
+    await network.provider.send('evm_mine');
+
+    // Additional deposit from lender1
+    console.log('Mock: Lender1 makes additional deposit of 3 ETH');
+    try {
+        await LendingManager.connect(lender1).depositFunds({ value: ethers.parseEther('3') });
+    } catch (error) {
+        console.log('Mock: Additional deposit failed, using direct transfer');
+        await lender1.sendTransaction({
+            to: await LiquidityPool.getAddress(),
+            value: ethers.parseEther('3')
+        });
+    }
+
+    // --- Mock Borrower Activities ---
+
+    // Borrower1 activities
+    console.log('Mock: Borrower1 deposits 100 GlintToken as collateral');
+    await GlintToken.connect(borrower1).approve(await LiquidityPool.getAddress(), ethers.parseEther('1000'));
+    await LiquidityPool.connect(borrower1).depositCollateral(glintTokenAddress, ethers.parseEther('100'));
+
+    console.log('Mock: Borrower1 borrows 0.5 ETH');
+    await LiquidityPool.connect(borrower1).borrow(ethers.parseEther('0.5'));
+
+    // Simulate some time passing
+    await network.provider.send('evm_increaseTime', [5 * 24 * 3600]); // 5 days
+    await network.provider.send('evm_mine');
+
+    console.log('Mock: Borrower1 repays 0.3 ETH (partial repayment)');
+    await LiquidityPool.connect(borrower1).repay({ value: ethers.parseEther('0.3') });
+
+    // More time passing
+    await network.provider.send('evm_increaseTime', [2 * 24 * 3600]); // 2 days
+    await network.provider.send('evm_mine');
+
+    console.log('Mock: Borrower1 repays remaining debt');
+    const remainingDebt = await LiquidityPool.userDebt(borrower1.address);
+    if (remainingDebt > 0) {
+        await LiquidityPool.connect(borrower1).repay({ value: remainingDebt });
+    }
+
+    // Borrower2 activities
+    console.log('Mock: Borrower2 deposits 80 GlintToken as collateral');
+    await GlintToken.connect(borrower2).approve(await LiquidityPool.getAddress(), ethers.parseEther('800'));
+    await LiquidityPool.connect(borrower2).depositCollateral(glintTokenAddress, ethers.parseEther('80'));
+
+    console.log('Mock: Borrower2 borrows 0.3 ETH');
+    await LiquidityPool.connect(borrower2).borrow(ethers.parseEther('0.3'));
+
+    // Time passing
+    await network.provider.send('evm_increaseTime', [3 * 24 * 3600]); // 3 days
+    await network.provider.send('evm_mine');
+
+    console.log('Mock: Borrower2 repays loan');
+    const borrower2Debt = await LiquidityPool.userDebt(borrower2.address);
+    if (borrower2Debt > 0) {
+        await LiquidityPool.connect(borrower2).repay({ value: borrower2Debt });
+    }
+
+    // --- Mock Liquidation Scenario ---
+    // Create a third borrower for liquidation demo
+    const [, , , , , liquidationBorrower] = await ethers.getSigners();
+
+    console.log('Mock: Setting up liquidation scenario');
+    // Set a lower credit score for liquidation borrower
+    await LiquidityPool.connect(timelockSigner).setCreditScore(liquidationBorrower.address, 60);
+
+    // Transfer some GlintTokens to liquidation borrower
+    await GlintToken.connect(deployer).transfer(liquidationBorrower.address, ethers.parseEther('50'));
+
+    // Deposit minimal collateral
+    console.log('Mock: Liquidation borrower deposits minimal collateral');
+    await GlintToken.connect(liquidationBorrower).approve(await LiquidityPool.getAddress(), ethers.parseEther('50'));
+    await LiquidityPool.connect(liquidationBorrower).depositCollateral(glintTokenAddress, ethers.parseEther('30'));
+
+    // Borrow close to the limit
+    console.log('Mock: Liquidation borrower borrows near limit');
+    await LiquidityPool.connect(liquidationBorrower).borrow(ethers.parseEther('0.2'));
+
+    // Simulate price drop or time passage that makes position unhealthy
+    await network.provider.send('evm_increaseTime', [10 * 24 * 3600]); // 10 days
+    await network.provider.send('evm_mine');
+
+    // Start liquidation process
+    console.log('Mock: Starting liquidation for unhealthy position');
+    try {
+        await LiquidityPool.connect(deployer).startLiquidation(liquidationBorrower.address);
+    } catch (error) {
+        console.log('Mock: Liquidation start failed (position might still be healthy):', error.message);
+    }
 
     // --- All setup is done, now create and vote on proposal ---
     // --- Mock Proposal Creation and Execution ---
     const newQuorum = 1; // 1%
     const calldata = ProtocolGovernor.interface.encodeFunctionData('setQuorumPercentage', [newQuorum]);
     const description = `Set quorum to ${newQuorum}% [mock proposal ${Date.now()}]`;
-    const descriptionHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(description));
+    const descriptionHash = ethers.keccak256(ethers.toUtf8Bytes(description));
 
     // Governor/Timelock debug
     const governorTimelock = await ProtocolGovernor.timelock();
@@ -186,13 +296,13 @@ async function main() {
     const TimelockController = await ethers.getContractAt('TimelockController', governorTimelock);
     const PROPOSER_ROLE = await TimelockController.PROPOSER_ROLE();
     const EXECUTOR_ROLE = await TimelockController.EXECUTOR_ROLE();
-    const governorIsProposer = await TimelockController.hasRole(PROPOSER_ROLE, ProtocolGovernor.address);
-    const zeroIsExecutor = await TimelockController.hasRole(EXECUTOR_ROLE, ethers.constants.AddressZero);
+    const governorIsProposer = await TimelockController.hasRole(PROPOSER_ROLE, await ProtocolGovernor.getAddress());
+    const zeroIsExecutor = await TimelockController.hasRole(EXECUTOR_ROLE, ethers.ZeroAddress);
     console.log('Governor is proposer:', governorIsProposer);
     console.log('AddressZero is executor:', zeroIsExecutor);
     console.log('TimelockController address:', addresses.TimelockController);
     console.log('Propose args:', {
-        targets: [ProtocolGovernor.address],
+        targets: [await ProtocolGovernor.getAddress()],
         values: [0],
         calldatas: [calldata],
         description,
@@ -201,14 +311,24 @@ async function main() {
     let proposalId;
     try {
         const proposeTx = await ProtocolGovernor.connect(deployer).propose(
-            [ProtocolGovernor.address],
+            [await ProtocolGovernor.getAddress()],
             [0],
             [calldata],
             description
         );
         const proposeReceipt = await proposeTx.wait();
         await network.provider.send("evm_mine");
-        proposalId = proposeReceipt.events.find(e => e.event === 'ProposalCreated').args.proposalId;
+        proposalId = proposeReceipt.logs.find(log => {
+            try {
+                const parsed = ProtocolGovernor.interface.parseLog(log);
+                return parsed.name === 'ProposalCreated';
+            } catch {
+                return false;
+            }
+        });
+        if (proposalId) {
+            proposalId = ProtocolGovernor.interface.parseLog(proposalId).args.proposalId;
+        }
         console.log('Proposal created with ID:', proposalId);
     } catch (err) {
         console.error('Propose failed:', err);
@@ -223,14 +343,15 @@ async function main() {
     // Advance time to activate proposal
     console.log('Advancing time to activate proposal...');
     const votingDelay = await ProtocolGovernor.votingDelay();
-    console.log(`Contract votingDelay is ${votingDelay.toNumber()} seconds`);
-    for (let i = 0; i <= votingDelay.toNumber(); i++) {
+    const votingDelayNum = Number(votingDelay);
+    console.log(`Contract votingDelay is ${votingDelayNum} seconds`);
+    for (let i = 0; i <= votingDelayNum; i++) {
         await network.provider.send("evm_mine");
     }
     state = await ProtocolGovernor.state(proposalId);
-    console.log('Proposal state after activation:', state, getStateName(state)); // 1 = Active
-    if (state !== 1) {
-        throw new Error(`Proposal is not Active. State is ${getStateName(state)}`);
+    console.log('Proposal state after activation:', state, getStateName(Number(state))); // 1 = Active
+    if (Number(state) !== 1) {
+        throw new Error(`Proposal is not Active. State is ${getStateName(Number(state))}`);
     }
 
     // --- Enhanced Voting Section with Debugging ---
@@ -250,7 +371,7 @@ async function main() {
     // Get current block number and deadline
     const currentBlock = await provider.getBlockNumber();
     const deadlineBlock = await ProtocolGovernor.proposalDeadline(proposalId);
-    const blocksToAdvance = deadlineBlock.sub(currentBlock).add(1).toNumber();
+    const blocksToAdvance = Number(deadlineBlock - BigInt(currentBlock) + 1n);
 
     for (let i = 0; i < blocksToAdvance; i++) {
         await network.provider.send("evm_mine");
@@ -258,7 +379,7 @@ async function main() {
 
     // Now check state
     state = await ProtocolGovernor.state(proposalId);
-    console.log('Proposal state after voting ended:', state, getStateName(state));
+    console.log('Proposal state after voting ended:', state, getStateName(Number(state)));
 
 
     // 3. Verify votes
@@ -270,13 +391,13 @@ async function main() {
 
     // 4. Advance time and verify state
     const votingPeriod = await ProtocolGovernor.votingPeriod();
-    await network.provider.send("evm_increaseTime", [votingPeriod.toNumber() + 5]);
+    await network.provider.send("evm_increaseTime", [Number(votingPeriod) + 5]);
     await network.provider.send("evm_mine");
 
     state = await ProtocolGovernor.state(proposalId);
-    console.log('Proposal state after voting ended:', state, getStateName(state));
+    console.log('Proposal state after voting ended:', state, getStateName(Number(state)));
 
-    if (state !== 4) { // 4 = Succeeded
+    if (Number(state) !== 4) { // 4 = Succeeded
         console.error("Proposal failed! Debug info:");
         const proposalVotes = await ProtocolGovernor.proposalVotes(proposalId);
         console.error("- FOR votes:", proposalVotes.forVotes.toString());
@@ -286,15 +407,15 @@ async function main() {
         console.error("- Current block timestamp:", (await provider.getBlock('latest')).timestamp);
         console.error("- Snapshot block:", await ProtocolGovernor.proposalSnapshot(proposalId));
         console.error("- Deadline block:", await ProtocolGovernor.proposalDeadline(proposalId));
-        throw new Error(`Proposal state is ${getStateName(state)} (expected Succeeded)`);
+        throw new Error(`Proposal state is ${getStateName(Number(state))} (expected Succeeded)`);
     }
     console.log('Queueing proposal...');
-    const timelockInterface = new ethers.utils.Interface([
+    const timelockInterface = new ethers.Interface([
         "event CallScheduled(bytes32 indexed id, uint256 indexed index, address target, uint256 value, bytes data, bytes32 predecessor, uint256 delay)"
     ]);
 
     const queueTx = await ProtocolGovernor.queue(
-        [ProtocolGovernor.address],
+        [await ProtocolGovernor.getAddress()],
         [0],
         [calldata],
         descriptionHash
@@ -303,7 +424,7 @@ async function main() {
 
     let operationIdFromEvent;
     for (const log of queueReceipt.logs) {
-        if (log.address.toLowerCase() === TimelockController.address.toLowerCase()) {
+        if (log.address.toLowerCase() === (await TimelockController.getAddress()).toLowerCase()) {
             try {
                 const parsedLog = timelockInterface.parseLog(log);
                 if (parsedLog.name === "CallScheduled") {
@@ -328,7 +449,7 @@ async function main() {
     console.log(`Scheduled timestamp for operation: ${scheduledTimestamp.toString()}`);
 
     const now = (await provider.getBlock('latest')).timestamp;
-    const timeToAdvance = scheduledTimestamp.toNumber() - now;
+    const timeToAdvance = Number(scheduledTimestamp) - now;
     if (timeToAdvance > 0) {
         console.log(`Advancing time by ${timeToAdvance + 1} seconds for execution delay...`);
         await network.provider.send('evm_increaseTime', [timeToAdvance + 1]);
@@ -345,7 +466,7 @@ async function main() {
 
     console.log('Executing proposal...');
     await ProtocolGovernor.execute(
-        [ProtocolGovernor.address],
+        [await ProtocolGovernor.getAddress()],
         [0],
         [calldata],
         descriptionHash
@@ -371,5 +492,17 @@ function getStateName(state) {
     return states[state] || "Unknown";
 }
 
-// No top-level await or promise usage outside functions. main() is only called if run directly.
+// Execute main function if this script is run directly
+if (require.main === module) {
+    main()
+        .then(() => {
+            console.log("✅ Mock transactions completed successfully!");
+            process.exit(0);
+        })
+        .catch((error) => {
+            console.error("❌ Mock transactions failed:", error);
+            process.exit(1);
+        });
+}
+
 module.exports = { main };
