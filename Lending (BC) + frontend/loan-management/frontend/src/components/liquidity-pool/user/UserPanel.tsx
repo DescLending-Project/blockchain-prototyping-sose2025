@@ -69,9 +69,14 @@ export function UserPanel({ contract, account, mode = 'user', contracts }: UserP
             const poolBalance = await readOnlyContract.getBalance();
             setTotalLent(formatEther(poolBalance));
 
-            // Fetch credit score
-            const userCreditScore = await readOnlyContract.getCreditScore(account);
-            setCreditScore(Number(userCreditScore));
+            // Fetch credit score with error handling
+            try {
+                const userCreditScore = await readOnlyContract.getCreditScore(account);
+                setCreditScore(Number(userCreditScore));
+            } catch (creditScoreError) {
+                console.warn("Credit score not available for this account:", creditScoreError);
+                setCreditScore(null); // Set to null when credit score is not available
+            }
 
             // Fetch health status
             const healthCheck = await readOnlyContract.checkCollateralization(account);
@@ -114,7 +119,8 @@ export function UserPanel({ contract, account, mode = 'user', contracts }: UserP
             const userCreditScore = await readOnlyContract.getCreditScore(account);
             setCreditScore(Number(userCreditScore));
         } catch (err) {
-            console.error("Failed to refresh credit score:", err)
+            console.warn("Credit score not available for this account:", err)
+            setCreditScore(null); // Set to null when credit score is not available
         }
     }
 
@@ -372,6 +378,7 @@ export function UserPanel({ contract, account, mode = 'user', contracts }: UserP
 
     return (
         <>
+            {/* 
             {showModal && (
                 <AccountSelectionModal
                     open={showModal}
@@ -383,6 +390,7 @@ export function UserPanel({ contract, account, mode = 'user', contracts }: UserP
                     onComplete={handleAccountSelection}
                 />
             )}
+            */ }
 
             {mode === 'lend' ? (
                 <div className="space-y-6 w-full">
@@ -474,16 +482,26 @@ export function UserPanel({ contract, account, mode = 'user', contracts }: UserP
                                 <div className="p-4 rounded-lg bg-background/50 border">
                                     <p className="text-sm text-muted-foreground">Credit Score</p>
                                     <div className="flex items-center gap-2">
-                                        <p className="text-2xl font-bold">{creditScore !== null ? creditScore : 'N/A'}</p>
+                                        <p className="text-2xl font-bold">
+                                            {creditScore !== null ? creditScore : 
+                                                <span className="text-muted-foreground text-lg">Not Available</span>
+                                            }
+                                        </p>
                                         <Button
                                             onClick={refreshCreditScore}
                                             variant="ghost"
                                             size="sm"
                                             className="h-6 w-6 p-0"
+                                            title="Refresh credit score"
                                         >
                                             <ArrowUpDown className="h-3 w-3" />
                                         </Button>
                                     </div>
+                                    {creditScore === null && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Credit score may not be available for new accounts
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                             <div className="p-4 rounded-lg bg-background/50 border">

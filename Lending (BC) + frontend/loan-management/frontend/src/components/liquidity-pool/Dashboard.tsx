@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button"
 import { Settings, Shield } from "lucide-react"
 import { ethers } from "ethers"
 import { GovernancePanel } from "./governance/GovernancePanel";
+import { SignatureNullifierGenerator } from "./SignatureNullifierGenerator";
+
 
 interface DashboardProps {
     contract: ethers.Contract;
@@ -95,6 +97,8 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                         TLSN Credit Score
                     </Button>
                 </div>
+
+                
             </div>
 
             {/* TLSN Status Message */}
@@ -121,6 +125,8 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                     <TabsTrigger value="borrow">Borrow</TabsTrigger>
                     <TabsTrigger value="credit-score">Credit Score</TabsTrigger>
                     <TabsTrigger value="transaction-history">Transactions</TabsTrigger>
+                    <TabsTrigger value="signatures">Signatures</TabsTrigger>
+
                     {isLiquidator && (
                         <TabsTrigger value="liquidator">Liquidator</TabsTrigger>
                     )}
@@ -169,6 +175,15 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                         />
                     </Card>
                 </TabsContent>
+
+<TabsContent value="signatures">
+    <Card className="p-6 bg-muted/30 backdrop-blur-sm">
+        <SignatureNullifierGenerator 
+            account={account || ''} 
+            provider={provider}
+        />
+    </Card>
+</TabsContent>
 
                 {isLiquidator && (
                     <TabsContent value="liquidator">
