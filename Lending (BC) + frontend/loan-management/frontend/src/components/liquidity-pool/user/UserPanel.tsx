@@ -13,14 +13,17 @@ import { Contract } from "ethers"
 import { COLLATERAL_TOKENS } from "../../../App"
 import { CollateralPanel } from './CollateralPanel';
 import { ZKProofPanel } from "./ZKProofPanel"
+import { AccountSelectionModal } from "../AccountSelectionModal"
+
 
 interface UserPanelProps {
     contract: Contract;
     account: string | null;
     mode?: 'user' | 'lend';
+    contracts?: any; // Add contracts prop
 }
 
-export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) {
+export function UserPanel({ contract, account, mode = 'user', contracts }: UserPanelProps) {
     const [isLiquidatable, setIsLiquidatable] = useState(false)
     const [selectedToken, setSelectedToken] = useState("")
     const [tokenBalance, setTokenBalance] = useState("0")
@@ -38,6 +41,10 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
     const [totalLent, setTotalLent] = useState("0")
     const [creditScore, setCreditScore] = useState<number | null>(null)
     const [tokenSymbol, setTokenSymbol] = useState("")
+    const [showModal, setShowModal] = useState(false);
+    const [hasSelectedAccount, setHasSelectedAccount] = useState(false);
+
+
 
     const fetchData = async () => {
         if (!account) return // Do not fetch if no account connected
@@ -62,9 +69,14 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             const poolBalance = await readOnlyContract.getBalance();
             setTotalLent(formatEther(poolBalance));
 
-            // Fetch credit score
-            const userCreditScore = await readOnlyContract.getCreditScore(account);
-            setCreditScore(Number(userCreditScore));
+            // Fetch credit score with error handling
+            try {
+                const userCreditScore = await readOnlyContract.getCreditScore(account);
+                setCreditScore(Number(userCreditScore));
+            } catch (creditScoreError) {
+                console.warn("Credit score not available for this account:", creditScoreError);
+                setCreditScore(null); // Set to null when credit score is not available
+            }
 
             // Fetch health status
             const healthCheck = await readOnlyContract.checkCollateralization(account);
@@ -107,9 +119,19 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
             const userCreditScore = await readOnlyContract.getCreditScore(account);
             setCreditScore(Number(userCreditScore));
         } catch (err) {
-            console.error("Failed to refresh credit score:", err)
+            console.warn("Credit score not available for this account:", err)
+            setCreditScore(null); // Set to null when credit score is not available
         }
     }
+
+
+     useEffect(() => {
+        // Show the modal only if no selection has been made yet
+        const hasSelectedBefore = localStorage.getItem("accountSelected") === "true";
+        if (!hasSelectedBefore) {
+            setShowModal(true);
+        }
+    }, []);
 
     useEffect(() => {
         if (contract && account) {
@@ -117,6 +139,15 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         }
         // Re-fetch data when account or contract changes
     }, [contract, account])
+
+    const handleAccountSelection = (selectedAccounts: string[]) => {
+        if (selectedAccounts.length > 0) {
+            localStorage.setItem("accountSelected", "true");
+            setHasSelectedAccount(true);
+            setShowModal(false);
+        }
+    }
+
 
     const fetchTokenBalance = async () => {
         if (!account || !selectedToken) return // Do not fetch if no account or token selected
@@ -343,152 +374,63 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
         }
     }
 
-    if (mode === 'lend') {
-        return (
-            <div className="space-y-6 w-full">
-                {error && (
-                    <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                )}
 
-                <Card className="bg-gradient-to-br from-background to-muted/50">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <DollarSign className="h-5 w-5" />
-                            Liquidity Provision Overview
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <p className="text-sm text-muted-foreground">Total native tokens in the pool (from lending and repayments)</p>
-                        <p className="text-2xl font-bold">{totalLent} {tokenSymbol || 'ETH'}</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-background to-muted/50">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <ArrowUpDown className="h-5 w-5" />
-                            Provide Liquidity (Lend Native Tokens)
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <p className="text-sm text-muted-foreground">Send native testnet tokens to the pool contract address to provide liquidity.</p>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Amount (Native Token)</label>
-                            <Input
-                                type="number"
-                                placeholder="Enter amount to lend"
-                                value={lendAmount}
-                                onChange={(e) => {
-                                    setLendAmount(e.target.value)
-                                    setError("")
-                                }}
-                                min="0"
-                                step="0.01"
-                                className="w-full"
-                            />
-                        </div>
-
-                        <Button
-                            onClick={handleLend}
-                            className="w-full h-12"
-                            disabled={isLoading || !account}
-                        >
-                            {isLoading ? "Processing..." : "Lend Native Tokens"}
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        )
-    }
 
     return (
-        <div className="space-y-6 max-w-4xl mx-auto">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold">User Dashboard</h2>
-            </div>
-
-            {error && (
-                <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                </Alert>
+        <>
+            {/* 
+            {showModal && (
+                <AccountSelectionModal
+                    open={showModal}
+                    onClose={() => {}}
+                    onAccountsSelected={handleAccountSelection}
+                    description="Choose the account you want to use for your credit score calculation. This selection is final."
+                    contracts={contracts}
+                    account={account}
+                    onComplete={handleAccountSelection}
+                />
             )}
+            */ }
 
-            {/* Portfolio Overview */}
-            <Card className="bg-gradient-to-br from-background to-muted/50">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Coins className="h-5 w-5" />
-                        Portfolio Overview
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-6">
-                        <div className="p-4 rounded-lg bg-background/50 border">
-                            <p className="text-sm text-muted-foreground">Total Collateral Value</p>
-                            <p className="text-2xl font-bold">{totalCollateralValue} {tokenSymbol || 'ETH'}</p>
-                        </div>
-                        <div className="p-4 rounded-lg bg-background/50 border">
-                            <p className="text-sm text-muted-foreground">Current Debt</p>
-                            <p className="text-2xl font-bold">{userDebt} {tokenSymbol || 'ETH'}</p>
-                        </div>
-                        <div className="p-4 rounded-lg bg-background/50 border">
-                            <p className="text-sm text-muted-foreground">Credit Score</p>
-                            <div className="flex items-center gap-2">
-                                <p className="text-2xl font-bold">{creditScore !== null ? creditScore : 'N/A'}</p>
-                                <Button
-                                    onClick={refreshCreditScore}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                >
-                                    <ArrowUpDown className="h-3 w-3" />
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-background/50 border">
-                        <div className="flex justify-between mb-2">
-                            <p className="text-sm text-muted-foreground">Health Ratio</p>
-                            <p className="text-sm font-medium">{healthStatus.ratio.toFixed(2)}%</p>
-                        </div>
-                        <Progress value={healthStatus.ratio} className="h-2" />
-                        <p className="text-sm mt-2">
-                            Status: {healthStatus.isHealthy ? "✅ Healthy" : "⚠️ At Risk"}
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
+            {mode === 'lend' ? (
+                <div className="space-y-6 w-full">
+                    {error && (
+                        <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
 
-            <Tabs defaultValue="collateral" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="borrow">Borrow</TabsTrigger>
-                    <TabsTrigger value="repay">Repay</TabsTrigger>
-                    <TabsTrigger value="zkproof">ZK Proofs</TabsTrigger>
-                </TabsList>
+                    <Card className="bg-gradient-to-br from-background to-muted/50">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <DollarSign className="h-5 w-5" />
+                                Liquidity Provision Overview
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <p className="text-sm text-muted-foreground">Total native tokens in the pool (from lending and repayments)</p>
+                            <p className="text-2xl font-bold">{totalLent} {tokenSymbol || 'ETH'}</p>
+                        </CardContent>
+                    </Card>
 
-                
-
-                <TabsContent value="borrow">
                     <Card className="bg-gradient-to-br from-background to-muted/50">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <ArrowUpDown className="h-5 w-5" />
-                                Borrow
+                                Provide Liquidity (Lend Native Tokens)
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            <p className="text-sm text-muted-foreground">Send native testnet tokens to the pool contract address to provide liquidity.</p>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Amount to Borrow</label>
+                                <label className="text-sm font-medium">Amount (Native Token)</label>
                                 <Input
                                     type="number"
-                                    placeholder="Enter amount to borrow"
-                                    value={borrowAmount}
+                                    placeholder="Enter amount to lend"
+                                    value={lendAmount}
                                     onChange={(e) => {
-                                        setBorrowAmount(e.target.value)
+                                        setLendAmount(e.target.value)
                                         setError("")
                                     }}
                                     min="0"
@@ -498,76 +440,185 @@ export function UserPanel({ contract, account, mode = 'user' }: UserPanelProps) 
                             </div>
 
                             <Button
-                                onClick={handleBorrow}
+                                onClick={handleLend}
                                 className="w-full h-12"
-                                disabled={isLoading}
+                                disabled={isLoading || !account}
                             >
-                                {isLoading ? "Processing..." : "Borrow"}
+                                {isLoading ? "Processing..." : "Lend Native Tokens"}
                             </Button>
                         </CardContent>
                     </Card>
-                </TabsContent>
+                </div>
+            ) : (
+                <div className="space-y-6 max-w-4xl mx-auto">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-2xl font-semibold">User Dashboard</h2>
+                    </div>
 
-                <TabsContent value="repay">
+                    {error && (
+                        <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
+
                     <Card className="bg-gradient-to-br from-background to-muted/50">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <ArrowDownUp className="h-5 w-5" />
-                                Repay
+                                <Coins className="h-5 w-5" />
+                                Portfolio Overview
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Amount to Repay</label>
-                                <Input
-                                    type="number"
-                                    placeholder="Enter amount to repay"
-                                    value={repayAmount}
-                                    onChange={(e) => {
-                                        setRepayAmount(e.target.value)
-                                        setError("")
-                                    }}
-                                    min="0"
-                                    step="0.01"
-                                    className="w-full"
-                                />
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="p-4 rounded-lg bg-background/50 border">
+                                    <p className="text-sm text-muted-foreground">Total Collateral Value</p>
+                                    <p className="text-2xl font-bold">{totalCollateralValue} {tokenSymbol || 'ETH'}</p>
+                                </div>
+                                <div className="p-4 rounded-lg bg-background/50 border">
+                                    <p className="text-sm text-muted-foreground">Current Debt</p>
+                                    <p className="text-2xl font-bold">{userDebt} {tokenSymbol || 'ETH'}</p>
+                                </div>
+                                <div className="p-4 rounded-lg bg-background/50 border">
+                                    <p className="text-sm text-muted-foreground">Credit Score</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-2xl font-bold">
+                                            {creditScore !== null ? creditScore : 
+                                                <span className="text-muted-foreground text-lg">Not Available</span>
+                                            }
+                                        </p>
+                                        <Button
+                                            onClick={refreshCreditScore}
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0"
+                                            title="Refresh credit score"
+                                        >
+                                            <ArrowUpDown className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                    {creditScore === null && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Credit score may not be available for new accounts
+                                        </p>
+                                    )}
+                                </div>
                             </div>
+                            <div className="p-4 rounded-lg bg-background/50 border">
+                                <div className="flex justify-between mb-2">
+                                    <p className="text-sm text-muted-foreground">Health Ratio</p>
+                                    <p className="text-sm font-medium">{healthStatus.ratio.toFixed(2)}%</p>
+                                </div>
+                                <Progress value={healthStatus.ratio} className="h-2" />
+                                <p className="text-sm mt-2">
+                                    Status: {healthStatus.isHealthy ? "✅ Healthy" : "⚠️ At Risk"}
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
 
+                    <Tabs defaultValue="collateral" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="borrow">Borrow</TabsTrigger>
+                            <TabsTrigger value="repay">Repay</TabsTrigger>
+                            <TabsTrigger value="zkproof">ZK Proofs</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="borrow">
+                            <Card className="bg-gradient-to-br from-background to-muted/50">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <ArrowUpDown className="h-5 w-5" />
+                                        Borrow
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Amount to Borrow</label>
+                                        <Input
+                                            type="number"
+                                            placeholder="Enter amount to borrow"
+                                            value={borrowAmount}
+                                            onChange={(e) => {
+                                                setBorrowAmount(e.target.value)
+                                                setError("")
+                                            }}
+                                            min="0"
+                                            step="0.01"
+                                            className="w-full"
+                                        />
+                                    </div>
+                                    <Button
+                                        onClick={handleBorrow}
+                                        className="w-full h-12"
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? "Processing..." : "Borrow"}
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        <TabsContent value="repay">
+                            <Card className="bg-gradient-to-br from-background to-muted/50">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <ArrowDownUp className="h-5 w-5" />
+                                        Repay
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Amount to Repay</label>
+                                        <Input
+                                            type="number"
+                                            placeholder="Enter amount to repay"
+                                            value={repayAmount}
+                                            onChange={(e) => {
+                                                setRepayAmount(e.target.value)
+                                                setError("")
+                                            }}
+                                            min="0"
+                                            step="0.01"
+                                            className="w-full"
+                                        />
+                                    </div>
+
+                                    <Button
+                                        onClick={handleRepay}
+                                        className="w-full h-12"
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? "Processing..." : "Repay"}
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        <TabsContent value="zkproof">
+                            <ZKProofPanel contract={contract} account={account || ''} />
+                        </TabsContent>
+                    </Tabs>
+
+                    <Card className="bg-gradient-to-br from-background to-muted/50">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5" />
+                                Health Check
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
                             <Button
-                                onClick={handleRepay}
+                                onClick={handleHealthCheck}
                                 className="w-full h-12"
-                                disabled={isLoading}
+                                disabled={isLoading || !account}
                             >
-                                {isLoading ? "Processing..." : "Repay"}
+                                {isLoading ? "Checking..." : "Check Health Status"}
                             </Button>
                         </CardContent>
                     </Card>
-                </TabsContent>
-
-                <TabsContent value="zkproof">
-                    <ZKProofPanel contract={contract} account={account || ''} />
-                </TabsContent>
-
-            </Tabs>
-
-            {/* Health Check Section */}
-            <Card className="bg-gradient-to-br from-background to-muted/50">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5" />
-                        Health Check
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Button
-                        onClick={handleHealthCheck}
-                        className="w-full h-12"
-                        disabled={isLoading || !account}
-                    >
-                        {isLoading ? "Checking..." : "Check Health Status"}
-                    </Button>
-                </CardContent>
-            </Card>
-        </div>
-    )
+                </div>
+            )}
+        </>
+    );
 }

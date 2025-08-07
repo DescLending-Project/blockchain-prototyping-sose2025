@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
 import { Alert, AlertDescription } from '../../ui/alert'
+import { Badge } from '../../ui/badge'
 import { parseEther } from 'ethers'
-import { ArrowUpDown, AlertCircle, Coins } from 'lucide-react'
+import { ArrowUpDown, AlertCircle, Coins, Shield, CheckCircle, Clock, Terminal, Download, Copy, RotateCcw, RefreshCw } from 'lucide-react'
 import { LendingPoolStatus } from '../shared/LendingPoolStatus'
 import { COLLATERAL_TOKENS } from '../../../App'
 
-export default function BorrowerPanel({ contract, account }) {
+export default function BorrowerPanel({ contract, account, contracts }) {
     const [userInfo, setUserInfo] = useState(null)
     const [borrowAmount, setBorrowAmount] = useState('')
     const [repayAmount, setRepayAmount] = useState('')
@@ -23,17 +24,27 @@ export default function BorrowerPanel({ contract, account }) {
     const [collateralTokens, setCollateralTokens] = useState([])
     const [selectedCollateral, setSelectedCollateral] = useState(null)
     const [collateralPrices, setCollateralPrices] = useState({})
-    const [activeTab, setActiveTab] = useState('collateral') // NEW: tab state
+    const [activeTab, setActiveTab] = useState('collateral')
     const [creditScore, setCreditScore] = useState({
         currentScore: 0,
         previousScore: 0,
         hasImproved: false,
-        improvementPercentage: 0
+        improvementPercentage: 0,
+        isVerified: false
     })
     const [withdrawableAmounts, setWithdrawableAmounts] = useState({})
     const [showPartialWithdraw, setShowPartialWithdraw] = useState(false)
     const [partialWithdrawToken, setPartialWithdrawToken] = useState('')
     const [partialWithdrawAmount, setPartialWithdrawAmount] = useState('')
+    const [collateralBalances, setCollateralBalances] = useState({})
+
+    // Credit verification states
+    const [verificationStep, setVerificationStep] = useState('none') // 'none', 'tlsn', 'tlsn-error', 'export', 'proof', 'verified'
+    const [tlsnData, setTlsnData] = useState(null)
+    const [tlsnError, setTlsnError] = useState(null)
+    const [generatedCommand, setGeneratedCommand] = useState('')
+    const [showVerificationFlow, setShowVerificationFlow] = useState(false)
+    const [verificationRequired, setVerificationRequired] = useState(true)
 
     useEffect(() => {
         if (contract && account) {
@@ -43,7 +54,47 @@ export default function BorrowerPanel({ contract, account }) {
             checkNetwork()
             fetchCreditScore()
         }
-    }, [contract, account])
+    }, [contract, account, contracts])
+
+    // Listen for credit score updates
+    useEffect(() => {
+        const handleCreditScoreUpdate = (event) => {
+            console.log('Credit score updated:', event.detail);
+            fetchCreditScore();
+            setVerificationStep('verified');
+            setShowVerificationFlow(false);
+        };
+
+        window.addEventListener('creditScoreUpdated', handleCreditScoreUpdate);
+        return () => {
+            window.removeEventListener('creditScoreUpdated', handleCreditScoreUpdate);
+        };
+    }, []);
+
+    // Listen for credit score events from contract
+    useEffect(() => {
+        if (contracts?.creditScoreVerifier && account) {
+            const filter = contracts.creditScoreVerifier.filters.CreditScoreSubmitted(account);
+            
+            const handleCreditScoreEvent = (user, score, serverName, stateRootProvider, timestamp) => {
+                console.log('Credit score event received:', { user, score, serverName, stateRootProvider, timestamp });
+                setCreditScore(prev => ({
+                    ...prev,
+                    currentScore: Number(score),
+                    isVerified: true
+                }));
+                setVerificationStep('verified');
+                setShowVerificationFlow(false);
+                window.dispatchEvent(new CustomEvent('creditScoreUpdated', { detail: { score: Number(score) } }));
+            };
+
+            contracts.creditScoreVerifier.on(filter, handleCreditScoreEvent);
+
+            return () => {
+                contracts.creditScoreVerifier.off(filter, handleCreditScoreEvent);
+            };
+        }
+    }, [contracts, account]);
 
     const checkNetwork = async () => {
         try {
@@ -82,7 +133,19 @@ export default function BorrowerPanel({ contract, account }) {
             if (tokens.length > 0) {
                 setSelectedCollateral(tokens[0])
                 await loadCollateralPrices(tokens)
+                await loadCollateralBalances(tokens)
             }
+        } catch (err) { }
+    }
+
+    const loadCollateralBalances = async (tokens) => {
+        try {
+            const balances = {}
+            for (const token of tokens) {
+                const balance = await contract.getCollateral(account, token)
+                balances[token] = formatEther(balance)
+            }
+            setCollateralBalances(balances)
         } catch (err) { }
     }
 
@@ -102,15 +165,239 @@ export default function BorrowerPanel({ contract, account }) {
         await loadCurrentValues()
     }
 
+    const loadUserInfo = async () => {
+        try {
+            const debt = await contract.getMyDebt()
+            setUserInfo({
+                debt: formatEther(debt)
+            })
+        } catch (err) { }
+    }
+
+    const fetchCreditScore = async () => {
+        if (!contract || !account) return
+
+        try {
+            let currentScore = 0;
+            let isVerified = false;
+            
+            // get from RISC Zero verifier first
+            if (contracts?.creditScoreVerifier) {
+                try {
+                    const result = await contracts.creditScoreVerifier.getCreditScore(account);
+                    if (result[1]) { // isValid
+                        currentScore = Number(result[0]);
+                        isVerified = true;
+                        setVerificationStep('verified');
+                        console.log('Got verified credit score from RISC Zero:', currentScore);
+                    }
+                } catch (err) {
+                    console.log('No RISC Zero credit score found, falling back to contract score');
+                }
+            }
+            
+            // Fallback to existing contract credit score, this is for legacy stuff
+            if (currentScore === 0) {
+                try {
+                    const contractScore = await contract.getCreditScore(account);
+                    currentScore = Number(contractScore);
+                    isVerified = false;
+                } catch (err) {
+                    console.log('No contract credit score found');
+                }
+            }
+
+            // Get previous score from localStorage for comparison
+            const storageKey = `creditScore_${account}`
+            const previousScore = parseInt(localStorage.getItem(storageKey) || '0')
+
+            const hasImproved = currentScore > previousScore
+            const improvementPercentage = previousScore > 0 ?
+                ((currentScore - previousScore) / previousScore) * 100 : 0
+
+            setCreditScore({
+                currentScore: currentScore,
+                previousScore,
+                hasImproved,
+                improvementPercentage,
+                isVerified
+            })
+
+            // Store current score for next comparison
+            localStorage.setItem(storageKey, currentScore.toString())
+
+            // Calculate withdrawable amounts for each token
+            await calculateWithdrawableAmounts(currentScore, isVerified)
+        } catch (err) {
+            console.error('Failed to fetch credit score:', err)
+        }
+    }
+
+    const calculateWithdrawableAmounts = async (creditScore, isVerified) => {
+        if (!contract || !account || creditScore <= 0) return
+
+        try {
+            const amounts = {}
+            for (const token of collateralTokens) {
+                const balance = await contract.getCollateral(account, token)
+                const balanceNum = Number(formatEther(balance))
+
+                if (balanceNum > 0) {
+                    let baseWithdrawable = balanceNum * 0.1
+                    let creditBonus = Math.min((creditScore - 25) / 75, 0.4)
+                    
+                    if (isVerified) {
+                        creditBonus += 0.1;
+                    }
+                    
+                    const totalWithdrawableRatio = Math.min(0.1 + creditBonus, 0.6)
+                    const withdrawableAmount = balanceNum * totalWithdrawableRatio
+                    amounts[token] = withdrawableAmount.toFixed(6)
+                }
+            }
+            setWithdrawableAmounts(amounts)
+        } catch (err) {
+            console.error('Failed to calculate withdrawable amounts:', err)
+        }
+    }
+
+    // Credit verification flow functions
+    const startCreditVerification = () => {
+        setShowVerificationFlow(true);
+        setVerificationStep('tlsn');
+        setTlsnError(null);
+        
+        if (window.openTLSNExtension && window.tlsnExtensionAvailable) {
+            try {
+                const result = window.openTLSNExtension();
+                console.log('TLSNotary extension result:', result);
+                
+                setTimeout(() => {
+                    const tlsnCompleted = false;
+                    
+                    if (tlsnCompleted) {
+                        setTlsnData({
+                            creditScore: 720,
+                            bankName: "Real Bank",
+                            attestationProof: "0xreal...",
+                            sessionData: { validated: true },
+                            isRealData: true
+                        });
+                        setVerificationStep('export');
+                    } else {
+                        setTlsnError({
+                            message: "TLSNotary verification failed or timed out",
+                            details: "The extension may need more time or encountered an error"
+                        });
+                        setVerificationStep('tlsn-error');
+                    }
+                }, 10000);
+                
+            } catch (error) {
+                console.error('Error calling TLSNotary extension:', error);
+                setTlsnError({
+                    message: "Failed to start TLSNotary extension",
+                    details: error.message
+                });
+                setVerificationStep('tlsn-error');
+            }
+        } else {
+            console.log('TLSNotary Extension not available');
+            setTlsnError({
+                message: "TLSNotary Extension not found",
+                details: "Please install the TLSNotary extension first"
+            });
+            setVerificationStep('tlsn-error');
+        }
+    };
+
+    const retryTLSNotary = () => {
+        setTlsnError(null);
+        startCreditVerification();
+    };
+
+    const useMockData = () => {
+        console.log('Using mock data for testing...');
+        setTlsnData({
+            creditScore: 750,
+            bankName: "Mock Bank",
+            attestationProof: "0x1234...",
+            sessionData: { validated: true },
+            isRealData: false
+        });
+        setTlsnError(null);
+        setVerificationStep('export');
+    };
+
+    const generateProofInstructions = () => {
+        const chainId = 11155111; // Default to Sepolia
+        const rpcUrl = 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY';
+        const contractAddress = contracts?.creditScoreVerifier?.target || contracts?.creditScoreVerifier?.address;
+        
+        const command = `RISC0_USE_DOCKER=1 cargo run -p host --bin host --release -- \\
+  --tradfi-receipt-path host/receipts/tradfi_score.bin \\
+  --account-receipt-path host/receipts/account_receipt.bin \\
+  --stateroot-receipt-path host/receipts/alchemy_stateroot.bin \\
+  --chain-id ${chainId} \\
+  --rpc-url ${rpcUrl} \\
+  --contract ${contractAddress} \\
+  --eth-wallet-private-key YOUR_PRIVATE_KEY`;
+
+        setGeneratedCommand(command);
+        setVerificationStep('proof');
+    };
+
+    const copyCommand = () => {
+        navigator.clipboard.writeText(generatedCommand);
+        alert('Command copied to clipboard!');
+    };
+
+    const skipVerification = () => {
+        // For testing purposes
+        setCreditScore(prev => ({
+            ...prev,
+            currentScore: 750,
+            isVerified: true
+        }));
+        setVerificationStep('verified');
+        setShowVerificationFlow(false);
+    };
+
+    const resetVerification = () => {
+        setVerificationStep('none');
+        setShowVerificationFlow(false);
+        setTlsnData(null);
+        setTlsnError(null);
+        setGeneratedCommand('');
+    };
+
+    const canProceedToBorrow = () => {
+        return verificationStep === 'verified' || !verificationRequired;
+    };
+
     const handleBorrow = async () => {
+        if (!canProceedToBorrow()) {
+            setError('Please complete credit verification before borrowing');
+            return;
+        }
+
         try {
             setIsLoading(true)
             setError('')
-            const tx = await contract.borrow(parseEther(borrowAmount))
+
+            // Generate fresh nullifier for this borrow
+            const { nullifier, accounts } = await generateBorrowNullifier();
+        
+            console.log('Borrowing with nullifier:', nullifier);
+            console.log('Using accounts:', accounts);
+
+            const tx = await contract.borrow(parseEther(borrowAmount), nullifier)
             await tx.wait()
             await loadUserInfo()
             await loadCurrentValues()
             setBorrowAmount('')
+            // Reset verification for next borrow
+            resetVerification()
         } catch (err) {
             setError(err.message || 'Failed to borrow')
         } finally {
@@ -151,6 +438,7 @@ export default function BorrowerPanel({ contract, account }) {
             const tx = await contractWithSigner.depositCollateral(selectedCollateral, parseEther(depositAmount))
             await tx.wait()
             await loadCurrentValues()
+            await loadCollateralBalances(collateralTokens)
             setDepositAmount('')
         } catch (err) {
             setError(err.message || 'Failed to deposit collateral')
@@ -166,79 +454,12 @@ export default function BorrowerPanel({ contract, account }) {
             const tx = await contract.withdrawCollateral(selectedCollateral, parseEther(withdrawAmount))
             await tx.wait()
             await loadCurrentValues()
+            await loadCollateralBalances(collateralTokens)
             setWithdrawAmount('')
         } catch (err) {
             setError(err.message || 'Failed to withdraw collateral')
         } finally {
             setIsLoading(false)
-        }
-    }
-
-    const loadUserInfo = async () => {
-        try {
-            const debt = await contract.getMyDebt()
-            setUserInfo({
-                debt: formatEther(debt)
-            })
-        } catch (err) { }
-    }
-
-    const fetchCreditScore = async () => {
-        if (!contract || !account) return
-
-        try {
-            const currentScore = await contract.getCreditScore(account)
-            const scoreNum = Number(currentScore)
-
-            // Get previous score from localStorage for comparison
-            const storageKey = `creditScore_${account}`
-            const previousScore = parseInt(localStorage.getItem(storageKey) || '0')
-
-            const hasImproved = scoreNum > previousScore
-            const improvementPercentage = previousScore > 0 ?
-                ((scoreNum - previousScore) / previousScore) * 100 : 0
-
-            setCreditScore({
-                currentScore: scoreNum,
-                previousScore,
-                hasImproved,
-                improvementPercentage
-            })
-
-            // Store current score for next comparison
-            localStorage.setItem(storageKey, scoreNum.toString())
-
-            // Calculate withdrawable amounts for each token
-            await calculateWithdrawableAmounts(scoreNum)
-        } catch (err) {
-            console.error('Failed to fetch credit score:', err)
-        }
-    }
-
-    const calculateWithdrawableAmounts = async (creditScore) => {
-        if (!contract || !account || creditScore <= 0) return
-
-        try {
-            const amounts = {}
-            for (const token of collateralTokens) {
-                const balance = await contract.getCollateral(account, token)
-                const balanceNum = Number(formatEther(balance))
-
-                if (balanceNum > 0) {
-                    // Base withdrawable amount (10% base)
-                    const baseWithdrawable = balanceNum * 0.1
-
-                    // Credit score bonus: higher score allows more withdrawal
-                    const creditBonus = Math.min((creditScore - 25) / 75, 0.4) // Up to 40% bonus for score 100
-                    const totalWithdrawableRatio = Math.min(0.1 + creditBonus, 0.5) // Max 50% withdrawable
-
-                    const withdrawableAmount = balanceNum * totalWithdrawableRatio
-                    amounts[token] = withdrawableAmount.toFixed(6)
-                }
-            }
-            setWithdrawableAmounts(amounts)
-        } catch (err) {
-            console.error('Failed to calculate withdrawable amounts:', err)
         }
     }
 
@@ -256,6 +477,7 @@ export default function BorrowerPanel({ contract, account }) {
             await tx.wait()
 
             await loadCurrentValues()
+            await loadCollateralBalances(collateralTokens)
             await fetchCreditScore()
             setPartialWithdrawAmount('')
             setPartialWithdrawToken('')
@@ -277,6 +499,28 @@ export default function BorrowerPanel({ contract, account }) {
     const getTokenName = (address) => {
         return COLLATERAL_TOKENS.find(t => t.address.toLowerCase() === address.toLowerCase())?.name || address
     }
+
+    const generateBorrowNullifier = async () => {
+    if (!contracts?.nullifierRegistry || !account) {
+        throw new Error('Nullifier registry not available');
+    }
+
+    // Get user's selected accounts
+    const userAccounts = await contracts.nullifierRegistry.getUserAccounts(account);
+    if (userAccounts.length === 0) {
+        throw new Error('No accounts selected for credit scoring');
+    }
+
+    // Generate nullifier for this specific borrow operation
+    const timestamp = Math.floor(Date.now() / 1000);
+    const nullifier = await contracts.nullifierRegistry.generateNullifier(
+        account,
+        ethers.parseEther(borrowAmount),
+        timestamp
+    );
+
+    return { nullifier, accounts: userAccounts, timestamp };
+};
 
     return (
         <div className="space-y-4">
@@ -352,7 +596,7 @@ export default function BorrowerPanel({ contract, account }) {
                         <div className="rounded-xl border text-card-foreground shadow bg-gradient-to-br from-background to-muted/50">
                             <div className="flex flex-col space-y-1.5 p-6">
                                 <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield h-5 w-5" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg>
+                                    <Shield className="h-5 w-5" />
                                     Collateral Management
                                 </h3>
                             </div>
@@ -361,8 +605,48 @@ export default function BorrowerPanel({ contract, account }) {
                                 <div className="p-4 rounded-lg bg-background/50 border">
                                     <div className="flex justify-between items-center">
                                         <div>
-                                            <p className="text-sm text-muted-foreground">Credit Score</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm text-muted-foreground">Credit Score</p>
+                                                {creditScore.isVerified && (
+                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                        <Shield className="h-3 w-3 mr-1" />
+                                                        RISC Zero Verified
+                                                    </Badge>
+                                                )}
+                                            </div>
                                             <p className="text-2xl font-bold">{creditScore.currentScore}</p>
+                                            {creditScore.currentScore === 0 && (
+                                                <div className="mt-2 space-y-2">
+                                                    <p className="text-xs text-gray-500">No verified credit score found</p>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        onClick={() => {
+                                                            window.dispatchEvent(new CustomEvent('navigateToTab', { detail: 'credit-score' }));
+                                                        }}
+                                                        className="text-xs"
+                                                    >
+                                                        <Shield className="h-3 w-3 mr-1" />
+                                                        Get Verified Score
+                                                    </Button>
+                                                </div>
+                                            )}
+                                            {!creditScore.isVerified && creditScore.currentScore > 0 && (
+                                                <div className="mt-2">
+                                                    <p className="text-xs text-orange-600">Contract score (not verified)</p>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        onClick={() => {
+                                                            window.dispatchEvent(new CustomEvent('navigateToTab', { detail: 'credit-score' }));
+                                                        }}
+                                                        className="text-xs mt-1"
+                                                    >
+                                                        <Shield className="h-3 w-3 mr-1" />
+                                                        Verify with RISC Zero
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                         {creditScore.hasImproved && (
                                             <div className="flex items-center gap-2 text-green-600">
@@ -377,6 +661,28 @@ export default function BorrowerPanel({ contract, account }) {
                                             </div>
                                         )}
                                     </div>
+                                    
+                                    {/* FICO Rating Display */}
+                                    {creditScore.currentScore > 0 && (
+                                        <div className="mt-3">
+                                            <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                                <span>Poor</span>
+                                                <span>Fair</span>
+                                                <span>Good</span>
+                                                <span>Excellent</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div 
+                                                    className="bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 h-2 rounded-full transition-all duration-1000"
+                                                    style={{ width: `${((creditScore.currentScore - 300) / 550) * 100}%` }}
+                                                ></div>
+                                            </div>
+                                            <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                                <span>300</span>
+                                                <span>850</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Collateral Position Block */}
@@ -385,10 +691,10 @@ export default function BorrowerPanel({ contract, account }) {
                                         <p className="font-medium">Your Collateral Position:</p>
                                         <ul className="list-disc list-inside space-y-1">
                                             <li>Current Collateral: {currentValues?.collateralValue || '0.0'} ETH</li>
-                                            <li>Credit Score: {creditScore.currentScore}/100</li>
+                                            <li>Credit Score: {creditScore.currentScore}{creditScore.isVerified ? ' (Verified)' : ''}/850</li>
                                             <li>Required Collateral Ratio: 130% of borrow amount</li>
                                             {creditScore.currentScore > 25 && (
-                                                <li className="text-green-600">✓ Partial withdrawal available due to good credit</li>
+                                                <li className="text-green-600">✓ Partial withdrawal available due to {creditScore.isVerified ? 'verified ' : ''}credit</li>
                                             )}
                                         </ul>
                                     </div>
@@ -472,10 +778,12 @@ export default function BorrowerPanel({ contract, account }) {
                                                 <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
                                                 <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
                                             </svg>
-                                            <h4 className="font-medium text-green-800">Partial Withdrawal Available</h4>
+                                            <h4 className="font-medium text-green-800">
+                                                Partial Withdrawal Available {creditScore.isVerified && <Badge variant="outline" className="ml-2 bg-green-100 text-green-700 border-green-300">RISC Zero Verified</Badge>}
+                                            </h4>
                                         </div>
                                         <p className="text-sm text-green-700 mb-3">
-                                            Your improved credit score allows partial collateral withdrawal
+                                            Your {creditScore.isVerified ? 'verified ' : ''}credit score allows partial collateral withdrawal
                                         </p>
                                         <div className="space-y-3">
                                             <div>
@@ -495,6 +803,7 @@ export default function BorrowerPanel({ contract, account }) {
                                                 />
                                                 <p className="text-xs text-green-600 mt-1">
                                                     Max withdrawable: {withdrawableAmounts[partialWithdrawToken]} tokens
+                                                    {creditScore.isVerified && <span className="font-semibold"> (Enhanced due to verification)</span>}
                                                 </p>
                                             </div>
                                             <div className="flex gap-2">
@@ -580,7 +889,7 @@ export default function BorrowerPanel({ contract, account }) {
                     </div>
                 )}
 
-                {/* Borrow Tab */}
+                {/* Borrow Tab - Enhanced with Credit Verification Flow */}
                 {activeTab === "borrow" && (
                     <div
                         data-state="active"
@@ -599,6 +908,281 @@ export default function BorrowerPanel({ contract, account }) {
                                 </h3>
                             </div>
                             <div className="p-6 pt-0 space-y-6">
+                                {/* Credit Verification Section */}
+                                <div className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-purple-50">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <Shield className="h-5 w-5 text-blue-600" />
+                                            <h4 className="font-medium text-blue-900">Credit Verification Required</h4>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {verificationStep === 'verified' ? (
+                                                <Badge className="bg-green-100 text-green-800 border-green-200">
+                                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                                    Verified
+                                                </Badge>
+                                            ) : verificationStep === 'none' ? (
+                                                <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">
+                                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                                    Required
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200">
+                                                    <Clock className="h-3 w-3 mr-1" />
+                                                    In Progress
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {verificationStep === 'none' && (
+                                        <div className="space-y-3">
+                                            <p className="text-sm text-blue-700">
+                                                Fresh credit verification is required for each borrowing transaction to ensure accurate risk assessment.
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Button onClick={startCreditVerification} className="flex items-center gap-2">
+                                                    <Shield className="h-4 w-4" />
+                                                    Start Credit Verification
+                                                </Button>
+                                                <Button 
+                                                    variant="outline" 
+                                                    onClick={skipVerification}
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    <Terminal className="h-4 w-4" />
+                                                    Skip (Testing)
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {verificationStep === 'verified' && (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-3">
+                                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                                <div>
+                                                    <p className="font-medium text-green-800">Credit Score Verified</p>
+                                                    <p className="text-sm text-green-600">
+                                                        Score: {creditScore.currentScore} 
+                                                        {creditScore.isVerified && " (RISC Zero Verified)"}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={resetVerification}
+                                                className="flex items-center gap-2"
+                                            >
+                                                <RefreshCw className="h-3 w-3" />
+                                                Get Fresh Verification
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Credit Verification Flow Modal */}
+                                {showVerificationFlow && (
+                                    <div className="border rounded-lg p-6 bg-white shadow-lg">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h4 className="font-medium">Credit Verification Process</h4>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm"
+                                                onClick={() => setShowVerificationFlow(false)}
+                                            >
+                                                ×
+                                            </Button>
+                                        </div>
+
+                                        {/* Progress Steps */}
+                                        <div className="flex items-center space-x-4 mb-6">
+                                            {['tlsn', 'export', 'proof', 'verified'].map((stepName, index) => {
+                                                const currentStepIndex = ['tlsn', 'tlsn-error', 'export', 'proof', 'verified'].indexOf(verificationStep);
+                                                const targetStepIndex = ['tlsn', 'export', 'proof', 'verified'].indexOf(stepName);
+                                                
+                                                return (
+                                                    <div key={stepName} className="flex items-center">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                                                            verificationStep === stepName || (verificationStep === 'tlsn-error' && stepName === 'tlsn') ? 'bg-blue-600 text-white' :
+                                                            currentStepIndex > targetStepIndex ? 'bg-green-600 text-white' :
+                                                            'bg-gray-200 text-gray-600'
+                                                        }`}>
+                                                            {currentStepIndex > targetStepIndex ? (
+                                                                <CheckCircle className="h-4 w-4" />
+                                                            ) : (
+                                                                index + 1
+                                                            )}
+                                                        </div>
+                                                        {index < 3 && (
+                                                            <div className={`w-16 h-1 ${
+                                                                currentStepIndex > targetStepIndex ? 'bg-green-600' : 'bg-gray-200'
+                                                            }`} />
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Step Content */}
+                                        {verificationStep === 'tlsn' && (
+                                            <div className="text-center space-y-4">
+                                                <div className="animate-pulse">
+                                                    <Shield className="h-16 w-16 text-blue-600 mx-auto" />
+                                                </div>
+                                                <h3 className="text-xl font-semibold">TLSNotary in Progress</h3>
+                                                <p className="text-gray-600">
+                                                    Please complete the verification in the TLSNotary extension window...
+                                                </p>
+                                                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                                                    <Clock className="h-4 w-4" />
+                                                    <span>This may take a few minutes</span>
+                                                </div>
+                                                <Alert>
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    <AlertDescription>
+                                                        Waiting for TLSNotary extension to complete verification. If this takes too long, the process may have failed.
+                                                    </AlertDescription>
+                                                </Alert>
+                                            </div>
+                                        )}
+
+                                        {verificationStep === 'tlsn-error' && tlsnError && (
+                                            <div className="space-y-4">
+                                                <Alert variant="destructive">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    <AlertDescription>
+                                                        <div className="space-y-1">
+                                                            <p className="font-medium">{tlsnError.message}</p>
+                                                            {tlsnError.details && (
+                                                                <p className="text-sm text-red-600">{tlsnError.details}</p>
+                                                            )}
+                                                        </div>
+                                                    </AlertDescription>
+                                                </Alert>
+
+                                                <div className="text-center space-y-4">
+                                                    <h3 className="text-lg font-semibold">What would you like to do?</h3>
+                                                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                                        <Button onClick={retryTLSNotary} variant="outline" className="flex items-center gap-2">
+                                                            <RotateCcw className="h-4 w-4" />
+                                                            Retry TLSNotary
+                                                        </Button>
+                                                        <Button onClick={useMockData} variant="secondary" className="flex items-center gap-2">
+                                                            <Terminal className="h-4 w-4" />
+                                                            Use Mock Data for Testing
+                                                        </Button>
+                                                    </div>
+                                                    <p className="text-sm text-gray-500 max-w-md mx-auto">
+                                                        You can retry TLSNotary verification or continue with mock data to test the complete integration flow.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {verificationStep === 'export' && tlsnData && (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center space-x-2">
+                                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                                    <h3 className="text-lg font-semibold">TLSNotary Complete</h3>
+                                                    {!tlsnData.isRealData && (
+                                                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                                                            Mock Data
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                
+                                                <Alert>
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    <AlertDescription>
+                                                        TLSNotary verification successful! Credit score: {tlsnData.creditScore} from {tlsnData.bankName}
+                                                        {!tlsnData.isRealData && " (using mock data for testing)"}
+                                                    </AlertDescription>
+                                                </Alert>
+
+                                                <div className="space-y-2">
+                                                    <p className="text-sm text-gray-600">
+                                                        Next, you'll need to generate a zero-knowledge proof using RISC Zero. 
+                                                        This creates cryptographic evidence without revealing your private data.
+                                                    </p>
+                                                    <Button onClick={generateProofInstructions} className="w-full">
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        Generate Proof Instructions
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {verificationStep === 'proof' && generatedCommand && (
+                                            <div className="space-y-4">
+                                                <h3 className="text-lg font-semibold flex items-center">
+                                                    <Terminal className="h-5 w-5 mr-2" />
+                                                    Generate Zero-Knowledge Proof
+                                                </h3>
+                                                
+                                                <div className="space-y-3">
+                                                    <p className="text-sm text-gray-600">
+                                                        Run this command in your RISC Zero environment to generate and submit your proof:
+                                                    </p>
+                                                    
+                                                    <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm overflow-x-auto">
+                                                        <pre className="whitespace-pre-wrap">{generatedCommand}</pre>
+                                                    </div>
+                                                    
+                                                    <div className="flex space-x-2">
+                                                        <Button onClick={copyCommand} variant="outline" size="sm">
+                                                            <Copy className="h-4 w-4 mr-2" />
+                                                            Copy Command
+                                                        </Button>
+                                                    </div>
+                                                    
+                                                    <Alert>
+                                                        <AlertCircle className="h-4 w-4" />
+                                                        <AlertDescription>
+                                                            After running this command successfully, your verified credit score will appear automatically. 
+                                                            The verification will complete when the proof is submitted to the contract.
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Credit Score Impact Display */}
+                                {creditScore.currentScore > 0 && (
+                                    <div className="p-4 border rounded-lg bg-blue-50">
+                                        <h4 className="font-medium text-blue-900 mb-2">Credit Score Impact</h4>
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <p className="text-blue-700">Current Score: <span className="font-semibold">{creditScore.currentScore}</span></p>
+                                                {creditScore.isVerified && (
+                                                    <Badge variant="outline" className="mt-1 bg-green-50 text-green-700 border-green-200">
+                                                        <Shield className="h-3 w-3 mr-1" />
+                                                        Verified
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className="text-blue-700">
+                                                    Interest Rate: <span className="font-semibold">
+                                                        {creditScore.currentScore >= 750 ? '3%' :
+                                                         creditScore.currentScore >= 650 ? '5%' : '8%'} APR
+                                                    </span>
+                                                </p>
+                                                <p className="text-blue-700">
+                                                    Max Loan: <span className="font-semibold">
+                                                        {creditScore.currentScore >= 700 ? '120%' :
+                                                         creditScore.currentScore >= 650 ? '110%' : '100%'} of collateral
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Borrow Amount Input */}
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Amount to Borrow ({tokenSymbol})</label>
                                     <input
@@ -609,17 +1193,37 @@ export default function BorrowerPanel({ contract, account }) {
                                         type="number"
                                         value={borrowAmount}
                                         onChange={e => setBorrowAmount(e.target.value)}
+                                        disabled={!canProceedToBorrow()}
                                     />
+                                    {!canProceedToBorrow() && (
+                                        <p className="text-xs text-red-600">Complete credit verification to proceed</p>
+                                    )}
                                 </div>
+
+                                {/* Borrow Button */}
                                 <div>
                                     <button
-                                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 px-4 py-2 h-12 w-full"
+                                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 px-4 py-2 h-12 w-full ${
+                                            canProceedToBorrow() 
+                                                ? 'bg-primary text-primary-foreground shadow hover:bg-primary/90' 
+                                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        }`}
                                         onClick={handleBorrow}
-                                        disabled={isLoading || !borrowAmount}
+                                        disabled={isLoading || !borrowAmount || !canProceedToBorrow()}
                                     >
-                                        Borrow
+                                        {!canProceedToBorrow() ? 'Verification Required' : 
+                                         `Borrow${creditScore.isVerified ? ' (Enhanced Terms)' : ''}`}
                                     </button>
                                 </div>
+
+                                {!canProceedToBorrow() && (
+                                    <Alert>
+                                        <Shield className="h-4 w-4" />
+                                        <AlertDescription>
+                                            Fresh credit verification is required before borrowing to ensure accurate risk assessment and proper interest rates.
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -668,44 +1272,6 @@ export default function BorrowerPanel({ contract, account }) {
                             </div>
                         </div>
                     </div>
-                )}
-
-                {/* Inactive tab panels for accessibility */}
-                {activeTab !== "collateral" && (
-                    <div
-                        data-state="inactive"
-                        data-orientation="horizontal"
-                        role="tabpanel"
-                        aria-labelledby="radix-rh-trigger-collateral"
-                        hidden
-                        id="radix-rh-content-collateral"
-                        tabIndex={0}
-                        className="mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    ></div>
-                )}
-                {activeTab !== "borrow" && (
-                    <div
-                        data-state="inactive"
-                        data-orientation="horizontal"
-                        role="tabpanel"
-                        aria-labelledby="radix-rh-trigger-borrow"
-                        hidden
-                        id="radix-rh-content-borrow"
-                        tabIndex={0}
-                        className="mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    ></div>
-                )}
-                {activeTab !== "repay" && (
-                    <div
-                        data-state="inactive"
-                        data-orientation="horizontal"
-                        role="tabpanel"
-                        aria-labelledby="radix-rh-trigger-repay"
-                        hidden
-                        id="radix-rh-content-repay"
-                        tabIndex={0}
-                        className="mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    ></div>
                 )}
             </div>
 

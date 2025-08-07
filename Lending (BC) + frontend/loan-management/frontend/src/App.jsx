@@ -13,6 +13,9 @@ import VotingTokenABI from './abis/VotingToken.json'
 import ProtocolGovernorABI from './abis/ProtocolGovernor.json'    
 import IntegratedCreditSystemABI from './abis/IntegratedCreditSystem.json' 
 import SimpleRISC0TestABI from './abis/SimpleRISC0Test.json'      // (if exists)
+import CreditScoreABI from './abis/CreditScore.json'
+import nullifierRegistryABI from './abis/NullifierRegistry.json'
+
 import addresses from './addresses.json';
 import { LenderPanel } from './components/liquidity-pool/lender/LenderPanel'
 import BorrowerPanel from './components/liquidity-pool/borrower/BorrowerPanel'
@@ -110,7 +113,9 @@ export default function App() {
       votingToken: addresses.VotingToken,
       protocolGovernor: addresses.ProtocolGovernor,
       creditSystem: addresses.IntegratedCreditSystem,
-      risc0Test: addresses.risc0Test
+      risc0Test: addresses.risc0Test,
+      creditScoreVerifier: addresses.creditScoreVerifier,
+      nullifierRegistry: addresses.nullifierRegistry
     };
   };
 
@@ -126,6 +131,7 @@ export default function App() {
       const chainId = Number(network.chainId);
 
       console.log(`Initializing contracts for network: ${networkName} (chainId: ${chainId})`);
+      
 
       // Get contract addresses for the network
       const addresses = getContractAddresses(networkName);
@@ -173,6 +179,17 @@ export default function App() {
           signer
         );
 
+        contractInstances.creditScoreVerifier = new ethers.Contract(
+          addresses.creditScoreVerifier,
+          CreditScoreABI.abi,
+          signer
+      );
+        contractInstances.nullifierRegistry = new ethers.Contract(
+          addresses.nullifierRegistry,
+          nullifierRegistryABI.abi,
+          signer
+        );
+        
         // Optional contracts (may not exist on all networks)
         if (addresses.creditSystem) {
           contractInstances.creditSystem = new ethers.Contract(
@@ -298,6 +315,10 @@ export default function App() {
       // Clear loading state
       setIsLoading(false);
     }
+
+    console.log('Current networkName:', networkName);
+console.log('Contract addresses for network:', getContractAddresses(networkName));
+console.log('CreditScore address:', addresses.creditScoreVerifier);
   };
 
   const disconnectWallet = async () => {

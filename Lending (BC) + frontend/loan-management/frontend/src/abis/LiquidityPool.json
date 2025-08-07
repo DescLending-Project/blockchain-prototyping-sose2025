@@ -22,6 +22,31 @@
           "internalType": "uint256",
           "name": "amount",
           "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "nullifier",
+          "type": "bytes32"
+        }
+      ],
+      "name": "BorrowWithNullifier",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
         }
       ],
       "name": "Borrowed",
@@ -113,6 +138,56 @@
         }
       ],
       "name": "CreditScoreAssigned",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "oldContract",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newContract",
+          "type": "address"
+        }
+      ],
+      "name": "CreditScoreContractUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "source",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "convertedScore",
+          "type": "uint256"
+        }
+      ],
+      "name": "CreditScoreSourceUsed",
       "type": "event"
     },
     {
@@ -434,6 +509,19 @@
       "anonymous": false,
       "inputs": [
         {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "useRISC0",
+          "type": "bool"
+        }
+      ],
+      "name": "RISC0ScoreToggled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
           "indexed": true,
           "internalType": "address",
           "name": "user",
@@ -744,6 +832,19 @@
     },
     {
       "inputs": [],
+      "name": "SCORE_EXPIRY_PERIOD",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "SET_ADMIN_PERMISSION",
       "outputs": [
         {
@@ -910,6 +1011,11 @@
           "internalType": "uint256",
           "name": "amount",
           "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "nullifier",
+          "type": "bytes32"
         }
       ],
       "name": "borrow",
@@ -1260,6 +1366,25 @@
     {
       "inputs": [
         {
+          "internalType": "uint64",
+          "name": "ficoScore",
+          "type": "uint64"
+        }
+      ],
+      "name": "convertFICOToContractScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "",
           "type": "address"
@@ -1271,6 +1396,19 @@
           "internalType": "uint256",
           "name": "",
           "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "creditScoreContract",
+      "outputs": [
+        {
+          "internalType": "contract ICreditScore",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -1496,26 +1634,11 @@
           "type": "address"
         }
       ],
-      "name": "getCollateralReductionInfo",
+      "name": "getCreditScore",
       "outputs": [
         {
-          "internalType": "enum LiquidityPool.RiskTier",
-          "name": "currentTier",
-          "type": "uint8"
-        },
-        {
           "internalType": "uint256",
-          "name": "currentCollateralRatio",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "adjustedCollateralRatio",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "potentialReductionPercent",
+          "name": "",
           "type": "uint256"
         }
       ],
@@ -1530,12 +1653,22 @@
           "type": "address"
         }
       ],
-      "name": "getCreditScore",
+      "name": "getCreditScoreWithSource",
       "outputs": [
         {
           "internalType": "uint256",
-          "name": "",
+          "name": "score",
           "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "source",
+          "type": "string"
+        },
+        {
+          "internalType": "bool",
+          "name": "isVerified",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -1637,94 +1770,6 @@
           "internalType": "struct LiquidityPool.Loan",
           "name": "",
           "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        }
-      ],
-      "name": "getLoanDetails",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "principal",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "outstanding",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "interestRate",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "nextDueDate",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "installmentAmount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "penaltyBps",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "active",
-          "type": "bool"
-        },
-        {
-          "internalType": "uint256",
-          "name": "daysUntilDue",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "latePenaltyIfPaidNow",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "totalInstallmentsRemaining",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "token",
-          "type": "address"
-        }
-      ],
-      "name": "getMaxWithdrawableCollateral",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "maxWithdrawable",
-          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -2014,6 +2059,35 @@
       "inputs": [
         {
           "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "hasValidRISC0Score",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "hasValidScore",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
           "name": "_timelock",
           "type": "address"
         },
@@ -2035,6 +2109,11 @@
         {
           "internalType": "address",
           "name": "_creditSystem",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_nullifierRegistry",
           "type": "address"
         }
       ],
@@ -2103,25 +2182,6 @@
         }
       ],
       "name": "isLiquidatable",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "token",
-          "type": "address"
-        }
-      ],
-      "name": "isOracleHealthy",
       "outputs": [
         {
           "internalType": "bool",
@@ -2328,6 +2388,19 @@
     },
     {
       "inputs": [],
+      "name": "nullifierRegistry",
+      "outputs": [
+        {
+          "internalType": "contract NullifierRegistry",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "paused",
       "outputs": [
         {
@@ -2497,6 +2570,19 @@
         }
       ],
       "name": "setCreditScore",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_creditScoreContract",
+          "type": "address"
+        }
+      ],
+      "name": "setCreditScoreContract",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -2741,6 +2827,19 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "_useRISC0",
+          "type": "bool"
+        }
+      ],
+      "name": "toggleRISC0CreditScores",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "toggleZKProofRequirement",
       "outputs": [],
@@ -2840,6 +2939,19 @@
       "name": "updateCreditScoreFromZK",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "useRISC0CreditScores",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {

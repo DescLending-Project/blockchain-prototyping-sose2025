@@ -390,6 +390,17 @@ async function main() {
     await creditSystem.waitForDeployment();
     console.log("IntegratedCreditSystem deployed at:", await creditSystem.getAddress());
 
+    // Deploy NullifierRegistry as upgradeable
+    const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
+    const nullifierRegistry = await upgrades.deployProxy(NullifierRegistry, [
+        deployer.address // admin
+    ], {
+        initializer: "initialize",
+    });
+    await nullifierRegistry.waitForDeployment();
+    
+    console.log("NullifierRegistry deployed to:", await nullifierRegistry.getAddress());
+
     // Deploy LiquidityPool with DAO as admin and creditSystem address as 5th param
     const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
@@ -397,7 +408,8 @@ async function main() {
         stablecoinManagerAddress,
         ethers.ZeroAddress, // LendingManager placeholder
         interestRateModelAddress,
-        await creditSystem.getAddress()
+        await creditSystem.getAddress(),
+        await nullifierRegistry.getAddress(),
     ], {
         initializer: "initialize",
     });
@@ -438,6 +450,118 @@ async function main() {
     } else {
         console.log('⚠️ Not enough accounts available for setting credit scores (need at least 3 accounts)');
     }
+
+    // 7.2 Setup Credit Score Contract (BEFORE transferring admin to timelock)
+    console.log('\n🔗 Setting up RISC0 Credit Score integration...');
+    
+    const RISC0_CREDIT_SCORE_ADDRESS = "0xE3F3a75ef923023FFeb9a502c3Bc7dF30c334B6a"; // actual RISC0 contract
+    
+    // Option B: Deploy a simple mock contract for testing
+    // const MockCreditScore = await ethers.getContractFactory("MockCreditScore");
+    // const mockCreditScore = await MockCreditScore.deploy();
+    // await mockCreditScore.waitForDeployment();
+    // const RISC0_CREDIT_SCORE_ADDRESS = await mockCreditScore.getAddress();
+    
+    try {
+        if (RISC0_CREDIT_SCORE_ADDRESS && RISC0_CREDIT_SCORE_ADDRESS !== "0x0000000000000000000000000000000000000000") {
+            console.log('Setting credit score contract to:', RISC0_CREDIT_SCORE_ADDRESS);
+            
+            // Set the credit score contract (deployer is still admin at this point)
+            const setCreditScoreTx = await liquidityPool.setCreditScoreContract(
+                RISC0_CREDIT_SCORE_ADDRESS,
+                { gasLimit: 200000 }
+            );
+            await setCreditScoreTx.wait();
+            
+            // Verify it was set
+            const currentCreditScoreContract = await liquidityPool.creditScoreContract();
+            const risc0Enabled = await liquidityPool.useRISC0CreditScores();
+            
+            console.log('✅ Credit score contract set to:', currentCreditScoreContract);
+            console.log('✅ RISC0 scores enabled:', risc0Enabled);
+            
+            // Optional: Set up other RISC0-related configurations
+            // await liquidityPool.toggleRISC0CreditScores(true); // Already auto-enabled
+            
+        } else {
+            console.log('⚠️ No RISC0 credit score contract address provided, skipping setup');
+        }
+    } catch (error) {
+        console.error('❌ Failed to set credit score contract:', error.message);
+        console.log('⚠️ Continuing deployment, you can set this later via governance');
+    }
+
+    //console.log("Deploying NullifierRegistry with account:", deployer.address);
+    
+    // Verify initialization (no need to call initialize manually with proxy deployment)
+    const DEFAULT_ADMIN_ROLE_DEBUG = await nullifierRegistry.DEFAULT_ADMIN_ROLE();
+    const isDeployerAdmin = await nullifierRegistry.hasRole(DEFAULT_ADMIN_ROLE_DEBUG, deployer.address);
+    console.log("🔍 Is deployer admin of NullifierRegistry?", isDeployerAdmin);
+
+    
+    // Grant NULLIFIER_CONSUMER_ROLE to LiquidityPool
+    const liquidityPoolAddress = await liquidityPool.getAddress();
+    
+    const NULLIFIER_CONSUMER_ROLE = await nullifierRegistry.NULLIFIER_CONSUMER_ROLE();
+    await nullifierRegistry.grantRole(NULLIFIER_CONSUMER_ROLE, liquidityPoolAddress);
+    
+    console.log("Nullifier setup complete!");
+
+    // 7.3 Setup other initial configurations while deployer is still admin
+    console.log('\n⚙️ Setting up additional configurations...');
+    
+    try {
+        // Set VotingToken reference in LiquidityPool (if needed)
+        if (await liquidityPool.votingToken && (await liquidityPool.votingToken()) === ethers.ZeroAddress) {
+            console.log('Setting VotingToken in LiquidityPool...');
+            await liquidityPool.setVotingToken(await votingToken.getAddress());
+            console.log('✅ VotingToken set in LiquidityPool');
+        }
+        
+        // Add LiquidityPool to governor's contract whitelist (for future governance)
+        console.log('Whitelisting LiquidityPool in ProtocolGovernor...');
+        // Note: This requires governance, so we'll do it via executeGovernanceProposal
+        
+        // Set up any price feeds if needed
+        // await liquidityPool.setPriceFeed(tokenAddress, feedAddress);
+        
+        // Set up any collateral tokens
+        // await liquidityPool.setAllowedCollateral(tokenAddress, true);
+        
+    } catch (error) {
+        console.error('❌ Error in additional setup:', error.message);
+        console.log('⚠️ Some configurations may need to be set manually later');
+    }
+
+    // 7.4 Use governance to whitelist LiquidityPool (optional but recommended)
+    console.log('\n🏛️ Setting up governance configurations...');
+    
+    try {
+        // Create a governance proposal to whitelist LiquidityPool
+        const whitelistCalldata = governor.interface.encodeFunctionData(
+            "setContractWhitelist", 
+            [await liquidityPool.getAddress(), true]
+        );
+        
+        // Use the executeGovernanceProposal helper to do this automatically
+        await executeGovernanceProposal(
+            governor,
+            [await governor.getAddress()], // target: governor itself
+            [0], // values
+            [whitelistCalldata], // calldata
+            makeUniqueDescription("Whitelist LiquidityPool for governance"),
+            accounts,
+            Math.min(accounts.length, 5), // use up to 5 accounts for voting
+            network
+        );
+        
+        console.log('✅ LiquidityPool whitelisted for governance proposals');
+        
+    } catch (error) {
+        console.error('❌ Failed to setup governance whitelist:', error.message);
+        console.log('⚠️ You may need to whitelist LiquidityPool manually later');
+    }
+
 
     // 8. Update LiquidityPool with LendingManager address (deployer is admin)
     console.log("Updating LiquidityPool with LendingManager address...");

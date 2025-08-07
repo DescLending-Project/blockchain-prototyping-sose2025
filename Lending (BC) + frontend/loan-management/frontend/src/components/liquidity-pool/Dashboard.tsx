@@ -6,11 +6,14 @@ import BorrowerPanel from "./borrower/BorrowerPanel"
 import { LenderPanel } from "./lender/LenderPanel"
 import { TransactionHistory } from "./shared/TransactionHistory"
 import { UserPanel } from "./user/UserPanel"
-import { useState } from "react"
+import { CreditScorePanel } from "./borrower/CreditScorePanel"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Settings, Shield } from "lucide-react"
 import { ethers } from "ethers"
 import { GovernancePanel } from "./governance/GovernancePanel";
+import { SignatureNullifierGenerator } from "./SignatureNullifierGenerator";
+
 
 interface DashboardProps {
     contract: ethers.Contract;
@@ -24,13 +27,27 @@ interface DashboardProps {
 
 export function Dashboard({ contract, lendingManagerContract, account, isAdmin, isLiquidator, provider, contracts }: DashboardProps) {
     const [showAdminControls, setShowAdminControls] = useState(false)
+    const [activeTab, setActiveTab] = useState('user')
     const [tlsnStatus, setTlsnStatus] = useState('')
     const [tlsnStatusType, setTlsnStatusType] = useState<'success' | 'error' | ''>('')
 
+    // Listen for navigation events from other components
+    useEffect(() => {
+        const handleNavigateToTab = (event: CustomEvent) => {
+            setActiveTab(event.detail);
+        };
+
+        window.addEventListener('navigateToTab', handleNavigateToTab as EventListener);
+        return () => {
+            window.removeEventListener('navigateToTab', handleNavigateToTab as EventListener);
+        };
+    }, []);
+
     const openTLSNExtension = () => {
+        // Navigate to credit score tab and start process
+        setActiveTab('credit-score');
+        
         console.log('Attempting to open TLSN extension...');
-        console.log('window.openTLSNExtension =', window.openTLSNExtension);
-        console.log('window.tlsnExtensionAvailable =', window.tlsnExtensionAvailable);
         
         if (window.openTLSNExtension && window.tlsnExtensionAvailable) {
             try {
@@ -40,7 +57,6 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                 setTlsnStatus('Opening TLSN Extension for credit verification...');
                 setTlsnStatusType('success');
                 
-                // Clear success message after 3 seconds
                 setTimeout(() => {
                     setTlsnStatus('');
                     setTlsnStatusType('');
@@ -52,9 +68,8 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
             }
         } else {
             console.log('TLSN Extension not available');
+            setTlsnStatus('TLSN Extension not found. Please install the extension first.');
             console.log('Available functions:', Object.keys(window).filter(key => key.includes('tlsn')));
-
-            setTlsnStatus('TLSN Extension not found. This is a demo feature - extension not required for basic functionality.');
             setTlsnStatusType('error');
 
             // Clear warning message after 5 seconds
@@ -89,6 +104,8 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                         TLSN Credit Score
                     </Button>
                 </div>
+
+                
             </div>
 
             {/* TLSN Status Message */}
@@ -108,21 +125,24 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                 </div>
             )}
 
-            <Tabs defaultValue="user" className="w-full">
-                <TabsList className="grid w-full grid-cols-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-7">
                     <TabsTrigger value="user">User Dashboard</TabsTrigger>
                     <TabsTrigger value="lend">Lend</TabsTrigger>
                     <TabsTrigger value="borrow">Borrow</TabsTrigger>
-                    <TabsTrigger value="transaction-history">Transaction History</TabsTrigger>
+                    <TabsTrigger value="credit-score">Credit Score</TabsTrigger>
+                    <TabsTrigger value="transaction-history">Transactions</TabsTrigger>
+                    <TabsTrigger value="signatures">Signatures</TabsTrigger>
+
                     {isLiquidator && (
-                        <TabsTrigger value="liquidator">Liquidator Panel</TabsTrigger>
+                        <TabsTrigger value="liquidator">Liquidator</TabsTrigger>
                     )}
                     <TabsTrigger value="governance">Governance</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="user">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <UserPanel contract={contract} account={account || ''} />
+                        <UserPanel contract={contract} account={account || ''} contracts={contracts} />
                     </Card>
                 </TabsContent>
 
@@ -134,7 +154,21 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
 
                 <TabsContent value="borrow">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <BorrowerPanel contract={contract} account={account || ''} />
+                        <BorrowerPanel 
+                            contract={contract} 
+                            account={account || ''} 
+                            contracts={contracts}
+                        />
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="credit-score">
+                    <Card className="p-6 bg-muted/30 backdrop-blur-sm">
+                        <CreditScorePanel 
+                            contracts={contracts} 
+                            account={account || ''} 
+                            provider={provider}
+                        />
                     </Card>
                 </TabsContent>
 
@@ -148,6 +182,15 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
                         />
                     </Card>
                 </TabsContent>
+
+<TabsContent value="signatures">
+    <Card className="p-6 bg-muted/30 backdrop-blur-sm">
+        <SignatureNullifierGenerator 
+            account={account || ''} 
+            provider={provider}
+        />
+    </Card>
+</TabsContent>
 
                 {isLiquidator && (
                     <TabsContent value="liquidator">
