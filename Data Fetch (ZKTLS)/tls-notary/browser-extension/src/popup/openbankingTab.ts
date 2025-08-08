@@ -3,8 +3,18 @@ import {
   fetchTransactions, 
   isAuthenticated, 
   logout, 
-  getStoredUserInfo 
+  getStoredUserInfo,
+  getScore
 } from './openbankingApi';
+import {
+  showLoadingIndicator,
+  createStatusUpdateCallback,
+  showErrorMessage,
+  showSuccessMessage,
+  setButtonState,
+  setButtonText,
+  setButtonsState
+} from '../utils/uiUtils';
 
 interface Transaction {
   id: string;
@@ -15,14 +25,12 @@ interface Transaction {
 }
 
 export function setupOpenbankingTab(): void {
-  console.log('Setting up OpenBanking API tab');
-
-  // Get elements
   const loginState = document.getElementById('openbanking-login-state');
   const authenticatedState = document.getElementById('openbanking-authenticated-state');
   const loginBtn = document.getElementById('openbanking-login-btn');
   const logoutBtn = document.getElementById('openbanking-logout-btn');
   const fetchTransactionsBtn = document.getElementById('openbanking-fetch-transactions-btn');
+  const getScoreBtn = document.getElementById('openbanking-get-score-btn');
   const usernameInput = document.getElementById('openbanking-username') as HTMLInputElement;
   const passwordInput = document.getElementById('openbanking-password') as HTMLInputElement;
   const loginError = document.getElementById('openbanking-login-error');
@@ -32,10 +40,9 @@ export function setupOpenbankingTab(): void {
   const transactionsList = document.getElementById('openbanking-transactions-list');
 
   if (!loginState || !authenticatedState || !loginBtn || !logoutBtn ||
-      !fetchTransactionsBtn || !usernameInput || !passwordInput || 
+      !fetchTransactionsBtn || !getScoreBtn || !usernameInput || !passwordInput || 
       !loginError || !userName || !accountId || 
       !transactionsContainer || !transactionsList) {
-    console.error('Required elements not found for OpenBanking API tab');
     return;
   }
 
@@ -44,6 +51,7 @@ export function setupOpenbankingTab(): void {
   loginBtn.addEventListener('click', handleLogin);
   logoutBtn.addEventListener('click', handleLogout);
   fetchTransactionsBtn.addEventListener('click', handleFetchTransactions);
+  getScoreBtn.addEventListener('click', handleGetScore);
 
   async function checkAuthenticationStatus(): Promise<void> {
     try {
@@ -67,7 +75,6 @@ export function setupOpenbankingTab(): void {
         authenticatedState!.style.display = 'none';
       }
     } catch (error) {
-      console.error('Error checking authentication status:', error);
       loginState!.style.display = 'block';
       authenticatedState!.style.display = 'none';
     }
@@ -87,20 +94,18 @@ export function setupOpenbankingTab(): void {
         return;
       }
 
-      loginBtn!.textContent = 'Logging in...';
-      loginBtn!.setAttribute('disabled', 'true');
+      setButtonText(loginBtn!, 'Logging in...');
+      setButtonState(loginBtn!, true);
 
       const authResponse = await authenticate(username, password);
 
       if (!authResponse) {
-        console.error('Authentication response is null or undefined');
         throw new Error('Authentication failed: Invalid response from server');
       }
 
       const userInfo = await getStoredUserInfo();
 
       if (!userInfo) {
-        console.error('User information not found after authentication');
         throw new Error('Authentication failed: User information not available');
       }
 
@@ -113,18 +118,17 @@ export function setupOpenbankingTab(): void {
       usernameInput.value = '';
       passwordInput.value = '';
     } catch (error) {
-      console.error('Login error:', error);
       loginError!.textContent = error instanceof Error ? error.message : 'Authentication failed';
       loginError!.style.display = 'block';
     } finally {
-      loginBtn!.textContent = 'Login';
-      loginBtn!.removeAttribute('disabled');
+      setButtonText(loginBtn!, 'Login');
+      setButtonState(loginBtn!, false);
     }
   }
 
   async function handleLogout(): Promise<void> {
     try {
-      logoutBtn!.setAttribute('disabled', 'true');
+      setButtonState(logoutBtn!, true);
 
       await logout();
 
@@ -135,136 +139,105 @@ export function setupOpenbankingTab(): void {
 
       transactionsList!.innerHTML = '';
     } catch (error) {
-      console.error('Logout error:', error);
+      // Handle logout error silently
     } finally {
-      logoutBtn!.removeAttribute('disabled');
+      setButtonState(logoutBtn!, false);
     }
   }
 
   async function handleFetchTransactions(): Promise<void> {
-    console.log('[handleFetchTransactions] Transaction fetch button clicked');
     try {
-      console.log('[handleFetchTransactions] Disabling fetch button and showing loading state');
-      fetchTransactionsBtn!.setAttribute('disabled', 'true');
-      fetchTransactionsBtn!.textContent = 'Fetching...';
+      setButtonsState([fetchTransactionsBtn!, getScoreBtn!], true);
+      setButtonText(fetchTransactionsBtn!, 'Fetching...');
 
-      console.log('[handleFetchTransactions] Getting current user info for context');
-      const userInfo = await getStoredUserInfo();
-      console.log('[handleFetchTransactions] Current user context:', userInfo ? 
-        { userId: userInfo.userId, username: userInfo.username } : 'No user info available');
+      const loadingElement = showLoadingIndicator(
+        transactionsContainer!, 
+        transactionsList!, 
+        'Fetching credit score data. This may take a moment...'
+      );
 
-      console.log('[handleFetchTransactions] Calling fetchTransactions API');
+      const updateStatus = createStatusUpdateCallback(
+        loadingElement, 
+        'Fetching credit score data. Please wait...'
+      );
+
       const startTime = performance.now();
-      const transactions = await fetchTransactions();
+      const result = await fetchTransactions(updateStatus);
       const endTime = performance.now();
       console.log(`[handleFetchTransactions] fetchTransactions completed in ${(endTime - startTime).toFixed(2)}ms`);
 
-      console.log('[handleFetchTransactions] Clearing previous transactions list');
       transactionsList!.innerHTML = '';
 
-      if (!transactions) {
-        console.error('[handleFetchTransactions] Transactions array is null or undefined');
-        const errorElement = document.createElement('div');
-        errorElement.className = 'transaction-item';
-        errorElement.textContent = 'Failed to retrieve transactions';
-        transactionsList!.appendChild(errorElement);
+      if (!result || !result.responseReceived) {
+        console.error('[handleFetchTransactions] Failed to receive response');
+        showErrorMessage(
+          transactionsList!, 
+          transactionsContainer!, 
+          new Error('Failed to receive response'), 
+          'Failed to retrieve transactions'
+        );
         return;
       }
 
-      console.log(`[handleFetchTransactions] Received ${transactions.length} transactions`);
-      if (transactions.length > 0) {
-        console.log('[handleFetchTransactions] First transaction sample:', transactions[0]);
-        if (transactions.length > 1) {
-          console.log('[handleFetchTransactions] Last transaction sample:', transactions[transactions.length - 1]);
-        }
-      }
-
-      if (transactions.length === 0) {
-        console.log('[handleFetchTransactions] No transactions found, displaying empty state');
-        const noTransactionsElement = document.createElement('div');
-        noTransactionsElement.className = 'transaction-item';
-        noTransactionsElement.textContent = 'No transactions found';
-        transactionsList!.appendChild(noTransactionsElement);
-      } else {
-        console.log('[handleFetchTransactions] Adding transactions to UI list');
-        transactions.forEach((transaction, index) => {
-          console.log(`[handleFetchTransactions] Processing transaction ${index + 1}/${transactions.length}`);
-          addTransactionToList(transaction);
-        });
-        console.log('[handleFetchTransactions] All transactions added to UI');
-      }
-
-      console.log('[handleFetchTransactions] Displaying transactions container');
+      showSuccessMessage(transactionsList!);
       transactionsContainer!.style.display = 'block';
     } catch (error) {
-      console.error('[handleFetchTransactions] Error fetching transactions:', error);
-      if (error instanceof Error) {
-        console.error('[handleFetchTransactions] Error details:', { 
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        });
-      }
-
-      console.log('[handleFetchTransactions] Creating error UI element');
-      const errorElement = document.createElement('div');
-      errorElement.className = 'transaction-item';
-      errorElement.textContent = error instanceof Error ? error.message : 'Failed to fetch transactions';
-
-      console.log('[handleFetchTransactions] Clearing transactions list and showing error');
-      transactionsList!.innerHTML = '';
-      transactionsList!.appendChild(errorElement);
-
-      transactionsContainer!.style.display = 'block';
+      showErrorMessage(
+        transactionsList!, 
+        transactionsContainer!, 
+        error, 
+        'Failed to fetch transactions'
+      );
     } finally {
-      console.log('[handleFetchTransactions] Resetting fetch button state');
-      fetchTransactionsBtn!.removeAttribute('disabled');
-      fetchTransactionsBtn!.textContent = 'Fetch Transactions';
-      console.log('[handleFetchTransactions] Transaction fetch process complete');
+      setButtonsState([fetchTransactionsBtn!, getScoreBtn!], false);
+      setButtonText(fetchTransactionsBtn!, 'Fetch Credit Score');
     }
   }
 
-  function addTransactionToList(transaction: Transaction): void {
-    console.log('[addTransactionToList] Adding transaction to UI:', transaction.id);
-
-    if (!transaction) {
-      console.error('[addTransactionToList] Transaction is null or undefined');
-      return;
-    }
-
-    console.log('[addTransactionToList] Creating transaction UI element');
-    const transactionElement = document.createElement('div');
-    transactionElement.className = 'transaction-item';
-
-    console.log('[addTransactionToList] Setting description:', transaction.description || 'No description');
-    const descriptionElement = document.createElement('div');
-    descriptionElement.textContent = transaction.description || 'No description';
-
-    const amount = typeof transaction.amount === 'number' ? transaction.amount : 0;
-    console.log('[addTransactionToList] Setting amount:', amount, transaction.currency || 'Unknown');
-    const amountElement = document.createElement('div');
-    amountElement.className = `transaction-amount ${amount >= 0 ? 'positive' : 'negative'}`;
-    amountElement.textContent = `${amount >= 0 ? '+' : ''}${amount} ${transaction.currency || 'Unknown'}`;
-
-    const dateElement = document.createElement('div');
-    dateElement.className = 'transaction-date';
+  async function handleGetScore(): Promise<void> {
     try {
-      const formattedDate = transaction.date ? new Date(transaction.date).toLocaleString() : 'Unknown date';
-      console.log('[addTransactionToList] Setting date:', formattedDate, 'from', transaction.date);
-      dateElement.textContent = formattedDate;
+      setButtonsState([fetchTransactionsBtn!, getScoreBtn!], true);
+      setButtonText(getScoreBtn!, 'Getting Score...');
+
+      const loadingElement = showLoadingIndicator(
+        transactionsContainer!,
+        transactionsList!,
+        'Retrieving credit score. This may take a moment...'
+      );
+
+      const userInfo = await getStoredUserInfo();
+
+      const updateStatus = createStatusUpdateCallback(
+        loadingElement, 
+        'Retrieving credit score. Please wait...'
+      );
+
+      const result = await getScore(updateStatus);
+
+      transactionsList!.innerHTML = '';
+
+      if (!result || !result.responseReceived) {
+        showErrorMessage(
+          transactionsList!,
+          transactionsContainer!,
+          new Error('Failed to receive response'),
+          'Failed to retrieve credit score'
+        );
+        return;
+      }
+
+      showSuccessMessage(transactionsList!);
+      transactionsContainer!.style.display = 'block';
     } catch (error) {
-      console.error('[addTransactionToList] Error formatting date:', error);
-      console.error('[addTransactionToList] Original date value:', transaction.date);
-      dateElement.textContent = 'Invalid date';
+      showErrorMessage(
+        transactionsList!,
+        transactionsContainer!,
+        error,
+        'Failed to fetch credit score'
+      );
+    } finally {
+      setButtonsState([fetchTransactionsBtn!, getScoreBtn!], false);
+      setButtonText(getScoreBtn!, 'Get Score');
     }
-
-    console.log('[addTransactionToList] Assembling transaction UI element');
-    transactionElement.appendChild(descriptionElement);
-    transactionElement.appendChild(amountElement);
-    transactionElement.appendChild(dateElement);
-
-    console.log('[addTransactionToList] Adding transaction to list');
-    transactionsList!.appendChild(transactionElement);
-    console.log('[addTransactionToList] Transaction added successfully');
   }
 }
