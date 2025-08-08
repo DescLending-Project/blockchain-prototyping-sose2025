@@ -95,6 +95,7 @@
   <div id="mainContent">
     <div class="tabs">
       <div class="tab" data-tab="openbankingapi">OpenbankingAPI</div>
+      <div class="tab" data-tab="blockchainapi">BlockchainAPI</div>
       <div class="tab active" data-tab="capture">Capture</div>
       <div class="tab" data-tab="proofs">Proofs</div>
       <div class="tab" data-tab="settings">Settings</div>
@@ -122,8 +123,8 @@
         <p>Account ID: <span id="openbanking-account-id">-</span></p>
       </div>
       <div class="form-group">
-<!--        <button id="openbanking-fetch-transactions-btn">Fetch Transactions</button>-->
-        <button id="openbanking-fetch-transactions-btn">Fetch Credit Score</button>
+        <button id="openbanking-get-score-btn">Fetch Credit Score</button>
+        <button id="openbanking-fetch-transactions-btn">Fetch Transactions</button>
       </div>
       <div id="openbanking-transactions" style="display: none;">
         <h4>Transactions</h4>
@@ -132,6 +133,37 @@
         </div>
       </div>
       <button id="openbanking-logout-btn">Logout</button>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="blockchainapi">
+    <h3>Blockchain API Request</h3>
+    <p>Make requests to Ethereum blockchain APIs with proof generation</p>
+    
+    <div class="form-group">
+      <label for="blockchain-api-endpoint">API Endpoint:</label>
+      <input type="text" id="blockchain-api-endpoint" placeholder="https://sonic-blaze.g.alchemy.com/v2/" value="https://sonic-blaze.g.alchemy.com/v2/">
+    </div>
+    
+    <div class="form-group">
+      <label for="blockchain-api-token">API Token:</label>
+      <input type="text" id="blockchain-api-token" placeholder="Enter your API token">
+    </div>
+    
+    <div class="form-group">
+      <label for="blockchain-block-number">Block Number (hex):</label>
+      <input type="text" id="blockchain-block-number" placeholder="0x68b3" value="0x68b3">
+    </div>
+    
+    <div class="form-group">
+      <button id="blockchain-send-request-btn">Send Request</button>
+    </div>
+    
+    <div id="blockchain-response-container" style="display: none;">
+      <h4>Response</h4>
+      <div id="blockchain-response-content" class="transactions-list">
+        <!-- Response will be added here dynamically -->
+      </div>
     </div>
   </div>
 

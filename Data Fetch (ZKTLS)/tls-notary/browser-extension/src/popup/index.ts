@@ -6,6 +6,7 @@ import { loadProofs  } from './proofs';
 import { setupSettingsManagement, loadSettings } from './settings';
 import { setupModal } from './modal';
 import { setupOpenbankingTab } from './openbankingTab';
+import { setupBlockchainTab } from './blockchainTab';
 import { updateTunnelServiceApiBase } from 'tls-notary-shared';
 import { browserTLSNotaryService } from '../services/BrowserTLSNotaryService';
 import { tlsNotaryServiceBridge } from '../services/TLSNotaryServiceBridge';
@@ -13,18 +14,15 @@ import { isApiAccessible, copyToClipboard } from '../utils/apiUtils';
 import {getSettings, initializeStorage, setSettings} from '../utils/storageUtils';
 
 document.addEventListener('DOMContentLoaded', async function() {
-  // Check if API is accessible
   const apiAvailable = await isApiAccessible();
 
   const apiUnavailableElement = document.getElementById('apiUnavailable');
   const mainContentElement = document.getElementById('mainContent');
 
   if (!apiAvailable) {
-    // Show API unavailable message and hide main content
     if (apiUnavailableElement) apiUnavailableElement.style.display = 'block';
     if (mainContentElement) mainContentElement.style.display = 'none';
 
-    // Load current API base URL into the input field
     const apiBaseInput = document.getElementById('apiBaseUnavailable') as HTMLInputElement;
     if (apiBaseInput) {
       getSettings().then(settings => {
@@ -32,7 +30,6 @@ document.addEventListener('DOMContentLoaded', async function() {
       });
     }
 
-    // Setup save and retry button
     const saveApiBaseBtn = document.getElementById('saveApiBaseBtn');
     if (saveApiBaseBtn) {
       saveApiBaseBtn.addEventListener('click', async () => {
@@ -42,11 +39,9 @@ document.addEventListener('DOMContentLoaded', async function() {
           return;
         }
 
-        // Save the new API base URL to settings
         const settings = await getSettings();
         const newApiBase = apiBaseInput.value;
 
-        // Update the TunnelService with the new API base address
         updateTunnelServiceApiBase(newApiBase);
 
         await setSettings({
@@ -54,15 +49,12 @@ document.addEventListener('DOMContentLoaded', async function() {
           apiBase: newApiBase
         });
 
-        // Check if API is accessible with the new address
         const isAvailable = await isApiAccessible();
 
         if (isAvailable) {
-          // Hide API unavailable message and show main content
           if (apiUnavailableElement) apiUnavailableElement.style.display = 'none';
           if (mainContentElement) mainContentElement.style.display = 'block';
 
-          // Initialize the UI
           initializeUI();
         } else {
           alert('API server is still unavailable with the new address. Please check the address and try again.');
@@ -70,19 +62,15 @@ document.addEventListener('DOMContentLoaded', async function() {
       });
     }
 
-    // Setup retry button
     const retryButton = document.getElementById('retryConnectionBtn');
     if (retryButton) {
       retryButton.addEventListener('click', async () => {
-        // Check again if API is accessible
         const isAvailable = await isApiAccessible();
 
         if (isAvailable) {
-          // Hide API unavailable message and show main content
           if (apiUnavailableElement) apiUnavailableElement.style.display = 'none';
           if (mainContentElement) mainContentElement.style.display = 'block';
 
-          // Initialize the UI
           initializeUI();
         } else {
           alert('API server is still unavailable. Please try again later.');
@@ -90,7 +78,6 @@ document.addEventListener('DOMContentLoaded', async function() {
       });
     }
 
-    // Setup copy buttons
     const copyButtons = document.querySelectorAll('.copy-btn');
 
     copyButtons.forEach((button) => {
@@ -124,6 +111,8 @@ function initializeUI() {
   setupRequestCapture();
 
   setupOpenbankingTab();
+  
+  setupBlockchainTab();
 
   setupSettingsManagement();
 

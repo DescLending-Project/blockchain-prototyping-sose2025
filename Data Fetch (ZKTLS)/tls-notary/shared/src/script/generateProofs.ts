@@ -112,7 +112,7 @@ export async function generateProof(
     console.log('Creating prover with serverDns:', call.serverDNS);
     const prover = (await new Prover({
         serverDns: call.serverDNS,
-        maxRecvData: 2048,
+        maxRecvData: 12048,
     })) as TProver;
 
     console.log('Getting session URL from notary');
@@ -125,11 +125,12 @@ export async function generateProof(
     console.log('Sending request through prover to:', call.request.url, 'via websocket proxy:', call.websocketProxyUrl);
     console.log('Request headers:', call.request.headers);
     console.log('Request body:', call.request.body);
+    let bodyData = call.request.body === '' ? '' : JSON.parse(call.request.body)
     const resp = await prover.sendRequest(call.websocketProxyUrl, {
         url: call.request.url,
         method: call.request.method,
         headers: call.request.headers,
-        body: call.request.body,
+        body: bodyData,
     });
     console.log('Request sent successfully, response received');
 

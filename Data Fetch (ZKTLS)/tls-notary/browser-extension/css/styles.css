@@ -17,14 +17,44 @@ h1 {
   display: flex;
   margin-bottom: 16px;
   border-bottom: 1px solid #ccc;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #ccc transparent;
+}
+
+/* Custom scrollbar for Webkit browsers */
+.tabs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabs::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+  border-radius: 4px;
+}
+
+.tabs::-webkit-scrollbar-thumb:hover {
+  background-color: #aaa;
 }
 
 .tab {
-  padding: 8px 16px;
+  padding: 8px 12px;
   cursor: pointer;
   border: 1px solid transparent;
   border-bottom: none;
-  margin-right: 4px;
+  margin-right: 2px;
+  font-size: 13px;
+  flex: 0 0 auto;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 80px;
 }
 
 .tab.active {
@@ -74,6 +104,12 @@ button {
 
 button:hover {
   background-color: #3367d6;
+}
+
+button:disabled {
+  background-color: #9aa0a6;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .proof-list {
@@ -414,4 +450,33 @@ button:hover {
   background-color: #fce8e6;
   border-radius: 4px;
   border: 1px solid #d93025;
+}
+
+/* Credit Score Styles */
+.score-item {
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.score-value {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 12px 0;
+}
+
+.score-bar-container {
+  width: 100%;
+  height: 16px;
+  background-color: #e0e0e0;
+  border-radius: 8px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.score-bar {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 1s ease-in-out;
 }
