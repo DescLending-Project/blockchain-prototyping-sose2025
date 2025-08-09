@@ -2,6 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const { ethers, network } = require('hardhat');
 
+// Helper function to generate unique nullifiers for borrow operations
+function generateNullifier(index) {
+    return ethers.keccak256(ethers.toUtf8Bytes(`mock_nullifier_${Date.now()}_${index}`));
+}
+
 async function main() {
     // EVM time sanity check and short periods for local testing
     const provider = new ethers.JsonRpcProvider("http://localhost:8545");
@@ -20,6 +25,13 @@ async function main() {
     // Load deployed contract addresses
     const addresses = JSON.parse(fs.readFileSync(path.join(__dirname, '../../frontend/src/addresses.json')));
     const [deployer, lender1, lender2, borrower1, borrower2, ...others] = await ethers.getSigners();
+
+    // Verify contract deployment and ABI compatibility
+    console.log('🔍 Verifying contract deployment...');
+    const liquidityPoolCode = await ethers.provider.getCode(addresses.LiquidityPool);
+    if (liquidityPoolCode === '0x') {
+        throw new Error(`No contract deployed at LiquidityPool address ${addresses.LiquidityPool}. Please run: npx hardhat run scripts/deployAll2.js --network localhost`);
+    }
 
     // Output wallet info
     const roles = [
@@ -76,6 +88,90 @@ async function main() {
     const LendingManager = await ethers.getContractAt('LendingManager', addresses.LendingManager);
     const ProtocolGovernor = await ethers.getContractAt('ProtocolGovernor', addresses.ProtocolGovernor);
     const VotingToken = await ethers.getContractAt('VotingToken', addresses.VotingToken);
+    const NullifierRegistry = await ethers.getContractAt('NullifierRegistry', addresses.nullifierRegistry);
+
+    // Verify borrow function signature
+    console.log('🔍 Checking borrow function signature...');
+    const borrowFunctions = LiquidityPool.interface.fragments.filter(f =>
+        f.type === 'function' && f.name === 'borrow'
+    );
+
+    if (borrowFunctions.length === 0) {
+        throw new Error('No borrow function found in LiquidityPool contract. Please recompile and redeploy contracts.');
+    }
+
+    const borrowFunc = borrowFunctions[0];
+    if (borrowFunc.inputs.length !== 2) {
+        throw new Error(`Borrow function has ${borrowFunc.inputs.length} parameters, expected 2 (amount, nullifier). Please redeploy contracts with updated UserHistory implementation.`);
+    }
+
+    console.log(`✅ Borrow function signature verified: ${borrowFunc.format()}`);
+
+    // --- Setup NullifierRegistry accounts ---
+    console.log('🔧 Setting up NullifierRegistry accounts...');
+
+    // Select accounts for nullifier generation (required before borrowing)
+    const borrowers = [borrower1, borrower2];
+    const liquidationBorrower = others[0]; // Get the liquidation borrower
+    const allBorrowers = [...borrowers, liquidationBorrower, deployer]; // Include deployer for admin operations
+
+    for (const borrower of allBorrowers) {
+        try {
+            console.log(`Setting up nullifier account for ${borrower.address}`);
+            await NullifierRegistry.connect(borrower).selectAccounts([borrower.address]);
+        } catch (error) {
+            console.log(`Warning: Failed to setup nullifier for ${borrower.address}: ${error.message}`);
+        }
+    }
+
+    console.log('✅ NullifierRegistry accounts setup complete');
+
+    // --- Setup Prerequisites for Borrowing ---
+    console.log('🔧 Setting up borrowing prerequisites...');
+
+    // Ensure pool has sufficient funds
+    const poolBalance = await LiquidityPool.getBalance();
+    console.log(`Current pool balance: ${ethers.formatEther(poolBalance)} ETH`);
+
+    if (poolBalance < ethers.parseEther('5')) {
+        console.log('Adding funds to pool...');
+        await deployer.sendTransaction({
+            to: await LiquidityPool.getAddress(),
+            value: ethers.parseEther('10')
+        });
+        const newBalance = await LiquidityPool.getBalance();
+        console.log(`New pool balance: ${ethers.formatEther(newBalance)} ETH`);
+    }
+
+    // Get timelock signer for admin operations
+    const timelockSigner = await ethers.getImpersonatedSigner(addresses.TimelockController);
+
+    // Fund the timelock with ETH for gas fees
+    await deployer.sendTransaction({
+        to: addresses.TimelockController,
+        value: ethers.parseEther('1')
+    });
+    console.log('✅ Funded timelock with ETH for gas fees');
+
+    // Setup credit scores for borrowers (using timelock)
+    const borrowersToSetup = [borrower1, borrower2, liquidationBorrower];
+    for (const borrower of borrowersToSetup) {
+        const currentScore = await LiquidityPool.creditScore(borrower.address);
+        if (currentScore === 0n) {
+            console.log(`Setting credit score for ${borrower.address}`);
+            await LiquidityPool.connect(timelockSigner).setCreditScore(borrower.address, 85);
+        }
+    }
+
+    // Ensure GLINT token is set up as collateral (using timelock)
+    const glintTokenAddress = addresses.GlintToken;
+    const isAllowed = await LiquidityPool.isAllowedCollateral(glintTokenAddress);
+    if (!isAllowed) {
+        console.log('Setting up GLINT as allowed collateral...');
+        await LiquidityPool.connect(timelockSigner).setAllowedCollateral(glintTokenAddress, true);
+    }
+
+    console.log('✅ Borrowing prerequisites setup complete');
 
     // --- Mint voting tokens to as many accounts as possible (up to 10 for dev/test) ---
     // --- Modified Minting Section ---
@@ -114,33 +210,49 @@ async function main() {
     // Impersonate timelock for admin actions
     const timelockSigner = await ethers.getImpersonatedSigner(addresses.TimelockController);
 
+    // Fund the timelock with ETH for gas fees
+    await deployer.sendTransaction({
+        to: addresses.TimelockController,
+        value: ethers.parseEther('1')
+    });
+    console.log('✅ Funded timelock with ETH for gas fees');
+
     // --- Owner/Admin Activities (Deployer) ---
     console.log('Mock: Owner/Admin activities');
 
-    // Set credit scores for users
+    // Load GlintToken contract
+    const GlintToken = await ethers.getContractAt('GlintToken', glintTokenAddress);
+
+    // Note: Using timelock for admin operations (as required by contract)
+    // In production, these would be done through governance proposals
+
+    // Set credit scores for users (already done in prerequisites, but updating for demo)
     console.log('Mock: Admin sets credit score for lender1');
     await LiquidityPool.connect(timelockSigner).setCreditScore(lender1.address, 85);
 
     console.log('Mock: Admin sets credit score for lender2');
     await LiquidityPool.connect(timelockSigner).setCreditScore(lender2.address, 90);
 
-    console.log('Mock: Admin sets credit score for borrower1');
+    console.log('Mock: Admin updates credit score for borrower1');
     await LiquidityPool.connect(timelockSigner).setCreditScore(borrower1.address, 80);
 
-    console.log('Mock: Admin sets credit score for borrower2');
+    console.log('Mock: Admin updates credit score for borrower2');
     await LiquidityPool.connect(timelockSigner).setCreditScore(borrower2.address, 75);
 
-    // --- More Admin Activities ---
-    const glintTokenAddress = addresses.GlintToken;
-    const GlintToken = await ethers.getContractAt('GlintToken', glintTokenAddress);
-
-    console.log('Mock: Admin whitelists GlintToken as collateral');
-    await LiquidityPool.connect(timelockSigner).setAllowedCollateral(glintTokenAddress, true);
+    // Ensure GLINT is whitelisted as collateral (already done in prerequisites)
+    console.log('Mock: Admin confirms GlintToken as collateral');
+    const isStillAllowed = await LiquidityPool.isAllowedCollateral(glintTokenAddress);
+    if (!isStillAllowed) {
+        await LiquidityPool.connect(timelockSigner).setAllowedCollateral(glintTokenAddress, true);
+    }
 
     // Set price feed for GlintToken using MockPriceFeed
     const mockPriceFeedAddress = addresses.MockPriceFeed;
     console.log('Mock: Admin sets price feed for GlintToken');
-    await LiquidityPool.connect(timelockSigner).setPriceFeed(glintTokenAddress, mockPriceFeedAddress);
+    const currentPriceFeed = await LiquidityPool.priceFeed(glintTokenAddress);
+    if (currentPriceFeed === ethers.ZeroAddress) {
+        await LiquidityPool.connect(timelockSigner).setPriceFeed(glintTokenAddress, mockPriceFeedAddress);
+    }
 
     // Admin transfers tokens to borrowers for collateral
     console.log('Mock: Admin transfers GlintTokens to borrowers');
@@ -209,19 +321,58 @@ async function main() {
     // --- Mock Borrower Activities ---
 
     // Borrower1 activities
-    console.log('Mock: Borrower1 deposits 100 GlintToken as collateral');
+    console.log('Mock: Borrower1 deposits 500 GlintToken as collateral');
+    const collateralAmount1 = ethers.parseEther('500');
     await GlintToken.connect(borrower1).approve(await LiquidityPool.getAddress(), ethers.parseEther('1000'));
-    await LiquidityPool.connect(borrower1).depositCollateral(glintTokenAddress, ethers.parseEther('100'));
+    await LiquidityPool.connect(borrower1).depositCollateral(glintTokenAddress, collateralAmount1);
+    console.log(`  Deposited ${ethers.formatEther(collateralAmount1)} GLINT tokens`);
 
-    console.log('Mock: Borrower1 borrows 0.5 ETH');
-    await LiquidityPool.connect(borrower1).borrow(ethers.parseEther('0.5'));
+    console.log('Mock: Borrower1 borrows 1 ETH');
+    const borrowAmount1 = ethers.parseEther('1');
+    const nullifier1 = generateNullifier(1);
+
+    // Debug information before borrow
+    console.log(`  Borrow amount: ${ethers.formatEther(borrowAmount1)} ETH`);
+    console.log(`  Nullifier: ${nullifier1}`);
+
+    try {
+        // Check prerequisites
+        const existingDebt = await LiquidityPool.userDebt(borrower1.address);
+        const creditScore = await LiquidityPool.creditScore(borrower1.address);
+        const collateralValue = await LiquidityPool.getTotalCollateralValue(borrower1.address);
+        const borrowTerms = await LiquidityPool.getBorrowTerms(borrower1.address);
+
+        console.log(`  Existing debt: ${ethers.formatEther(existingDebt)} ETH`);
+        console.log(`  Credit score: ${creditScore}`);
+        console.log(`  Collateral value: ${ethers.formatEther(collateralValue)} ETH`);
+        console.log(`  Max loan amount: ${ethers.formatEther(borrowTerms[2])} ETH`);
+        console.log(`  Required collateral ratio: ${borrowTerms[0]}%`);
+
+        await LiquidityPool.connect(borrower1).borrow(borrowAmount1, nullifier1);
+        console.log('  ✅ Borrow successful');
+
+    } catch (error) {
+        console.log(`  ❌ Borrow failed: ${error.message}`);
+
+        // Try static call for better error info
+        try {
+            await LiquidityPool.connect(borrower1).borrow.staticCall(borrowAmount1, nullifier1);
+        } catch (staticError) {
+            console.log(`  Static call error: ${staticError.message}`);
+        }
+        throw error;
+    }
 
     // Simulate some time passing
     await network.provider.send('evm_increaseTime', [5 * 24 * 3600]); // 5 days
     await network.provider.send('evm_mine');
 
-    console.log('Mock: Borrower1 repays 0.3 ETH (partial repayment)');
-    await LiquidityPool.connect(borrower1).repay({ value: ethers.parseEther('0.3') });
+    console.log('Mock: Borrower1 repays 0.6 ETH (partial repayment)');
+    await LiquidityPool.connect(borrower1).repay({ value: ethers.parseEther('0.6') });
+
+    // Check UserHistory after first repayment
+    const borrower1HistoryAfterPartialRepay = await LiquidityPool.getUserHistory(borrower1.address);
+    console.log(`📊 Borrower1 History: First interaction: ${borrower1HistoryAfterPartialRepay.firstInteractionTimestamp}, Payments: ${borrower1HistoryAfterPartialRepay.succesfullPayments}, Liquidations: ${borrower1HistoryAfterPartialRepay.liquidations}`);
 
     // More time passing
     await network.provider.send('evm_increaseTime', [2 * 24 * 3600]); // 2 days
@@ -233,13 +384,21 @@ async function main() {
         await LiquidityPool.connect(borrower1).repay({ value: remainingDebt });
     }
 
-    // Borrower2 activities
-    console.log('Mock: Borrower2 deposits 80 GlintToken as collateral');
-    await GlintToken.connect(borrower2).approve(await LiquidityPool.getAddress(), ethers.parseEther('800'));
-    await LiquidityPool.connect(borrower2).depositCollateral(glintTokenAddress, ethers.parseEther('80'));
+    // Check final UserHistory for Borrower1
+    const borrower1FinalHistory = await LiquidityPool.getUserHistory(borrower1.address);
+    console.log(`📊 Borrower1 Final History: First interaction: ${borrower1FinalHistory.firstInteractionTimestamp}, Payments: ${borrower1FinalHistory.succesfullPayments}, Liquidations: ${borrower1FinalHistory.liquidations}`);
 
-    console.log('Mock: Borrower2 borrows 0.3 ETH');
-    await LiquidityPool.connect(borrower2).borrow(ethers.parseEther('0.3'));
+    // Borrower2 activities
+    console.log('Mock: Borrower2 deposits 200 GlintToken as collateral');
+    const collateralAmount2 = ethers.parseEther('200');
+    await GlintToken.connect(borrower2).approve(await LiquidityPool.getAddress(), ethers.parseEther('1000'));
+    await LiquidityPool.connect(borrower2).depositCollateral(glintTokenAddress, collateralAmount2);
+    console.log(`  Deposited ${ethers.formatEther(collateralAmount2)} GLINT tokens`);
+
+    console.log('Mock: Borrower2 borrows 0.5 ETH');
+    const borrowAmount2 = ethers.parseEther('0.5');
+    const nullifier2 = generateNullifier(2);
+    await LiquidityPool.connect(borrower2).borrow(borrowAmount2, nullifier2);
 
     // Time passing
     await network.provider.send('evm_increaseTime', [3 * 24 * 3600]); // 3 days
@@ -251,25 +410,32 @@ async function main() {
         await LiquidityPool.connect(borrower2).repay({ value: borrower2Debt });
     }
 
+    // Check UserHistory for Borrower2
+    const borrower2History = await LiquidityPool.getUserHistory(borrower2.address);
+    console.log(`📊 Borrower2 History: First interaction: ${borrower2History.firstInteractionTimestamp}, Payments: ${borrower2History.succesfullPayments}, Liquidations: ${borrower2History.liquidations}`);
+
     // --- Mock Liquidation Scenario ---
-    // Create a third borrower for liquidation demo
-    const [, , , , , liquidationBorrower] = await ethers.getSigners();
+    // Use the liquidation borrower already defined and setup above
 
     console.log('Mock: Setting up liquidation scenario');
     // Set a lower credit score for liquidation borrower
     await LiquidityPool.connect(timelockSigner).setCreditScore(liquidationBorrower.address, 60);
 
     // Transfer some GlintTokens to liquidation borrower
-    await GlintToken.connect(deployer).transfer(liquidationBorrower.address, ethers.parseEther('50'));
+    await GlintToken.connect(deployer).transfer(liquidationBorrower.address, ethers.parseEther('100'));
 
     // Deposit minimal collateral
     console.log('Mock: Liquidation borrower deposits minimal collateral');
-    await GlintToken.connect(liquidationBorrower).approve(await LiquidityPool.getAddress(), ethers.parseEther('50'));
-    await LiquidityPool.connect(liquidationBorrower).depositCollateral(glintTokenAddress, ethers.parseEther('30'));
+    const collateralAmount3 = ethers.parseEther('60');
+    await GlintToken.connect(liquidationBorrower).approve(await LiquidityPool.getAddress(), ethers.parseEther('100'));
+    await LiquidityPool.connect(liquidationBorrower).depositCollateral(glintTokenAddress, collateralAmount3);
+    console.log(`  Deposited ${ethers.formatEther(collateralAmount3)} GLINT tokens`);
 
     // Borrow close to the limit
     console.log('Mock: Liquidation borrower borrows near limit');
-    await LiquidityPool.connect(liquidationBorrower).borrow(ethers.parseEther('0.2'));
+    const borrowAmount3 = ethers.parseEther('0.3');
+    const nullifier3 = generateNullifier(3);
+    await LiquidityPool.connect(liquidationBorrower).borrow(borrowAmount3, nullifier3);
 
     // Simulate price drop or time passage that makes position unhealthy
     await network.provider.send('evm_increaseTime', [10 * 24 * 3600]); // 10 days
@@ -279,8 +445,20 @@ async function main() {
     console.log('Mock: Starting liquidation for unhealthy position');
     try {
         await LiquidityPool.connect(deployer).startLiquidation(liquidationBorrower.address);
+
+        // Simulate liquidation execution (normally done by LendingManager)
+        console.log('Mock: Executing liquidation (simulating LendingManager call)');
+        const liquidationBorrowerDebt = await LiquidityPool.userDebt(liquidationBorrower.address);
+        if (liquidationBorrowerDebt > 0) {
+            // This would normally be called by LendingManager after liquidation
+            await LiquidityPool.clearDebt(liquidationBorrower.address, liquidationBorrowerDebt);
+
+            // Check UserHistory after liquidation
+            const liquidationBorrowerHistory = await LiquidityPool.getUserHistory(liquidationBorrower.address);
+            console.log(`📊 Liquidated Borrower History: First interaction: ${liquidationBorrowerHistory.firstInteractionTimestamp}, Payments: ${liquidationBorrowerHistory.succesfullPayments}, Liquidations: ${liquidationBorrowerHistory.liquidations}`);
+        }
     } catch (error) {
-        console.log('Mock: Liquidation start failed (position might still be healthy):', error.message);
+        console.log('Mock: Liquidation failed (position might still be healthy):', error.message);
     }
 
     // --- All setup is done, now create and vote on proposal ---
@@ -475,6 +653,44 @@ async function main() {
     console.log('Proposal state after execute:', state, getStateName(state)); // 7 = Executed
     console.log('Mock: Proposal executed.');
 
+    // === UserHistory Summary ===
+    console.log('\n' + '='.repeat(60));
+    console.log('📊 USER HISTORY SUMMARY');
+    console.log('='.repeat(60));
+
+    // Use existing signers (already declared at the beginning of main function)
+
+    // Get all user histories
+    const users = [
+        { name: 'Borrower1', address: borrower1.address },
+        { name: 'Borrower2', address: borrower2.address },
+        { name: 'Liquidated Borrower', address: liquidationBorrower.address }
+    ];
+
+    for (const user of users) {
+        try {
+            const history = await LiquidityPool.getUserHistory(user.address);
+            const firstInteraction = history.firstInteractionTimestamp > 0
+                ? new Date(Number(history.firstInteractionTimestamp) * 1000).toLocaleString()
+                : 'Never';
+
+            console.log(`\n👤 ${user.name} (${user.address}):`);
+            console.log(`   First Interaction: ${firstInteraction}`);
+            console.log(`   Successful Payments: ${history.succesfullPayments}`);
+            console.log(`   Liquidations: ${history.liquidations}`);
+
+            // Calculate simple performance score
+            const totalInteractions = Number(history.succesfullPayments) + Number(history.liquidations);
+            if (totalInteractions > 0) {
+                const score = (Number(history.succesfullPayments) / totalInteractions * 100).toFixed(1);
+                console.log(`   Performance Score: ${score}% (${history.succesfullPayments}/${totalInteractions})`);
+            }
+        } catch (error) {
+            console.log(`\n👤 ${user.name}: Error fetching history - ${error.message}`);
+        }
+    }
+
+    console.log('\n' + '='.repeat(60));
     console.log('Mock transactions complete.');
 }
 

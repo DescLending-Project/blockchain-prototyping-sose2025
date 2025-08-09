@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("LiquidityPool - Comprehensive Coverage", function () {
-    let liquidityPool, stablecoinManager, lendingManager, interestRateModel, creditSystem, votingToken;
+    let liquidityPool, stablecoinManager, lendingManager, interestRateModel, creditSystem, votingToken, nullifierRegistry;
     let mockToken, mockPriceFeed, timelock;
     let owner, user1, user2, user3, liquidator, borrower1, borrower2;
 
@@ -93,6 +93,12 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         );
         await lendingManager.waitForDeployment();
 
+        // Deploy NullifierRegistry
+        const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
+        nullifierRegistry = await NullifierRegistry.deploy();
+        await nullifierRegistry.waitForDeployment();
+        await nullifierRegistry.initialize(owner.address);
+
         // Deploy LiquidityPool
         const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
         liquidityPool = await LiquidityPool.deploy();
@@ -104,7 +110,8 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
             await interestRateModel.getAddress(),
-            await creditSystem.getAddress()
+            await creditSystem.getAddress(),
+            await nullifierRegistry.getAddress()
         );
 
         // Set up connections (lending manager already set in initialize)

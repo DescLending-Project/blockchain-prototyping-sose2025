@@ -10,6 +10,11 @@ import "./StablecoinManager.sol";
 import "./LendingManager.sol";
 import "./InterestRateModel.sol";
 import "./VotingToken.sol";
+struct UserHistory{
+    uint256 firstInteractionTimestamp; // only set the first time borrowed
+    uint256 liquidations; // amount of liquidations
+    uint256 succesfullPayments; // amount of repayments
+}
 
 //interface for verifier
 interface ICreditScore {
@@ -44,6 +49,8 @@ contract LiquidityPool is
     // Update all references to use stablecoinManager.getLTV(token) and stablecoinManager.getLiquidationThreshold(token)
     // Remove per-token threshold/ltv logic from this contract
     mapping(address => address) public priceFeed;
+
+    mapping(address => UserHistory) public userHistory;
 
     address[] public collateralTokenList;
     address[] public users;
@@ -583,6 +590,10 @@ contract LiquidityPool is
         return userDebt[msg.sender];
     }
 
+    function getUserHistory(address user) external view returns (UserHistory memory) {
+        return userHistory[user];
+    }
+
     // Get user's risk tier
     // Get user's risk tier (UPDATED to use RISC0 scores)
     function getRiskTier(address user) public view returns (RiskTier) {
@@ -805,13 +816,17 @@ contract LiquidityPool is
         borrowedAmountByRiskTier[tier] += amount;
         totalBorrowedAllTime += amount;
 
-        // 12. Mark credit score as used (not done yet)
-        // if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
-        //     creditScoreContract.markScoreAsUsed(msg.sender);
-        // }
+        // Update user history - set first interaction timestamp if this is their first borrow
+        if (userHistory[msg.sender].firstInteractionTimestamp == 0) {
+            userHistory[msg.sender].firstInteractionTimestamp = block.timestamp;
+            emit UserHistoryUpdated(msg.sender, "first_borrow", block.timestamp);
+        }
 
         // 13. Transfer net amount to borrower (after deducting origination fee)
         payable(msg.sender).transfer(netAmount);
+
+        // TODO: set creditscore to used in the CreditScore.sol contract
+        // call a function passing the user
 
         emit LoanDisbursed(msg.sender, amount, adjustedRate);
         emit Borrowed(msg.sender, amount);
@@ -847,6 +862,11 @@ contract LiquidityPool is
         userDebt[msg.sender] -= loan.installmentAmount;
         totalRepaidAllTime += loan.installmentAmount;
         loan.nextDueDate += 30 days;
+
+        // Update user history - increment successful payments
+        userHistory[msg.sender].succesfullPayments += 1;
+        emit UserHistoryUpdated(msg.sender, "installment_payment", block.timestamp);
+
         emit LoanInstallmentPaid(msg.sender, msg.value, loan.outstanding);
         if (loan.outstanding == 0) {
             loan.active = false;
@@ -867,6 +887,10 @@ contract LiquidityPool is
         // Update borrowed amount by risk tier
         RiskTier tier = getRiskTier(msg.sender);
         borrowedAmountByRiskTier[tier] -= repayAmount;
+
+        // Update user history - increment successful payments
+        userHistory[msg.sender].succesfullPayments += 1;
+        emit UserHistoryUpdated(msg.sender, "repayment", block.timestamp);
 
         // Clear liquidation status
         if (isLiquidatable[msg.sender]) {
@@ -1282,6 +1306,10 @@ contract LiquidityPool is
         // Remove all debt from borrowedAmountByRiskTier
         borrowedAmountByRiskTier[getRiskTier(user)] -= amount;
         totalRepaidAllTime += amount;
+
+        // Update user history - increment liquidations counter
+        userHistory[user].liquidations += 1;
+        emit UserHistoryUpdated(user, "liquidation", block.timestamp);
     }
 
     function withdrawPartialCollateral(
