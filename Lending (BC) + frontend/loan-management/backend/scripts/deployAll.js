@@ -455,13 +455,12 @@ async function main() {
         MockPriceFeedUSDT: await usdtMockFeed.getAddress(),
         IntegratedCreditSystem: await creditSystem.getAddress()
     };
-    // Also write to frontend/src/addresses.json for compatibility
+    // Write to frontend/src/addresses.json
     const fs = require('fs');
     const path = require('path');
     try {
-        fs.writeFileSync(path.join(__dirname, '../../frontend/addresses.json'), JSON.stringify(addressesObj, null, 2));
         fs.writeFileSync(path.join(__dirname, '../../frontend/src/addresses.json'), JSON.stringify(addressesObj, null, 2));
-        console.log('Wrote addresses to frontend/addresses.json and frontend/src/addresses.json');
+        console.log('Wrote addresses to frontend/src/addresses.json');
         // Copy ABIs to frontend/src/abis
         execSync(`node "${path.join(__dirname, 'copy-artifacts.js')}"`, { stdio: 'inherit' });
     } catch (e) {
