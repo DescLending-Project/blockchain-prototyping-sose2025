@@ -115,7 +115,7 @@ export default function App() {
       creditSystem: addresses.IntegratedCreditSystem,
       risc0Test: addresses.risc0Test,
       creditScoreVerifier: addresses.creditScoreVerifier,
-      nullifierRegistry: addresses.nullifierRegistry
+      //nullifierRegistry: addresses.nullifierRegistry
     };
   };
 
@@ -184,11 +184,11 @@ export default function App() {
           CreditScoreABI.abi,
           signer
       );
-        contractInstances.nullifierRegistry = new ethers.Contract(
+        /*contractInstances.nullifierRegistry = new ethers.Contract(
           addresses.nullifierRegistry,
           nullifierRegistryABI.abi,
           signer
-        );
+        );*/
         
         // Optional contracts (may not exist on all networks)
         if (addresses.creditSystem) {

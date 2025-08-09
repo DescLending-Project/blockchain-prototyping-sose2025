@@ -381,47 +381,18 @@ async function main() {
     console.log("InterestRateModel:", interestRateModelAddress);
     console.log(`[DEPLOYED] InterestRateModel at: ${interestRateModelAddress} (new deployment)`);
 
-    // 6. Deploy IntegratedCreditSystem first (as before)
-    const IntegratedCreditSystem = await ethers.getContractFactory("IntegratedCreditSystem");
-    const creditSystem = await IntegratedCreditSystem.deploy(
-        ethers.ZeroAddress, // SimpleRISC0Test placeholder
-        ethers.ZeroAddress  // LiquidityPool placeholder
-    );
-    await creditSystem.waitForDeployment();
-    console.log("IntegratedCreditSystem deployed at:", await creditSystem.getAddress());
-
-    // Deploy NullifierRegistry as upgradeable
-    const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
-    const nullifierRegistry = await upgrades.deployProxy(NullifierRegistry, [
-        deployer.address // admin
-    ], {
-        initializer: "initialize",
-    });
-    await nullifierRegistry.waitForDeployment();
-    
-    console.log("NullifierRegistry deployed to:", await nullifierRegistry.getAddress());
-
-    // Deploy LiquidityPool with DAO as admin and creditSystem address as 5th param
+    // 6. Deploy LiquidityPool with DAO as admin
     const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
         deployer.address, // LOCAL/DEV: deployer is admin
         stablecoinManagerAddress,
         ethers.ZeroAddress, // LendingManager placeholder
         interestRateModelAddress,
-        await creditSystem.getAddress(),
-        await nullifierRegistry.getAddress(),
     ], {
         initializer: "initialize",
     });
     await liquidityPool.waitForDeployment();
     console.log("LiquidityPool deployed at:", await liquidityPool.getAddress());
-
-    // Set LiquidityPool address in IntegratedCreditSystem (if setter exists)
-    if (creditSystem.setLiquidityPool) {
-        const tx = await creditSystem.setLiquidityPool(await liquidityPool.getAddress());
-        await tx.wait();
-        console.log("LiquidityPool address set in IntegratedCreditSystem.");
-    }
 
     // 7. Deploy LendingManager
     console.log("\nDeploying LendingManager...");
@@ -491,22 +462,6 @@ async function main() {
         console.log('⚠️ Continuing deployment, you can set this later via governance');
     }
 
-    //console.log("Deploying NullifierRegistry with account:", deployer.address);
-    
-    // Verify initialization (no need to call initialize manually with proxy deployment)
-    const DEFAULT_ADMIN_ROLE_DEBUG = await nullifierRegistry.DEFAULT_ADMIN_ROLE();
-    const isDeployerAdmin = await nullifierRegistry.hasRole(DEFAULT_ADMIN_ROLE_DEBUG, deployer.address);
-    console.log("🔍 Is deployer admin of NullifierRegistry?", isDeployerAdmin);
-
-    
-    // Grant NULLIFIER_CONSUMER_ROLE to LiquidityPool
-    const liquidityPoolAddress = await liquidityPool.getAddress();
-    
-    const NULLIFIER_CONSUMER_ROLE = await nullifierRegistry.NULLIFIER_CONSUMER_ROLE();
-    await nullifierRegistry.grantRole(NULLIFIER_CONSUMER_ROLE, liquidityPoolAddress);
-    
-    console.log("Nullifier setup complete!");
-
     // 7.3 Setup other initial configurations while deployer is still admin
     console.log('\n⚙️ Setting up additional configurations...');
     
@@ -522,11 +477,7 @@ async function main() {
         console.log('Whitelisting LiquidityPool in ProtocolGovernor...');
         // Note: This requires governance, so we'll do it via executeGovernanceProposal
         
-        // Set up any price feeds if needed
-        // await liquidityPool.setPriceFeed(tokenAddress, feedAddress);
-        
-        // Set up any collateral tokens
-        // await liquidityPool.setAllowedCollateral(tokenAddress, true);
+        // Price feeds and collateral are now set up before admin transfer
         
     } catch (error) {
         console.error('❌ Error in additional setup:', error.message);
@@ -568,20 +519,16 @@ async function main() {
     await liquidityPool.setLendingManager(await lendingManager.getAddress());
     console.log("LiquidityPool updated.");
 
-    // 9. Transfer LiquidityPool admin to Timelock (for full governance)
-    console.log("Transferring LiquidityPool admin to Timelock...");
-    await liquidityPool.setAdmin(await timelock.getAddress());
-    console.log("LiquidityPool admin transferred to Timelock.");
-
-    // 3. Deploy GlintToken
+    // 8.1. Deploy GlintToken
+    console.log("\n📦 Deploying GlintToken...");
     const GlintToken = await ethers.getContractFactory("GlintToken");
     const glintToken = await GlintToken.deploy(ethers.parseEther('1000000'));
     await glintToken.waitForDeployment();
     const glintTokenAddress = await glintToken.getAddress();
     console.log("GlintToken deployed at:", glintTokenAddress);
 
-    // 10. Deploy MockPriceFeed for GlintToken
-    console.log("\nDeploying MockPriceFeed for GlintToken...");
+    // 8.2. Deploy MockPriceFeed for GlintToken
+    console.log("Deploying MockPriceFeed for GlintToken...");
     const glintMockFeed = await MockPriceFeed.deploy(
         ethers.parseUnits("1.00", 8), // 1.00 with 8 decimals
         8
@@ -590,7 +537,30 @@ async function main() {
     const glintMockFeedAddress = await glintMockFeed.getAddress();
     console.log("MockPriceFeed for GlintToken deployed to:", glintMockFeedAddress);
 
-    // (Remove duplicate USDC/USDT MockPriceFeed deployment here, as it was already done above.)
+    // 8.3. Setup GLINT token as collateral (BEFORE transferring admin to timelock)
+    console.log("\n⚙️  Setting up GLINT token as collateral...");
+    try {
+        // Set up GLINT as allowed collateral
+        await liquidityPool.setAllowedCollateral(glintTokenAddress, true);
+        console.log("✅ GLINT token allowed as collateral");
+
+        // Set up price feed for GLINT
+        await liquidityPool.setPriceFeed(glintTokenAddress, glintMockFeedAddress);
+        console.log("✅ Price feed set for GLINT token");
+    } catch (error) {
+        console.error("❌ Failed to setup GLINT collateral:", error.message);
+        throw error;
+    }
+
+    console.log("  Setting credit score contract...");
+    const creditScoreAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"; // NOTE: CHANGE WITH ACTUAL ADDRESS, OR MOVE THE CONTRACT INTO THIS PROJECT FOLDER TO USE IT DYNAMICALLY
+    await liquidityPool.setCreditScoreContract(creditScoreAddress);
+    console.log("  ✅ Credit score contract set to:", creditScoreAddress);
+
+    // 9. Transfer LiquidityPool admin to Timelock (for full governance)
+    console.log("\nTransferring LiquidityPool admin to Timelock...");
+    await liquidityPool.setAdmin(await timelock.getAddress());
+    console.log("LiquidityPool admin transferred to Timelock.");
 
     // Output all addresses
     console.log("\nDeployment complete:");
@@ -602,10 +572,9 @@ async function main() {
     console.log("LiquidityPool:", await liquidityPool.getAddress());
     console.log("LendingManager:", await lendingManager.getAddress());
     console.log("GlintToken:", glintTokenAddress);
-    console.log("MockPriceFeed (Glint):", await glintMockFeed.getAddress());
+    console.log("MockPriceFeed (Glint):", glintMockFeedAddress);
     console.log("MockPriceFeed USDC:", await usdcMockFeed.getAddress());
     console.log("MockPriceFeed USDT:", await usdtMockFeed.getAddress());
-    console.log("IntegratedCreditSystem:", await creditSystem.getAddress());
 
     // Optionally update frontend/app addresses
     const addressesObj = {
@@ -617,10 +586,9 @@ async function main() {
         LiquidityPool: await liquidityPool.getAddress(),
         LendingManager: await lendingManager.getAddress(),
         GlintToken: glintTokenAddress,
-        MockPriceFeed: await glintMockFeed.getAddress(),
+        MockPriceFeed: glintMockFeedAddress,
         MockPriceFeedUSDC: await usdcMockFeed.getAddress(),
-        MockPriceFeedUSDT: await usdtMockFeed.getAddress(),
-        IntegratedCreditSystem: await creditSystem.getAddress()
+        MockPriceFeedUSDT: await usdtMockFeed.getAddress()
     };
     // Also write to frontend/src/addresses.json for compatibility
     const fs = require('fs');

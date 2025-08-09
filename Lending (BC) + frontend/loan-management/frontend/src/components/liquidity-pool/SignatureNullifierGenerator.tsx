@@ -63,6 +63,8 @@ interface Props {
 export function SignatureNullifierGenerator({ account, provider }: Props) {
     const [availableAccounts, setAvailableAccounts] = useState<string[]>([]);
     const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+    const [accountBalances, setAccountBalances] = useState<{[address: string]: string}>({});
+    const [loadingBalances, setLoadingBalances] = useState<boolean>(false);
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
     const [results, setResults] = useState<ProcessingResults | null>(null);
@@ -91,6 +93,32 @@ export function SignatureNullifierGenerator({ account, provider }: Props) {
         loadAvailableAccounts();
     }, []);
 
+    const loadAccountBalances = async (accounts: string[]) => {
+        if (!provider || accounts.length === 0) return;
+        
+        setLoadingBalances(true);
+        const balances: {[address: string]: string} = {};
+        
+        try {
+            await Promise.all(
+                accounts.map(async (accountAddr) => {
+                    try {
+                        const balance = await provider.getBalance(accountAddr);
+                        balances[accountAddr] = ethers.formatEther(balance);
+                    } catch (err) {
+                        console.error(`Failed to get balance for ${accountAddr}:`, err);
+                        balances[accountAddr] = "Error";
+                    }
+                })
+            );
+            setAccountBalances(balances);
+        } catch (err) {
+            console.error('Failed to load account balances:', err);
+        } finally {
+            setLoadingBalances(false);
+        }
+    };
+
     const loadAvailableAccounts = async () => {
         if (!window.ethereum) {
             setError('MetaMask not detected');
@@ -104,6 +132,9 @@ export function SignatureNullifierGenerator({ account, provider }: Props) {
             });
             
             setAvailableAccounts(accounts);
+            
+            // Load balances for all accounts
+            await loadAccountBalances(accounts);
             
             // Auto-select current account if available
             if (accounts.includes(account)) {
@@ -643,6 +674,15 @@ export function SignatureNullifierGenerator({ account, provider }: Props) {
         return `${address.slice(0, 6)}...${address.slice(-4)}`;
     };
 
+    const formatBalance = (balance: string) => {
+        if (!balance || balance === "Error") return balance;
+        const num = parseFloat(balance);
+        if (num === 0) return "0 ETH";
+        if (num < 0.001) return "<0.001 ETH";
+        if (num < 1) return `${num.toFixed(4)} ETH`;
+        return `${num.toFixed(3)} ETH`;
+    };
+
     return (
         <Card className="w-full max-w-4xl mx-auto">
             <CardHeader>
@@ -682,8 +722,15 @@ export function SignatureNullifierGenerator({ account, provider }: Props) {
                                     <Button variant="outline" size="sm" onClick={clearSelection}>
                                         Clear
                                     </Button>
-                                    <Button variant="outline" size="sm" onClick={loadAvailableAccounts}>
-                                        Refresh
+                                    <Button variant="outline" size="sm" onClick={loadAvailableAccounts} disabled={loadingBalances}>
+                                        {loadingBalances ? (
+                                            <>
+                                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                                Loading
+                                            </>
+                                        ) : (
+                                            "Refresh"
+                                        )}
                                     </Button>
                                 </div>
                             </div>
@@ -704,15 +751,28 @@ export function SignatureNullifierGenerator({ account, provider }: Props) {
                                                 onCheckedChange={() => handleAccountToggle(accountAddr)}
                                             />
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="font-mono text-sm">{accountAddr}</p>
-                                                    {accountAddr === account && (
-                                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                                            Current
-                                                        </Badge>
-                                                    )}
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-mono text-sm">{accountAddr}</p>
+                                                        {accountAddr === account && (
+                                                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                                Current
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {loadingBalances ? (
+                                                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                                Loading...
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-sm font-medium text-gray-600">
+                                                                {formatBalance(accountBalances[accountAddr] || "0")}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                
                                             </div>
                                         </div>
                                     ))}
@@ -721,7 +781,23 @@ export function SignatureNullifierGenerator({ account, provider }: Props) {
 
                             <div className="flex items-center justify-between text-sm text-gray-600">
                                 <span>Selected: {selectedAccounts.length} account(s)</span>
-                                <span>Each account = 1 unique nullifier</span>
+                                <div className="flex items-center gap-4">
+                                    <span>
+                                        Total Balance: {
+                                            loadingBalances ? (
+                                                <Loader2 className="h-3 w-3 animate-spin inline ml-1" />
+                                            ) : (
+                                                formatBalance(
+                                                    selectedAccounts
+                                                        .map(addr => parseFloat(accountBalances[addr] || "0"))
+                                                        .reduce((sum, balance) => sum + balance, 0)
+                                                        .toString()
+                                                )
+                                            )
+                                        }
+                                    </span>
+                                    <span>Each account = 1 unique nullifier</span>
+                                </div>
                             </div>
                         </div>
 

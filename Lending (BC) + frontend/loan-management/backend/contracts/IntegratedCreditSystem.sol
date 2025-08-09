@@ -4,6 +4,9 @@ pragma solidity ^0.8.20;
 import "./SimpleRISC0Test.sol";
 import "./LiquidityPool.sol";
 
+// THIS CONTRACT IS NOT USED ANYMORE!
+
+
 // improved integrated credit system contract which integrates with RISC0 proofs and liquidity pool
 contract IntegratedCreditSystem {
     // Core contracts
@@ -404,7 +407,7 @@ contract IntegratedCreditSystem {
 
         // Update liquidity pool with new credit score
         if (newScore > 0) {
-            liquidityPool.updateCreditScoreFromZK(msg.sender, newScore);
+            liquidityPool.setCreditScore(msg.sender, newScore);
         }
     }
 

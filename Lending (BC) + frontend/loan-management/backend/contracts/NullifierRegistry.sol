@@ -4,6 +4,9 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
+
+// THIS CONTRACT IS NOT USED ANYMORE!
+
 contract NullifierRegistry is Initializable, AccessControlUpgradeable {
     // Role for contracts that can use nullifiers
     bytes32 public constant NULLIFIER_CONSUMER_ROLE = keccak256("NULLIFIER_CONSUMER_ROLE");
