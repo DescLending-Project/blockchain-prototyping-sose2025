@@ -36,8 +36,8 @@ export async function loadProofs(): Promise<void> {
 
       proofItem.innerHTML = `
         <div>${proof.formData.url} - ${formattedDate}</div>
-        <div class="status-container">
-          Status: <span class="status status-${proof.status.toLowerCase()}">${proof.status}</span>
+        <div class="proof-actions-container">
+          <span class="status status-${proof.status.toLowerCase()}">${proof.status}</span>
           <button class="delete-proof-btn" data-id="${proof.id}" title="Delete proof">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"></polyline>

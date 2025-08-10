@@ -14,7 +14,7 @@ import { HTTPParser } from 'http-parser-js';
 import { Buffer} from "buffer";
 
 const { init, Prover, Presentation }: any = Comlink.wrap(
-    new Worker(new URL('./worker.ts', import.meta.url)),
+  new Worker(new URL('./worker.ts', import.meta.url)),
 );
 
 export const loggingLevel = 'Debug';
@@ -24,7 +24,7 @@ export const loggingLevel = 'Debug';
  */
 function parseHttpMessage(buffer: Buffer, type: 'request' | 'response') {
     const parser = new HTTPParser(
-        type === 'request' ? HTTPParser.REQUEST : HTTPParser.RESPONSE,
+      type === 'request' ? HTTPParser.REQUEST : HTTPParser.RESPONSE,
     );
     const body: Buffer[] = [];
     let complete = false;
@@ -95,7 +95,7 @@ let wasmInitialized = false;
  */
 
 export async function generateProof(
-    call: TLSCallRequest,
+  call: TLSCallRequest,
 ): Promise<TLSCallResponse> {
     console.log('Starting generateProof function with request:', {
         url: call.request.url,
@@ -112,7 +112,7 @@ export async function generateProof(
     console.log('Creating prover with serverDns:', call.serverDNS);
     const prover = (await new Prover({
         serverDns: call.serverDNS,
-        maxRecvData: 2048,
+        maxRecvData: 12048,
     })) as TProver;
 
     console.log('Getting session URL from notary');
@@ -125,11 +125,12 @@ export async function generateProof(
     console.log('Sending request through prover to:', call.request.url, 'via websocket proxy:', call.websocketProxyUrl);
     console.log('Request headers:', call.request.headers);
     console.log('Request body:', call.request.body);
+    let bodyData = call.request.body === '' ? '' : JSON.parse(call.request.body)
     const resp = await prover.sendRequest(call.websocketProxyUrl, {
         url: call.request.url,
         method: call.request.method,
         headers: call.request.headers,
-        body: call.request.body,
+        body: bodyData,
     });
     console.log('Request sent successfully, response received');
 
@@ -172,7 +173,7 @@ export async function generateProof(
         } else {
             console.log(`Processing simple value for key: ${key}, type: ${typeof value}`);
             const formattedValue =
-                typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other types as is
+              typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other types as is
             acc.push(`"${key}":${formattedValue}`);
         }
         return acc;
@@ -183,20 +184,20 @@ export async function generateProof(
     console.log('Creating commit object');
     const commit: Commit = {
         sent: subtractRanges(
-            { start: 0, end: sent.length },
-            mapStringToRange(
-                ['secret: test_secret'],
-                Buffer.from(sent).toString('utf-8'),
-            ),
+          { start: 0, end: sent.length },
+          mapStringToRange(
+            ['secret: test_secret'],
+            Buffer.from(sent).toString('utf-8'),
+          ),
         ),
         recv: [
             ...mapStringToRange(
-                [
-                    recvInfo,
-                    ...extractHeaderStrings(recvHeaders),
-                    ...revealFields,
-                ],
-                Buffer.from(recv).toString('utf-8'),
+              [
+                  recvInfo,
+                  ...extractHeaderStrings(recvHeaders),
+                  ...revealFields,
+              ],
+              Buffer.from(recv).toString('utf-8'),
             ),
         ],
     };
@@ -243,7 +244,7 @@ export async function verifyProof(notaryUrl: string, presentationJSON: Presentat
 
     console.log('Creating presentation object from JSON data:', presentationJSON.data);
     const proof = (await new Presentation(
-        presentationJSON.data,
+      presentationJSON.data,
     )) as TPresentation;
     console.log('Presentation object created successfully');
 
@@ -291,7 +292,7 @@ function flattenObjectToStrings(obj: Record<string, any>, separator: string = '.
         } else {
             console.log(`Formatting value for key: ${key}, type: ${typeof value}`);
             const formattedValue =
-                typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other values as is
+              typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other values as is
             result.push(`"${key}":${formattedValue}`);
         }
     }

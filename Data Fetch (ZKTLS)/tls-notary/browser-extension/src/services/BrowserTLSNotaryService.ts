@@ -117,9 +117,9 @@ class BrowserTLSNotaryService {
   private async saveProofsToStorage() {
     try {
       // Filter records to only include those that have been received
-      const receivedRecords = this.records.filter(record => 
-        record.status === RequestStatus.Received || 
-        record.status === RequestStatus.Pending || 
+      const receivedRecords = this.records.filter(record =>
+        record.status === RequestStatus.Received ||
+        record.status === RequestStatus.Pending ||
         record.status === RequestStatus.Verified
       );
 
