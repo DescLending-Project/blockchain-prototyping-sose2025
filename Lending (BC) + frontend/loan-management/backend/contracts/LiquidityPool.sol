@@ -828,6 +828,7 @@ contract LiquidityPool is
         // TODO: set creditscore to used in the CreditScore.sol contract
         // call a function passing the user
 
+
         emit LoanDisbursed(msg.sender, amount, adjustedRate);
         emit Borrowed(msg.sender, amount);
     }
