@@ -111,7 +111,7 @@ describe("LiquidityPool - Basic Tests", function() {
             ethers.ZeroAddress, // lendingManager (will be set later)
             await interestRateModel.getAddress(), // interestRateModel
             ethers.ZeroAddress, // creditSystem
-            await nullifierRegistry.getAddress() // nullifierRegistry
+            await nullifierRegistry.getAddress()
         );
 
         // Deploy LendingManager

@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("LiquidityPool - Comprehensive Coverage", function () {
-    let liquidityPool, stablecoinManager, lendingManager, interestRateModel, creditSystem, votingToken, nullifierRegistry;
+    let liquidityPool, stablecoinManager, lendingManager, interestRateModel, creditSystem, votingToken;
     let mockToken, mockPriceFeed, timelock;
     let owner, user1, user2, user3, liquidator, borrower1, borrower2;
 
@@ -93,12 +93,6 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         );
         await lendingManager.waitForDeployment();
 
-        // Deploy NullifierRegistry
-        const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
-        nullifierRegistry = await NullifierRegistry.deploy();
-        await nullifierRegistry.waitForDeployment();
-        await nullifierRegistry.initialize(owner.address);
-
         // Deploy LiquidityPool
         const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
         liquidityPool = await LiquidityPool.deploy();
@@ -110,8 +104,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
             await interestRateModel.getAddress(),
-            await creditSystem.getAddress(),
-            await nullifierRegistry.getAddress()
+            await creditSystem.getAddress()
         );
 
         // Set up connections (lending manager already set in initialize)
@@ -531,10 +524,9 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
 
         it("should handle borrowing correctly", async function () {
             const borrowAmount = ethers.parseEther("30"); // Within tier 2 limit (40 ETH max)
-            const nullifier = ethers.keccak256(ethers.toUtf8Bytes(`nullifier_${Date.now()}_1`));
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(borrowAmount, nullifier)
+                liquidityPool.connect(borrower1).borrow(borrowAmount)
             ).to.emit(liquidityPool, "Borrowed")
             .withArgs(borrower1.address, borrowAmount);
 
@@ -549,18 +541,16 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
                 liquidityPool.interface.encodeFunctionData("togglePause", [])
             );
 
-            const nullifier = ethers.keccak256(ethers.toUtf8Bytes(`nullifier_${Date.now()}_2`));
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.parseEther("30"), nullifier)
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("30"))
             ).to.be.revertedWith("Contract is paused");
         });
 
         it("should reject borrowing without sufficient collateral", async function () {
             const excessiveBorrow = ethers.parseEther("200"); // Too much for collateral
-            const nullifier = ethers.keccak256(ethers.toUtf8Bytes(`nullifier_${Date.now()}_3`));
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(excessiveBorrow, nullifier)
+                liquidityPool.connect(borrower1).borrow(excessiveBorrow)
             ).to.be.revertedWith("Borrow amount exceeds available lending capacity");
         });
 
@@ -576,9 +566,8 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
             const tierLimit = (poolBalance * 40n) / 100n;
             const excessiveBorrow = tierLimit + ethers.parseEther("1");
 
-            const nullifier = ethers.keccak256(ethers.toUtf8Bytes(`nullifier_${Date.now()}_4`));
             await expect(
-                liquidityPool.connect(borrower1).borrow(excessiveBorrow, nullifier)
+                liquidityPool.connect(borrower1).borrow(excessiveBorrow)
             ).to.be.revertedWith("Borrow amount exceeds your tier limit");
         });
 
@@ -628,8 +617,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
                 await mockToken.getAddress(),
                 ethers.parseEther("200")
             );
-            const nullifier = ethers.keccak256(ethers.toUtf8Bytes(`nullifier_${Date.now()}_5`));
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("30"), nullifier); // Within tier 2 limit (40 ETH max)
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("30")); // Within tier 2 limit (40 ETH max)
         });
 
         it("should get loan details correctly", async function () {
@@ -1209,7 +1197,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
 
         it("should handle loan information queries", async function () {
             // Test loan information retrieval using the actual function
-            const loanInfo = await liquidityPool.getLoan(user1.address);
+            const loanInfo = await liquidityPool.getLoanDetails(user1.address);
             expect(loanInfo.principal).to.equal(0); // Initially no loan
             expect(loanInfo.outstanding).to.equal(0);
             expect(loanInfo.active).to.be.false;
@@ -1402,8 +1390,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
 
                 // Try to borrow (will likely fail due to no collateral, but tests the path)
                 try {
-                    const nullifier = ethers.keccak256(ethers.toUtf8Bytes(`nullifier_${Date.now()}_6`));
-                    await liquidityPool.connect(user1).borrow(ethers.parseEther("1.0"), nullifier);
+                    await liquidityPool.connect(user1).borrow(ethers.parseEther("1.0"));
                 } catch (error) {
                     // Expected to fail due to insufficient collateral
                     expect(error.message).to.include('revert');
@@ -1477,8 +1464,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
 
                 // Try to borrow more than allowed
                 try {
-                    const nullifier = ethers.keccak256(ethers.toUtf8Bytes(`nullifier_${Date.now()}_7`));
-                    await liquidityPool.connect(user1).borrow(ethers.parseEther("1000000.0"), nullifier);
+                    await liquidityPool.connect(user1).borrow(ethers.parseEther("1000000.0"));
                 } catch (error) {
                     expect(error.message).to.include('revert');
                 }

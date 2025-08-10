@@ -27,9 +27,6 @@ describe("IntegratedCreditSystem - Admin Tests", function() {
             await mockLiquidityPool.getAddress()
         );
         await creditSystem.waitForDeployment();
-
-        // Set IntegratedCreditSystem as admin in MockLiquidityPool so it can call setCreditScore
-        await mockLiquidityPool.setAdmin(await creditSystem.getAddress());
     });
 
     describe("Admin Functions", function() {

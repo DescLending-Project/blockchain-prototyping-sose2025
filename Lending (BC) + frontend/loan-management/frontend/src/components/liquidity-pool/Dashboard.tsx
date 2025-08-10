@@ -6,7 +6,6 @@ import BorrowerPanel from "./borrower/BorrowerPanel"
 import { LenderPanel } from "./lender/LenderPanel"
 import { TransactionHistory } from "./shared/TransactionHistory"
 import { UserPanel } from "./user/UserPanel"
-import { UserHistoryPanel } from "./user/UserHistoryPanel"
 import { CreditScorePanel } from "./borrower/CreditScorePanel"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -24,10 +23,9 @@ interface DashboardProps {
     isLiquidator: boolean;
     provider?: ethers.Provider;
     contracts?: any;
-    fetchUserHistory?: (userAddress: string) => Promise<any>;
 }
 
-export function Dashboard({ contract, lendingManagerContract, account, isAdmin, isLiquidator, provider, contracts, fetchUserHistory }: DashboardProps) {
+export function Dashboard({ contract, lendingManagerContract, account, isAdmin, isLiquidator, provider, contracts }: DashboardProps) {
     const [showAdminControls, setShowAdminControls] = useState(false)
     const [activeTab, setActiveTab] = useState('user')
     const [tlsnStatus, setTlsnStatus] = useState('')
@@ -128,12 +126,11 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
             )}
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-8">
+                <TabsList className="grid w-full grid-cols-7">
                     <TabsTrigger value="user">User Dashboard</TabsTrigger>
                     <TabsTrigger value="lend">Lend</TabsTrigger>
                     <TabsTrigger value="borrow">Borrow</TabsTrigger>
                     <TabsTrigger value="credit-score">Credit Score</TabsTrigger>
-                    <TabsTrigger value="user-history">History</TabsTrigger>
                     <TabsTrigger value="transaction-history">Transactions</TabsTrigger>
                     <TabsTrigger value="signatures">Signatures</TabsTrigger>
 
@@ -167,19 +164,10 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
 
                 <TabsContent value="credit-score">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <CreditScorePanel
-                            contracts={contracts}
-                            account={account || ''}
+                        <CreditScorePanel 
+                            contracts={contracts} 
+                            account={account || ''} 
                             provider={provider}
-                        />
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="user-history">
-                    <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <UserHistoryPanel
-                            account={account || ''}
-                            fetchUserHistory={fetchUserHistory}
                         />
                     </Card>
                 </TabsContent>

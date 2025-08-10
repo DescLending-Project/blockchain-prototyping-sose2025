@@ -89,37 +89,21 @@ npx hardhat node
 ```
 **Keep this terminal open!** This runs your local blockchain network.
 
-### Step 2: Configure MetaMask for Local Development
-Before deploying contracts, add the Hardhat network to MetaMask:
-
-**Network Configuration:**
-- **Network Name**: `Hardhat`
-- **New RPC URL**: `http://localhost:8545`
-- **Chain ID**: `31337`
-- **Currency Symbol**: `ETH`
-
-**How to add:**
-1. Open MetaMask extension
-2. Click the network dropdown (top of MetaMask)
-3. Click "Add network" → "Add network manually"
-4. Fill in the details above
-5. Click "Save"
-
-### Step 3: Deploy Smart Contracts
+### Step 2: Deploy Smart Contracts
 Open a **new terminal** and navigate to the backend folder:
 ```bash
 cd backend
-npx hardhat run scripts/deployAll2.js --network localhost
+npx hardhat run scripts/deployAll.js --network localhost
 ```
 
 This will:
 - ✅ Compile all smart contracts
 - ✅ Deploy them to your local network
 - ✅ Set up initial configurations
-- ✅ Update frontend contract addresses automatically
-- ✅ Copy contract ABIs to frontend
+- ✅ Run automatic mockup simulations
+- ✅ Transfer admin rights to the DAO/Timelock system
 
-### Step 4: Start the Frontend
+### Step 3: Start the Frontend
 Open a **third terminal** and navigate to the root folder:
 ```bash
 npm run dev
@@ -137,8 +121,8 @@ The frontend will start at: **http://localhost:5173**
 2. Click the network dropdown (top of MetaMask)
 3. Click "Add network" → "Add network manually"
 4. Fill in these details:
-   - **Network Name**: `Hardhat`
-   - **New RPC URL**: `http://localhost:8545`
+   - **Network Name**: `Localhost 8545`
+   - **New RPC URL**: `http://127.0.0.1:8545`
    - **Chain ID**: `31337`
    - **Currency Symbol**: `ETH`
 5. Click "Save"
@@ -185,7 +169,7 @@ The system creates several test accounts with different roles. Import these into
 2. Click "Connect Wallet"
 3. Select MetaMask
 4. Choose one of your imported accounts
-5. Make sure you're on the "Hardhat" network
+5. Make sure you're on the "Localhost 8545" network
 
 ### Step 2: Explore Different Roles
 
@@ -267,7 +251,7 @@ npx hardhat run scripts/run-mockup-after-deploy.js --network localhost
 
 #### "Connect Wallet" Button Not Working
 - ✅ Make sure MetaMask is installed and unlocked
-- ✅ Verify you're on the "Hardhat" network
+- ✅ Verify you're on the "Localhost 8545" network
 - ✅ Check that the Hardhat node is running
 
 #### MetaMask Loads But Won't Connect
@@ -285,7 +269,7 @@ If MetaMask opens but doesn't connect to the application:
 - ✅ Switch to a different account if needed
 
 #### "Contract Not Found" Errors
-- ✅ Make sure contracts are deployed: `npx hardhat run scripts/deployAll2.js --network localhost`
+- ✅ Make sure contracts are deployed: `npx hardhat run scripts/deployAll.js --network localhost`
 - ✅ Restart the Hardhat node if needed
 - ✅ Clear browser cache and refresh
 
@@ -294,14 +278,8 @@ If something goes wrong, restart from scratch:
 
 1. Stop all running processes (Ctrl+C in terminals)
 2. Restart Hardhat node: `cd backend && npx hardhat node`
-3. Redeploy contracts: `npx hardhat run scripts/deployAll2.js --network localhost`
+3. Redeploy contracts: `npx hardhat run scripts/deployAll.js --network localhost`
 4. Restart frontend: `npm run dev`
-
-**💡 Pro Tip**: Use the deployment checker to verify everything is working:
-```bash
-cd backend
-node scripts/check-deployment.js
-```
 
 ---
 

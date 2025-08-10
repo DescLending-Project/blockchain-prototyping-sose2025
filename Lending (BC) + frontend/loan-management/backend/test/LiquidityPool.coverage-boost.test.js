@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 
 describe("LiquidityPool - Coverage Boost", function () {
     let liquidityPool, stablecoinManager, lendingManager, interestRateModel, creditSystem, votingToken;
-    let mockToken, mockPriceFeed, timelock, nullifierRegistry;
+    let mockToken, mockPriceFeed, timelock;
     let owner, user1, user2, user3;
 
     beforeEach(async function () {
@@ -26,11 +26,6 @@ describe("LiquidityPool - Coverage Boost", function () {
             8 // decimals
         );
         await mockPriceFeed.waitForDeployment();
-
-        // Deploy NullifierRegistry
-        const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
-        nullifierRegistry = await NullifierRegistry.deploy();
-        await nullifierRegistry.waitForDeployment();
 
         // Deploy StablecoinManager
         const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
@@ -92,8 +87,7 @@ describe("LiquidityPool - Coverage Boost", function () {
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
             await interestRateModel.getAddress(),
-            await creditSystem.getAddress(),
-            await nullifierRegistry.getAddress()
+            await creditSystem.getAddress()
         );
 
         // Set up relationships (functions may not exist, skip for now)

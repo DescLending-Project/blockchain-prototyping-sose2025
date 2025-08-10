@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("LiquidityPool - Lines 80% Push", function () {
-    let liquidityPool, stablecoinManager, lendingManager, interestRateModel, nullifierRegistry;
+    let liquidityPool, stablecoinManager, lendingManager, interestRateModel;
     let mockToken, mockPriceFeed, timelock;
     let owner, user1, user2, user3, user4;
 
@@ -77,19 +77,12 @@ describe("LiquidityPool - Lines 80% Push", function () {
         await liquidityPool.waitForDeployment();
 
         // Initialize LiquidityPool
-        // Deploy NullifierRegistry
-        const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
-        nullifierRegistry = await NullifierRegistry.deploy();
-        await nullifierRegistry.waitForDeployment();
-        await nullifierRegistry.initialize(owner.address);
-
         await liquidityPool.initialize(
             await timelock.getAddress(),
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
             await interestRateModel.getAddress(),
-            await creditSystem.getAddress(),
-            await nullifierRegistry.getAddress()
+            await creditSystem.getAddress()
         );
 
         // Set up relationships (functions may not exist, skip for now)
@@ -242,9 +235,9 @@ describe("LiquidityPool - Lines 80% Push", function () {
                 expect(error).to.exist;
             }
 
-            // Test price feed existence (since isOracleHealthy is commented out)
-            const feedAddress = await liquidityPool.priceFeed(await mockToken.getAddress());
-            expect(feedAddress).to.not.equal(ethers.ZeroAddress);
+            // Test isOracleHealthy
+            const isHealthy = await liquidityPool.isOracleHealthy(await mockToken.getAddress());
+            expect(isHealthy).to.be.a('boolean');
 
             // Test getTokenValue
             try {

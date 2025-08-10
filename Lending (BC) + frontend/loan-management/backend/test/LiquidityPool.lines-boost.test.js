@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("LiquidityPool - Lines Coverage Boost", function () {
-    let liquidityPool, stablecoinManager, lendingManager, interestRateModel, creditSystem, votingToken, nullifierRegistry;
+    let liquidityPool, stablecoinManager, lendingManager, interestRateModel, creditSystem, votingToken;
     let mockToken, mockPriceFeed, timelock;
     let owner, user1, user2, user3, user4;
 
@@ -79,12 +79,6 @@ describe("LiquidityPool - Lines Coverage Boost", function () {
         );
         await lendingManager.waitForDeployment();
 
-        // Deploy NullifierRegistry
-        const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
-        nullifierRegistry = await NullifierRegistry.deploy();
-        await nullifierRegistry.waitForDeployment();
-        await nullifierRegistry.initialize(owner.address);
-
         // Deploy LiquidityPool (upgradeable contract)
         const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
         liquidityPool = await LiquidityPool.deploy();
@@ -96,8 +90,7 @@ describe("LiquidityPool - Lines Coverage Boost", function () {
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
             await interestRateModel.getAddress(),
-            await creditSystem.getAddress(),
-            await nullifierRegistry.getAddress()
+            await creditSystem.getAddress()
         );
 
         // Set up relationships (functions may not exist, skip for now)

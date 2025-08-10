@@ -26,9 +26,6 @@ describe("IntegratedCreditSystem - Account Tests", function() {
         );
         await creditSystem.waitForDeployment();
 
-        // Set IntegratedCreditSystem as admin in MockLiquidityPool so it can call setCreditScore
-        await mockLiquidityPool.setAdmin(await creditSystem.getAddress());
-
         // Mock account proof data
         mockAccountProofData = {
             account: user1.address,
