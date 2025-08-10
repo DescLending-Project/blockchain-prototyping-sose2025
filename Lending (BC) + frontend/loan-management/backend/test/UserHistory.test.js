@@ -80,6 +80,10 @@ describe("UserHistory Functionality", function () {
         const NULLIFIER_CONSUMER_ROLE = await nullifierRegistry.NULLIFIER_CONSUMER_ROLE();
         await nullifierRegistry.grantRole(NULLIFIER_CONSUMER_ROLE, await liquidityPool.getAddress());
 
+        // Grant MINTER_ROLE to LiquidityPool for voting token rewards
+        const MINTER_ROLE = await votingToken.MINTER_ROLE();
+        await votingToken.grantRole(MINTER_ROLE, await liquidityPool.getAddress());
+
         // Setup accounts for nullifier generation
         await nullifierRegistry.connect(owner).selectAccounts([owner.address]);
         await nullifierRegistry.connect(user1).selectAccounts([user1.address]);
@@ -235,8 +239,8 @@ describe("UserHistory Functionality", function () {
             let history = await liquidityPool.getUserHistory(user2.address);
             expect(history.liquidations).to.equal(0);
 
-            // Simulate liquidation by calling clearDebt directly (as LendingManager would)
-            await liquidityPool.clearDebt(user2.address, borrowAmount);
+            // Simulate liquidation by calling clearDebt through LendingManager
+            await lendingManager.connect(owner).clearDebt(user2.address, borrowAmount);
 
             // Check that liquidations was incremented
             history = await liquidityPool.getUserHistory(user2.address);

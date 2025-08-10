@@ -242,9 +242,9 @@ describe("LiquidityPool - Lines 80% Push", function () {
                 expect(error).to.exist;
             }
 
-            // Test isOracleHealthy
-            const isHealthy = await liquidityPool.isOracleHealthy(await mockToken.getAddress());
-            expect(isHealthy).to.be.a('boolean');
+            // Test price feed existence (since isOracleHealthy is commented out)
+            const feedAddress = await liquidityPool.priceFeed(await mockToken.getAddress());
+            expect(feedAddress).to.not.equal(ethers.ZeroAddress);
 
             // Test getTokenValue
             try {
