@@ -20,9 +20,9 @@ export function updateTunnelServiceApiBase(apiBase: string): void {
 }
 
 /**
- * Implementation of the TLS Notary Service that provides mock functionality for testing and development
+ * Implementation of the TLS Notary Service that provides functionality for TLS session proof generation and verification
  */
-export class MockTLSNotaryService implements ITLSNotaryService {
+export class TLSNotaryServiceImpl implements ITLSNotaryService {
   private records: ProofRecord[] = [];
   private subscribers: ((records: ProofRecord[]) => void)[] = [];
 
