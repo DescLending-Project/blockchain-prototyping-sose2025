@@ -8,6 +8,11 @@ import {
   setButtonText
 } from '../utils/uiUtils';
 
+/**
+ * Sets up the blockchain tab functionality
+ * Initializes UI elements and event listeners for the blockchain API request form
+ * Manages the state of the form and handles sending blockchain API requests
+ */
 export function setupBlockchainTab(): void {
   const apiEndpointInput = document.getElementById('blockchain-api-endpoint') as HTMLInputElement;
   const apiTokenInput = document.getElementById('blockchain-api-token') as HTMLInputElement;
@@ -27,6 +32,12 @@ export function setupBlockchainTab(): void {
   // Track if a request is in progress
   let isRequestInProgress = false;
 
+  /**
+   * Handles the blockchain API request submission
+   * Collects form data, sends the request, and updates the UI with the result
+   * Prevents multiple concurrent requests and handles errors gracefully
+   * @returns Promise that resolves when the request is complete
+   */
   async function handleSendRequest(): Promise<void> {
     // Prevent multiple concurrent requests
     if (isRequestInProgress) {

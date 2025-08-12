@@ -1,3 +1,7 @@
+/**
+ * Configuration object for the TLS Notary application
+ * Contains environment-specific settings with fallback default values
+ */
 export const config = {
   apiBase: process.env.API_BASE || 'http://localhost:8090/tunnels',
   openbankingApi: process.env.OPENBANKING_API || 'https://openbanking-api-826260723607.europe-west3.run.app',

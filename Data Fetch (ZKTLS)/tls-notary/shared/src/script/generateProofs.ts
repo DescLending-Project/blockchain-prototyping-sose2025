@@ -97,34 +97,19 @@ let wasmInitialized = false;
 export async function generateProof(
   call: TLSCallRequest,
 ): Promise<TLSCallResponse> {
-    console.log('Starting generateProof function with request:', {
-        url: call.request.url,
-        method: call.request.method,
-        serverDNS: call.serverDNS,
-        notaryUrl: call.notaryUrl
-    });
-
     await initWasm();
 
-    console.log('Creating notary server from URL:', call.notaryUrl);
     const notary = NotaryServer.from(call.notaryUrl);
 
-    console.log('Creating prover with serverDns:', call.serverDNS);
     const prover = (await new Prover({
         serverDns: call.serverDNS,
-        maxRecvData: 12048,
+        maxRecvData: 15048,
     })) as TProver;
 
-    console.log('Getting session URL from notary');
     let sessionUrl = await notary.sessionUrl();
-    console.log('Received session URL:', sessionUrl);
 
-    console.log('Setting up prover with session URL');
     await prover.setup(sessionUrl);
 
-    console.log('Sending request through prover to:', call.request.url, 'via websocket proxy:', call.websocketProxyUrl);
-    console.log('Request headers:', call.request.headers);
-    console.log('Request body:', call.request.body);
     let bodyData = call.request.body === '' ? '' : JSON.parse(call.request.body)
     const resp = await prover.sendRequest(call.websocketProxyUrl, {
         url: call.request.url,
@@ -132,46 +117,31 @@ export async function generateProof(
         headers: call.request.headers,
         body: bodyData,
     });
-    console.log('Request sent successfully, response received');
 
-    console.log('Getting transcript from prover');
     const transcript = await prover.transcript();
     const { sent, recv } = transcript;
-    console.log('Transcript received, sent size:', sent.length, 'bytes, received size:', recv.length, 'bytes');
 
-
-    console.log('Parsing HTTP response message');
     const {
         info: recvInfo,
         headers: recvHeaders,
         body: recvBody,
     } = parseHttpMessage(Buffer.from(recv), 'response');
-    console.log('Response info:', recvInfo);
-    console.log('Response headers count:', recvHeaders.length / 2);
 
-    console.log('Processing response body');
     const rawBody = Buffer.concat(recvBody).toString();
-    console.log('Raw recvBody:', rawBody);
 
     let body;
     try {
-        console.log('Attempting to parse response body as JSON');
         body = JSON.parse(rawBody);
-        console.log('Successfully parsed response body as JSON');
     } catch (error) {
         console.error('Error parsing response body as JSON:', error);
-        console.log('Using raw body as string instead');
         // If it's not JSON, use the raw body as a string
         body = { rawResponse: rawBody };
     }
 
-    console.log('Generating reveal fields from response body');
     const revealFields = Object.entries(body).reduce((acc, [key, value]) => {
         if (typeof value === 'object' && value !== null) {
-            console.log(`Processing nested object for key: ${key}`);
             acc.push(...flattenObjectToStrings(value));
         } else {
-            console.log(`Processing simple value for key: ${key}, type: ${typeof value}`);
             const formattedValue =
               typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other types as is
             acc.push(`"${key}":${formattedValue}`);
@@ -179,9 +149,6 @@ export async function generateProof(
         return acc;
     }, [] as string[]);
 
-    console.log('Reveal fields:', revealFields);
-
-    console.log('Creating commit object');
     const commit: Commit = {
         sent: subtractRanges(
           { start: 0, end: sent.length },
@@ -201,13 +168,9 @@ export async function generateProof(
             ),
         ],
     };
-    console.log('Commit object created with sent and recv ranges');
 
-    console.log('Notarizing commit with prover');
     const notarizationOutputs = await prover.notarize(commit);
-    console.log('Notarization completed successfully');
 
-    console.log('Creating presentation object');
     const presentation = (await new Presentation({
         attestationHex: notarizationOutputs.attestation,
         secretsHex: notarizationOutputs.secrets,
@@ -215,13 +178,8 @@ export async function generateProof(
         websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
         reveal: commit,
     })) as TPresentation;
-    console.log('Presentation object created successfully');
 
-    console.log('Converting presentation to JSON');
     const presentationJSON = await presentation.json();
-    console.log('Presentation JSON created successfully');
-
-    console.log('generateProof function completed successfully');
     return {
         responseBody: body,
         presentation: presentation,
@@ -238,39 +196,24 @@ export async function generateProof(
  */
 
 export async function verifyProof(notaryUrl: string, presentationJSON: PresentationJSON): Promise<VerifyProofResult> {
-    console.log('Starting verifyProof function with notaryUrl:', notaryUrl);
-
     await initWasm();
 
-    console.log('Creating presentation object from JSON data:', presentationJSON.data);
     const proof = (await new Presentation(
       presentationJSON.data,
     )) as TPresentation;
-    console.log('Presentation object created successfully');
 
-    console.log('Creating notary server from URL:', notaryUrl);
     const notary = NotaryServer.from(notaryUrl);
 
-    console.log('Getting notary public key');
     const notaryKey = await notary.publicKey('hex');
-    console.log('Notary public key received:', notaryKey);
 
-    console.log('Verifying proof');
     const verifierOutput = await proof.verify();
-    console.log('Proof verified successfully');
 
-    console.log('Creating transcript from verifier output');
     const transcript = new Transcript({
         sent: verifierOutput.transcript.sent,
         recv: verifierOutput.transcript.recv,
     });
-    console.log('Transcript created successfully');
 
-    console.log('Getting verifying key from proof');
     const vk = await proof.verifyingKey();
-    console.log('Verifying key received');
-
-    console.log('verifyProof function completed successfully');
     return {
         time: verifierOutput.connection_info.time,
         verifyingKey: Buffer.from(vk.data).toString('hex'),
@@ -282,22 +225,18 @@ export async function verifyProof(notaryUrl: string, presentationJSON: Presentat
 }
 
 function flattenObjectToStrings(obj: Record<string, any>, separator: string = '.'): string[] {
-    console.log('flattenObjectToStrings called with object:', typeof obj);
     const result: string[] = [];
 
     for (const [key, value] of Object.entries(obj)) {
         if (typeof value === 'object' && value !== null) {
-            console.log(`Flattening nested object for key: ${key}`);
             result.push(...flattenObjectToStrings(value, separator));
         } else {
-            console.log(`Formatting value for key: ${key}, type: ${typeof value}`);
             const formattedValue =
               typeof value === 'string' ? `"${value}"` : value; // Quote strings, leave other values as is
             result.push(`"${key}":${formattedValue}`);
         }
     }
 
-    console.log(`flattenObjectToStrings returning ${result.length} entries`);
     return result;
 }
 

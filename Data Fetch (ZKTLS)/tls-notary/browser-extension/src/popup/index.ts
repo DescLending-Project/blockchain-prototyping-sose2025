@@ -13,6 +13,11 @@ import { tlsNotaryServiceBridge } from '../services/TLSNotaryServiceBridge';
 import { isApiAccessible, copyToClipboard } from '../utils/apiUtils';
 import {getSettings, initializeStorage, setSettings} from '../utils/storageUtils';
 
+/**
+ * Main entry point for the extension popup
+ * Initializes the UI and handles API server availability
+ * Sets up event listeners for API server configuration and retry functionality
+ */
 document.addEventListener('DOMContentLoaded', async function() {
   const apiAvailable = await isApiAccessible();
 
@@ -97,7 +102,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 /**
- * Initialize the UI components
+ * Initializes all UI components and services for the extension
+ * Sets up tabs, form handlers, API connections, and event listeners
+ * Loads saved data, subscribes to service updates, and handles cleanup on window close
  */
 function initializeUI() {
   initializeStorage();
@@ -140,14 +147,19 @@ function initializeUI() {
   });
 
   // Initialize the bridge to sync proofs between shared module and browser extension
-  console.log('TLSNotaryServiceBridge initialized:', tlsNotaryServiceBridge);
+  // Just accessing the bridge singleton will initialize it
+  if (tlsNotaryServiceBridge) {
+    console.log('TLSNotaryServiceBridge initialized successfully');
+  }
 
   // Unsubscribe when the popup is closed
   window.addEventListener('unload', () => {
     if (unsubscribe) {
       unsubscribe();
     }
+    // Dispose of the bridge when the popup is closed
+    if (tlsNotaryServiceBridge) {
+      tlsNotaryServiceBridge.dispose();
+    }
   });
-
-  console.log('TLS Notary popup script loaded');
 }

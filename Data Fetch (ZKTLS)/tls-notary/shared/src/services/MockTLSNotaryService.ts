@@ -1,32 +1,42 @@
-import type { ITLSNotaryService } from "./ITLSNotaryService";
-import type { ProofRecord, TLSFormData } from "../types/tls";
-import { TunnelService } from "./TunnelService";
-import { nanoid } from "nanoid";
-import { RequestStatus, VerifyProofResult } from "../types/tls";
+import type {ITLSNotaryService} from "./ITLSNotaryService";
+import type {ProofRecord, TLSFormData} from "../types/tls";
+import {RequestStatus, VerifyProofResult} from "../types/tls";
+import {TunnelService} from "./TunnelService";
+import {nanoid} from "nanoid";
 
-import { generateProof, verifyProof } from "../script/generateProofs";
+import {generateProof, verifyProof} from "../script/generateProofs";
 
 // Create a local instance of TunnelService to avoid circular dependency
 let tunnelService = new TunnelService();
 
+/**
+ * Updates the API base URL for the TunnelService
+ * @param apiBase - The new API base URL
+ */
 export function updateTunnelServiceApiBase(apiBase: string): void {
   if (apiBase && apiBase !== tunnelService.getApiBase()) {
-    console.log(`Updating TunnelService API base address to: ${apiBase}`);
     tunnelService.setApiBase(apiBase);
   }
 }
 
+/**
+ * Implementation of the TLS Notary Service that provides mock functionality for testing and development
+ */
 export class MockTLSNotaryService implements ITLSNotaryService {
   private records: ProofRecord[] = [];
   private subscribers: ((records: ProofRecord[]) => void)[] = [];
 
+  /**
+   * Cleans up any existing tunnels with matching parameters
+   * @param tunnelReq - The tunnel request parameters to match
+   * @returns A promise that resolves when cleanup is complete
+   * @private
+   */
   private async cleanupExistingTunnel(tunnelReq: { localPort: number, remoteHost: string, remotePort: number }): Promise<void> {
-    console.log('Cleaning up existing tunnel with parameters:', tunnelReq);
 
     try {
       // Get all tunnels from the server
       const tunnels = await tunnelService.getAll();
-      console.log(`Found ${tunnels.length} tunnels on the server`);
 
       // Find tunnels with matching parameters
       const matchingTunnels = tunnels.filter(tunnel => 
@@ -36,16 +46,10 @@ export class MockTLSNotaryService implements ITLSNotaryService {
       );
 
       if (matchingTunnels.length > 0) {
-        console.log(`Found ${matchingTunnels.length} matching tunnels to clean up`);
-
         // Delete each matching tunnel
         for (const tunnel of matchingTunnels) {
-          console.log(`Deleting tunnel with ID: ${tunnel.id}`);
           await tunnelService.delete(tunnel.id);
-          console.log(`Successfully deleted tunnel with ID: ${tunnel.id}`);
         }
-      } else {
-        console.log('No matching tunnels found to clean up');
       }
     } catch (error) {
       console.error('Error cleaning up existing tunnels:', error);
@@ -57,37 +61,42 @@ export class MockTLSNotaryService implements ITLSNotaryService {
    * @param proofs Array of ProofRecord objects to initialize with
    */
   public initializeProofs(proofs: ProofRecord[]): void {
-    console.log(`Initializing MockTLSNotaryService with ${proofs.length} proofs`);
     // Only add proofs that don't already exist in the records
     const newProofs = proofs.filter(proof => !this.records.some(record => record.id === proof.id));
     if (newProofs.length > 0) {
-      console.log(`Adding ${newProofs.length} new proofs to MockTLSNotaryService`);
       this.records = [...newProofs, ...this.records];
       this.notifySubscribers();
-    } else {
-      console.log('No new proofs to add to MockTLSNotaryService');
     }
   }
 
+  /**
+   * Notifies all subscribers with the current state of records
+   * @private
+   */
   private notifySubscribers() {
-    console.log(`Notifying ${this.subscribers.length} subscribers of record changes`);
     const snapshot = [...this.records];
     this.subscribers.forEach((cb) => cb(snapshot));
-    console.log('All subscribers notified');
   }
 
+  /**
+   * Subscribes to changes in the proof records
+   * @param callback - Function to be called when proof records change
+   * @returns A function that can be called to unsubscribe
+   */
   subscribe(callback: (records: ProofRecord[]) => void): () => void {
-    console.log('New subscriber added to TLSNotaryService');
     this.subscribers.push(callback);
-    console.log('Sending initial records to new subscriber');
     callback([...this.records]);
     return () => {
-      console.log('Unsubscribing from TLSNotaryService');
       this.subscribers = this.subscribers.filter((cb) => cb !== callback);
-      console.log(`Remaining subscribers: ${this.subscribers.length}`);
     };
   }
 
+  /**
+   * Verifies a proof record
+   * @param record - The proof record to verify
+   * @returns A promise that resolves to the verification result
+   * @throws Error if the record is missing required data or is in an invalid state
+   */
   async verifyProof(record: ProofRecord): Promise<VerifyProofResult> {
     console.log("Verifying proof for record:", record);
     if (!record.tlsCallResponse?.presentationJSON) {
@@ -115,10 +124,8 @@ export class MockTLSNotaryService implements ITLSNotaryService {
 
     tmp.status = RequestStatus.Pending;
     this.notifySubscribers();
-    console.log("Verifying proof with notaryUrl:", record.formData.notaryUrl);
     try {
       const result = await verifyProof(record.formData.notaryUrl, record.tlsCallResponse.presentationJSON);
-      console.log("Proof verified successfully");
       tmp.verifyProofResult = result;
       tmp.status = RequestStatus.Verified;
       this.notifySubscribers();
@@ -133,19 +140,16 @@ export class MockTLSNotaryService implements ITLSNotaryService {
     }
   }
 
+  /**
+   * Sends a TLS request to generate a proof
+   * @param input - The form data containing URL, headers, and other connection details
+   * @returns A promise that resolves to the request ID
+   * @throws Error if the tunnel creation fails or proof generation encounters an error
+   */
   async sendRequest(input: TLSFormData): Promise<string> {
-    console.log('MockTLSNotaryService.sendRequest called with input:', {
-      url: input.url,
-      method: input.method,
-      remoteDNS: input.remoteDNS,
-      notaryUrl: input.notaryUrl
-    });
-
     const { url, notaryUrl, remoteDNS, remotePort, localPort, headers, body, method } = input;
     const id = nanoid(8);
-    console.log('Generated request ID:', id);
 
-    console.log('Creating proof record');
     const proofRecord : ProofRecord = {
       id: id,
       status : RequestStatus.Sending,
@@ -158,25 +162,19 @@ export class MockTLSNotaryService implements ITLSNotaryService {
         remotePort: parseInt(remotePort),
       },
     };
-    console.log('Adding proof record to records list');
     this.records.unshift(proofRecord);
     this.notifySubscribers();
 
-    console.log('Creating tunnel with tunnelService');
     tunnelService.create(proofRecord.tunnelReq)
     .then((tunnelRes) => {
-      console.log('Tunnel created successfully:', tunnelRes.websocketProxyUrl);
       const record = this.records.find((r) => r.id === id);
       if (!record) {
-        console.error('Record not found for ID:', id);
         throw new Error("Record not found");
       }
 
-      console.log('Updating record with tunnel response');
       record.tunnelRes = tunnelRes;
       record.status = RequestStatus.Sending;
 
-      console.log('Creating TLS call request');
       record.tlsCall = {
         notaryUrl,
         serverDNS: remoteDNS,
@@ -190,58 +188,52 @@ export class MockTLSNotaryService implements ITLSNotaryService {
       };
       this.notifySubscribers();
 
-      console.log('Generating proof with TLS call request');
       generateProof(record.tlsCall)
-      .then((tlsCallResponse) => {
-        console.log('Proof generated successfully');
+      .then(async (tlsCallResponse) => {
         const record = this.records.find((r) => r.id === id);
         if (record) {
-          console.log('Updating record with TLS call response');
           record.tlsCallResponse = tlsCallResponse;
           record.status = RequestStatus.Received;
           record.error = null;
           this.notifySubscribers();
 
-          console.log('Deleting tunnel');
-          tunnelService.delete(record.tunnelRes.id)
-          console.log('Tunnel deleted successfully');
-        } else {
-          console.warn('Record not found after generating proof for ID:', id);
+          try {
+            await tunnelService.delete(record.tunnelRes.id);
+          } catch (error) {
+            console.error('Failed to delete tunnel:', error);
+            // Continue execution even if tunnel deletion fails
+          }
         }
-      }).catch((error) => {
+      }).catch(async (error) => {
         console.error("Error generating proof:", error);
         const record = this.records.find((r) => r.id === id);
         if (record) {
-          console.log('Updating record with error status');
           record.status = RequestStatus.Error;
           record.error = error;
 
-          console.log('Deleting tunnel after error');
-          tunnelService.delete(record.tunnelRes.id)
+          try {
+            await tunnelService.delete(record.tunnelRes.id);
+          } catch (deleteError) {
+            // Continue execution even if tunnel deletion fails
+          }
           this.notifySubscribers();
-        } else {
-          console.warn('Record not found after error for ID:', id);
         }
       });
     }).catch(async (error) => {
-      console.error("Error creating tunnel:", error);
       const record = this.records.find((r) => r.id === id);
       if (record) {
-        console.log('Updating record with error status');
         record.status = RequestStatus.Error;
         record.error = error;
 
         // Check if the error is about a tunnel already existing
         if (error && error.error && typeof error.error === 'string' && 
             error.error.includes('Tunnel with these parameters already exists')) {
-          console.log('Detected "Tunnel already exists" error, attempting to clean up existing tunnel');
 
           try {
             // Clean up the existing tunnel with the same parameters
             await this.cleanupExistingTunnel(record.tunnelReq);
 
             // Retry the request after a short delay
-            console.log('Retrying the request after cleaning up existing tunnel');
             setTimeout(() => {
               this.sendRequest(input).catch(retryError => {
                 console.error('Error retrying request after tunnel cleanup:', retryError);
@@ -253,31 +245,27 @@ export class MockTLSNotaryService implements ITLSNotaryService {
         }
 
         this.notifySubscribers();
-      } else {
-        console.warn('Record not found after tunnel error for ID:', id);
       }
     });
 
-    console.log('Returning request ID:', id);
     return id;
   }
 
+  /**
+   * Retrieves a specific proof by its ID
+   * @param id - The unique identifier of the proof
+   * @returns A promise that resolves to the proof record if found, or null if not found
+   */
   async getProof(id: string): Promise<ProofRecord | null> {
-    console.log('MockTLSNotaryService.getProof called with ID:', id);
-    const record = this.records.find((r) => r.id === id) ?? null;
-    if (record) {
-      console.log('Proof record found for ID:', id);
-    } else {
-      console.log('No proof record found for ID:', id);
-    }
-    return record;
+    return this.records.find((r) => r.id === id) ?? null;
   }
 
+  /**
+   * Retrieves all stored proofs
+   * @returns A promise that resolves to an array of all tracked proof records
+   */
   async getAllProofs(): Promise<ProofRecord[]> {
-    console.log('MockTLSNotaryService.getAllProofs called');
-    const records = [...this.records];
-    console.log(`Returning ${records.length} proof records`);
-    return records;
+    return [...this.records];
   }
 
   /**
@@ -286,14 +274,10 @@ export class MockTLSNotaryService implements ITLSNotaryService {
    * @returns Promise that resolves when the proof is deleted
    */
   async deleteProof(id: string): Promise<void> {
-    console.log(`MockTLSNotaryService.deleteProof called with ID: ${id}`);
     const existingIndex = this.records.findIndex((r) => r.id === id);
     if (existingIndex >= 0) {
-      console.log('Deleting proof record from MockTLSNotaryService');
       this.records.splice(existingIndex, 1);
       this.notifySubscribers();
-    } else {
-      console.log(`Proof with ID ${id} not found in MockTLSNotaryService`);
     }
   }
 }

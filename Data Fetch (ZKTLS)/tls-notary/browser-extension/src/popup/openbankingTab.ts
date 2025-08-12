@@ -16,14 +16,6 @@ import {
   setButtonsState
 } from '../utils/uiUtils';
 
-interface Transaction {
-  id: string;
-  date: string;
-  description: string;
-  amount: number;
-  currency: string;
-}
-
 export function setupOpenbankingTab(): void {
   const loginState = document.getElementById('openbanking-login-state');
   const authenticatedState = document.getElementById('openbanking-authenticated-state');
@@ -187,15 +179,11 @@ export function setupOpenbankingTab(): void {
         'Fetching credit score data. Please wait...'
       );
 
-      const startTime = performance.now();
       const result = await fetchTransactions(updateStatus);
-      const endTime = performance.now();
-      console.log(`[handleFetchTransactions] fetchTransactions completed in ${(endTime - startTime).toFixed(2)}ms`);
 
       transactionsList!.innerHTML = '';
 
       if (!result || !result.responseReceived) {
-        console.error('[handleFetchTransactions] Failed to receive response');
         showErrorMessage(
           transactionsList!,
           transactionsContainer!,

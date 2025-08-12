@@ -17,8 +17,8 @@ export function showLoadingIndicator(
 export function createStatusUpdateCallback(
   loadingElement: HTMLElement,
   loadingMessage: string
-): (status: string, attempt: number, maxAttempts: number) => void {
-  return (status: string, attempt: number, maxAttempts: number) => {
+): (status: string) => void {
+  return (status: string) => {
     if (status.startsWith('Error:')) {
       loadingElement.innerHTML = `
         <div class="error-message">${status.substring(7)}</div>
