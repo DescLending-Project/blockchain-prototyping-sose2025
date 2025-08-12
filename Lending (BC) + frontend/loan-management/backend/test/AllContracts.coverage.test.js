@@ -99,9 +99,7 @@ describe("Complete Contract Coverage Tests", function () {
             deployer.address,
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
-            await interestRateModel.getAddress(),
-            await creditSystem.getAddress(),
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Set up protocol governor for VotingToken
@@ -311,7 +309,7 @@ describe("Complete Contract Coverage Tests", function () {
             
             // Test borrow
             await expect(
-                liquidityPool.connect(user1).borrow(ethers.parseEther("0.5"), generateNullifier())
+                liquidityPool.connect(user1).borrow(ethers.parseEther("0.5"))
             ).to.emit(liquidityPool, "Borrowed");
 
             // Test repay
@@ -362,18 +360,18 @@ describe("Complete Contract Coverage Tests", function () {
             
             // Test borrow with insufficient collateral
             await expect(
-                liquidityPool.connect(user2).borrow(ethers.parseEther("1"), generateNullifier())
+                liquidityPool.connect(user2).borrow(ethers.parseEther("1"))
             ).to.be.revertedWith("Insufficient collateral for this loan");
 
             // Test borrow with low credit score
             await liquidityPool.setCreditScore(user1.address, 40);
             await expect(
-                liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"), generateNullifier())
+                liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"))
             ).to.be.revertedWith("Credit score too low");
 
             // Test repay overpayment
             await liquidityPool.setCreditScore(user1.address, 80);
-            await liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"), generateNullifier());
+            await liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"));
             const debt = await liquidityPool.userDebt(user1.address);
 
             // Overpayment should be handled gracefully (no revert, excess ignored)
@@ -638,7 +636,7 @@ describe("Complete Contract Coverage Tests", function () {
             await glintToken.transfer(await borrower1.address, ethers.parseEther("500"));
             await glintToken.connect(borrower1).approve(await liquidityPool.getAddress(), ethers.parseEther("500"));
             await liquidityPool.connect(borrower1).depositCollateral(await glintToken.getAddress(), ethers.parseEther("200"));
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
             
             // Time passes, interest accrues
             await ethers.provider.send("evm_increaseTime", [86400 * 30]);
@@ -664,7 +662,7 @@ describe("Complete Contract Coverage Tests", function () {
             await glintToken.transfer(await borrower1.address, ethers.parseEther("200"));
             await glintToken.connect(borrower1).approve(await liquidityPool.getAddress(), ethers.parseEther("200"));
             await liquidityPool.connect(borrower1).depositCollateral(await glintToken.getAddress(), ethers.parseEther("150"));
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
 
             // Price drops significantly, making position unhealthy
             await mockPriceFeed.setPrice(ethers.parseUnits("0.001", 8)); // Very low price

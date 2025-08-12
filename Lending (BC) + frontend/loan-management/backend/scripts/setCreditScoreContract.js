@@ -38,59 +38,14 @@ async function main() {
         console.log("Could not check admin address:", error.message);
     }
 
-    // Check if RISC0 is currently enabled
-    try {
-        const currentRISC0Status = await liquidityPool.useRISC0CreditScores();
-        console.log("Current RISC0 status:", currentRISC0Status);
-        
-        const currentCreditScoreContract = await liquidityPool.creditScoreContract();
-        console.log("Current credit score contract:", currentCreditScoreContract);
-    } catch (error) {
-        console.log("Could not check current RISC0 status:", error.message);
-    }
+    // Note: useRISC0CreditScores() and creditScoreContract() functions have been removed
+    console.log("⚠️  RISC0 credit score functions have been removed from LiquidityPool");
+    console.log("⚠️  Credit scoring is now handled through external systems");
 
-    // Set the credit score contract
-    console.log("🔄 Setting credit score contract address...");
-    console.log("Credit Score Contract Address:", CREDIT_SCORE_CONTRACT_ADDRESS);
-    
-    try {
-        const tx = await liquidityPool.setCreditScoreContract(
-            CREDIT_SCORE_CONTRACT_ADDRESS,
-            { gasLimit: 200000 }
-        );
-        
-        console.log("Transaction hash:", tx.hash);
-        console.log("⏳ Waiting for confirmation...");
-        
-        const receipt = await tx.wait();
-        console.log("✅ Transaction confirmed in block:", receipt.blockNumber);
-        
-        // Verify the setting worked
-        console.log("🔍 Verifying the update...");
-        const newCreditScoreContract = await liquidityPool.creditScoreContract();
-        const newRISC0Status = await liquidityPool.useRISC0CreditScores();
-        
-        console.log("New credit score contract:", newCreditScoreContract);
-        console.log("New RISC0 status:", newRISC0Status);
-        
-        if (newCreditScoreContract.toLowerCase() === CREDIT_SCORE_CONTRACT_ADDRESS.toLowerCase()) {
-            console.log("✅ Credit score contract successfully set!");
-            if (newRISC0Status) {
-                console.log("✅ RISC0 credit scores automatically enabled!");
-            }
-        } else {
-            console.log("❌ Credit score contract setting failed!");
-        }
-        
-    } catch (error) {
-        console.error("❌ Failed to set credit score contract:");
-        console.error("Error:", error.message);
-        
-        if (error.message.includes("OnlyTimelockLiquidityPool")) {
-            console.log("💡 This function requires timelock/admin privileges");
-            console.log("💡 Consider using governance proposal or different admin account");
-        }
-    }
+    // Note: setCreditScoreContract function has been removed from LiquidityPool
+    console.log("⚠️  setCreditScoreContract() function has been removed from LiquidityPool");
+    console.log("⚠️  Credit score contract setting is no longer supported");
+    console.log("💡 Consider using external credit scoring systems or governance mechanisms");
 }
 
 // Alternative function for governance proposal

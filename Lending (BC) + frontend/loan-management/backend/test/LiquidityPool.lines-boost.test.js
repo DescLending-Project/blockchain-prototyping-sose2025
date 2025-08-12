@@ -89,8 +89,7 @@ describe("LiquidityPool - Lines Coverage Boost", function () {
             await timelock.getAddress(),
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
-            await interestRateModel.getAddress(),
-            await creditSystem.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Set up relationships (functions may not exist, skip for now)

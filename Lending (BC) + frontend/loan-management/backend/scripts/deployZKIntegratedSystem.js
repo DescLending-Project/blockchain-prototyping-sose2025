@@ -74,13 +74,13 @@ async function main() {
     const creditSystemAddress = await creditSystem.getAddress();
     console.log("✅ IntegratedCreditSystem deployed to:", creditSystemAddress);
 
-    // Step 8: Initialize LiquidityPool with all dependencies
-    console.log("\n8️⃣ Initializing LiquidityPool with ZK integration...");
+    // Step 8: Initialize LiquidityPool with dependencies (updated to 4 parameters)
+    console.log("\n8️⃣ Initializing LiquidityPool...");
     const initTx = await liquidityPool.initialize(
         deployer.address,
         stablecoinManagerAddress,
         lendingManagerAddress,
-        creditSystemAddress
+        ethers.ZeroAddress // InterestRateModel placeholder
     );
     await initTx.wait();
     console.log("✅ LiquidityPool initialized with ZK integration");
@@ -103,9 +103,8 @@ async function main() {
     const connectedCreditSystem = await liquidityPool.creditSystem();
     console.log("📋 Connected credit system:", connectedCreditSystem);
 
-    // Check ZK proof requirement status
-    const zkProofRequired = await liquidityPool.zkProofRequired();
-    console.log("🔐 ZK proof required:", zkProofRequired);
+    // Note: zkProofRequired() function has been removed from LiquidityPool
+    console.log("🔐 ZK proof required: N/A (function removed)");
 
     // Check if credit system can call liquidity pool
     const minCreditScore = await creditSystem.getMinimumCreditScore();

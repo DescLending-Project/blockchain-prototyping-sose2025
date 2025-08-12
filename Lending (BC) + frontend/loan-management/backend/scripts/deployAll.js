@@ -362,14 +362,13 @@ async function main() {
     await creditSystem.waitForDeployment();
     console.log("IntegratedCreditSystem deployed at:", await creditSystem.getAddress());
 
-    // Deploy LiquidityPool with DAO as admin and creditSystem address as 5th param
+    // Deploy LiquidityPool with updated 4-parameter initialization
     const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
         deployer.address, // LOCAL/DEV: deployer is admin
         stablecoinManagerAddress,
         ethers.ZeroAddress, // LendingManager placeholder
-        interestRateModelAddress,
-        await creditSystem.getAddress()
+        interestRateModelAddress
     ], {
         initializer: "initialize",
     });

@@ -90,12 +90,12 @@ async function deployContracts() {
     contracts.liquidityPool = await LiquidityPoolFactory.deploy();
     await contracts.liquidityPool.deployed();
 
-    // Initialize the upgradeable contract with temporary addresses
+    // Initialize the upgradeable contract with 4 parameters
     await contracts.liquidityPool.initialize(
         deployer.address, // initialOwner
         await contracts.stablecoinManager.address,
         await contracts.lendingManager.address, // temporary, will be updated
-        ethers.ZeroAddress // temporary, will be set later
+        ethers.ZeroAddress // InterestRateModel placeholder
     );
     console.log("✅ LiquidityPool deployed and initialized to:", await contracts.liquidityPool.address);
 

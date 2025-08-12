@@ -128,9 +128,7 @@ describe("Complete Contract Coverage Tests", function () {
         owner.address, // Use owner as timelock for testing
         await stablecoinManager.getAddress(),
         await lendingManager.getAddress(),
-        await interestRateModel.getAddress(),
-        await creditSystem.getAddress(),
-        await nullifierRegistry.getAddress()
+        await interestRateModel.getAddress()
     );
 
     // Setup connections
@@ -379,18 +377,18 @@ describe("Complete Contract Coverage Tests", function () {
             );
 
             // Normal borrow
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"));
             expect(await liquidityPool.userDebt(borrower1.address)).to.be > ethers.parseEther("5");
 
             // Test borrow limits
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.parseEther("50"), generateNullifier())
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("50"))
             ).to.be.revertedWith("Repay your existing debt first");
 
             // Test insufficient collateral
             await liquidityPool.connect(owner).setCreditScore(borrower2.address, 80);
             await expect(
-                liquidityPool.connect(borrower2).borrow(ethers.parseEther("1"), generateNullifier())
+                liquidityPool.connect(borrower2).borrow(ethers.parseEther("1"))
             ).to.be.revertedWith("Insufficient collateral for this loan");
         });
 
@@ -401,7 +399,7 @@ describe("Complete Contract Coverage Tests", function () {
                 await mockToken.getAddress(),
                 ethers.parseEther("2000")
             );
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"));
 
             const debt = await liquidityPool.userDebt(borrower1.address);
 
@@ -416,7 +414,7 @@ describe("Complete Contract Coverage Tests", function () {
             expect(await liquidityPool.userDebt(borrower1.address)).to.equal(0n);
 
             // Test overpayment - should clear debt and refund excess
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
             const newDebt = await liquidityPool.userDebt(borrower1.address);
             const overpayment = newDebt + ethers.parseEther("2");
 
@@ -433,7 +431,7 @@ describe("Complete Contract Coverage Tests", function () {
                 await mockToken.getAddress(),
                 ethers.parseEther("100")
             );
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"));
 
             // Crash price to trigger liquidation (from 2000 to 1)
             await mockPriceFeed.setPrice(ethers.parseUnits("1", 8));
@@ -454,7 +452,7 @@ describe("Complete Contract Coverage Tests", function () {
             expect(await liquidityPool.paused()).to.be.true;
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier())
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"))
             ).to.be.revertedWith("Contract is paused");
 
             await liquidityPool.connect(owner).togglePause();
@@ -499,7 +497,7 @@ describe("Complete Contract Coverage Tests", function () {
             expect(await liquidityPool.getBorrowerRate(borrower1.address)).to.be > 0;
 
             // Test after borrowing
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
             expect(await liquidityPool.getBorrowerRate(borrower1.address)).to.be > 0;
         });
     });
@@ -657,7 +655,7 @@ describe("Complete Contract Coverage Tests", function () {
             ).to.be.revertedWith("Contract paused");
 
             await expect(
-                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier())
+                liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"))
             ).to.be.revertedWith("Contract is paused");
 
             // Test zero address validations
@@ -713,7 +711,7 @@ describe("Complete Contract Coverage Tests", function () {
             );
 
             // 4. Borrower borrows funds
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"));
 
             // 4. Time passes, interest accrues
             await ethers.provider.send("evm_increaseTime", [30 * 24 * 3600]); // 30 days

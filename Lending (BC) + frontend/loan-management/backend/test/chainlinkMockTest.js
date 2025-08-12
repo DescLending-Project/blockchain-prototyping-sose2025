@@ -61,9 +61,7 @@ describe("LiquidityPool - Chainlink Automation Simulation with Glint Token", fun
       deployer.address,
       stablecoinManagerAddress,
       ethers.ZeroAddress, // Use correct zero address
-      interestRateModelAddress,
-      ethers.ZeroAddress, // _creditSystem
-      nullifierRegistryAddress
+      interestRateModelAddress
     ], {
       initializer: "initialize",
     });
@@ -135,7 +133,7 @@ describe("LiquidityPool - Chainlink Automation Simulation with Glint Token", fun
     await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), ethers.parseEther("5"));
 
     // Borrow funds (less than half of totalLent)
-    await liquidityPool.connect(user1).borrow(ethers.parseEther("1"), generateNullifier());
+    await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
 
     // Drop price to trigger liquidation
     await mockFeedGlint.setPrice(2e7); // $0.20

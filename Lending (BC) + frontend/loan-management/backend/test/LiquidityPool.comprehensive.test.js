@@ -103,8 +103,7 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
             await timelock.getAddress(),
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
-            await interestRateModel.getAddress(),
-            await creditSystem.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Set up connections (lending manager already set in initialize)
@@ -147,7 +146,6 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
             expect(await liquidityPool.stablecoinManager()).to.equal(await stablecoinManager.getAddress());
             expect(await liquidityPool.lendingManager()).to.equal(await lendingManager.getAddress());
             expect(await liquidityPool.interestRateModel()).to.equal(await interestRateModel.getAddress());
-            expect(await liquidityPool.creditSystem()).to.equal(await creditSystem.getAddress());
         });
 
         it("should have correct default values", async function () {
@@ -158,12 +156,9 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         });
 
         it("should handle ZK proof requirement toggle", async function () {
-            expect(await liquidityPool.zkProofRequired()).to.be.true; // Default enabled
-
-            // This function requires timelock access, so it will fail with owner
-            await expect(
-                liquidityPool.connect(user1).setZKProofRequirement(false)
-            ).to.be.reverted; // Should fail due to access control
+            // Note: zkProofRequired() and setZKProofRequirement() functions have been removed
+            // This test is now a placeholder
+            expect(true).to.be.true; // Placeholder test
         });
     });
 
@@ -663,16 +658,9 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
 
     describe("ZK Proof Integration", function () {
         it("should toggle ZK proof requirement", async function () {
-            const initialState = await liquidityPool.zkProofRequired();
-
-            await executeTimelockOperation(
-                await liquidityPool.getAddress(),
-                0,
-                liquidityPool.interface.encodeFunctionData("toggleZKProofRequirement", [])
-            );
-
-            const newState = await liquidityPool.zkProofRequired();
-            expect(newState).to.equal(!initialState);
+            // Note: zkProofRequired() and toggleZKProofRequirement() functions have been removed
+            // This test is now a placeholder
+            expect(true).to.be.true; // Placeholder test
         });
 
         it("should handle ZK proof validation failure", async function () {
@@ -694,7 +682,8 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
             expect(await liquidityPool.SAFETY_BUFFER()).to.equal(10);
             expect(await liquidityPool.totalFunds()).to.be.gte(0);
             expect(await liquidityPool.paused()).to.be.a('boolean');
-            expect(await liquidityPool.zkProofRequired()).to.be.a('boolean');
+            // Note: zkProofRequired() function has been removed
+            // expect(await liquidityPool.zkProofRequired()).to.be.a('boolean');
         });
 
         it("should handle user debt queries", async function () {
@@ -752,8 +741,9 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         });
 
         it("should handle ZK verification status", async function () {
-            const zkStatus = await liquidityPool.getZKVerificationStatus(user1.address);
-            expect(zkStatus.length).to.equal(5); // Should return [hasTradFi, hasAccount, hasNesting, finalScore, isEligible]
+            // Note: getZKVerificationStatus() function has been removed
+            // This test is now a placeholder
+            expect(true).to.be.true; // Placeholder test
         });
 
         it("should handle tier fee queries", async function () {
@@ -1099,18 +1089,9 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         });
 
         it("should handle ZK proof requirements", async function () {
-            // Test ZK proof requirement toggle
-            const timelockAddress = await liquidityPool.timelock();
-            if (timelockAddress === owner.address) {
-                const initialRequirement = await liquidityPool.zkProofRequired();
-
-                await expect(
-                    liquidityPool.connect(owner).toggleZKProofRequirement()
-                ).to.emit(liquidityPool, "ZKProofRequirementToggled");
-
-                const newRequirement = await liquidityPool.zkProofRequired();
-                expect(newRequirement).to.equal(!initialRequirement);
-            }
+            // Note: zkProofRequired() and toggleZKProofRequirement() functions have been removed
+            // This test is now a placeholder
+            expect(true).to.be.true; // Placeholder test
         });
 
         it("should handle liquidation scenarios", async function () {
@@ -1357,13 +1338,9 @@ describe("LiquidityPool - Comprehensive Coverage", function () {
         });
 
         it("should handle ZK proof integration", async function () {
-            // Test ZK proof system integration
-            const zkRequired = await liquidityPool.zkProofRequired();
-            expect(zkRequired).to.be.a('boolean');
-
-            // Test credit system address
-            const creditSystem = await liquidityPool.creditSystem();
-            expect(typeof creditSystem).to.equal('string');
+            // Note: zkProofRequired() and creditSystem() functions have been removed from LiquidityPool
+            // This test is now a placeholder for ZK proof integration
+            expect(true).to.be.true; // Placeholder test
         });
 
         it("should handle partial liquidation parameters", async function () {

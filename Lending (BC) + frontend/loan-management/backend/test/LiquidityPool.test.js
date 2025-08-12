@@ -109,9 +109,7 @@ describe("LiquidityPool - Basic Tests", function() {
             deployer.address, // timelock
             await stablecoinManager.getAddress(), // stablecoinManager
             ethers.ZeroAddress, // lendingManager (will be set later)
-            await interestRateModel.getAddress(), // interestRateModel
-            ethers.ZeroAddress, // creditSystem
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress() // interestRateModel
         );
 
         // Deploy LendingManager
@@ -293,7 +291,7 @@ describe("LiquidityPool - Basic Tests", function() {
             expect(borrowAmount > maxBorrowByCollateral).to.be.true;
 
             await expect(
-                liquidityPool.connect(user2).borrow(borrowAmount, generateNullifier())
+                liquidityPool.connect(user2).borrow(borrowAmount)
             ).to.be.revertedWith("Insufficient collateral for this loan");
         });
 
@@ -307,7 +305,7 @@ describe("LiquidityPool - Basic Tests", function() {
             }
             
             await expect(
-                liquidityPool.connect(user1).borrow(ethers.parseEther("0.05"), generateNullifier())
+                liquidityPool.connect(user1).borrow(ethers.parseEther("0.05"))
             ).to.be.revertedWith("Credit score too low");
         });
 
@@ -325,7 +323,7 @@ describe("LiquidityPool - Basic Tests", function() {
 
             const borrowAmount = ethers.parseEther("0.1");
             await expect(
-                liquidityPool.connect(user1).borrow(borrowAmount, generateNullifier())
+                liquidityPool.connect(user1).borrow(borrowAmount)
             ).to.emit(liquidityPool, "Borrowed")
                 .withArgs(user1.address, borrowAmount);
         });
@@ -350,7 +348,7 @@ describe("LiquidityPool - Basic Tests", function() {
             const maxBorrow = (collateralValue * 100n) / requiredRatio;
             const borrowAmount = maxBorrow > ethers.parseEther("0.1") ? ethers.parseEther("0.1") : maxBorrow / 2n;
 
-            await liquidityPool.connect(user1).borrow(borrowAmount, generateNullifier());
+            await liquidityPool.connect(user1).borrow(borrowAmount);
 
             const [isHealthy, ratio] = await liquidityPool.checkCollateralization(user1.address);
             expect(isHealthy).to.be.true;
@@ -380,7 +378,7 @@ describe("LiquidityPool - Basic Tests", function() {
             await glintToken.transfer(user1.address, ethers.parseEther("1000"));
             await glintToken.connect(user1).approve(await liquidityPool.getAddress(), ethers.parseEther("1000"));
             await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), ethers.parseEther("100"));
-            await liquidityPool.connect(user1).borrow(ethers.parseEther("1"), generateNullifier());
+            await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
         });
 
         it("should handle overpayment by refunding excess", async function () {
@@ -596,7 +594,7 @@ describe("LiquidityPool - Basic Tests", function() {
                 value: ethers.parseEther("20")
             });
             await liquidityPool.connect(borrower1).depositCollateral(await glintToken.getAddress(), ethers.parseEther("500"));
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("2"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("2"));
 
             const initialBorrowedByTier = await liquidityPool.borrowedAmountByRiskTier(3);
             const debt = await liquidityPool.userDebt(borrower1.address);
@@ -618,7 +616,7 @@ describe("LiquidityPool - Basic Tests", function() {
             await glintToken.transfer(user1.address, depositAmt);
             await glintToken.connect(user1).approve(await liquidityPool.getAddress(), depositAmt);
             await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), depositAmt);
-            await liquidityPool.connect(user1).borrow(ethers.parseEther("1"), generateNullifier());
+            await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
 
             await mockFeedGlint.setPrice(1e6);
             const [isHealthy] = await liquidityPool.checkCollateralization(user1.address);
@@ -736,9 +734,7 @@ describe("Stablecoin Collateral", function() {
             deployer.address, // timelock
             await stablecoinManager.getAddress(),
             ethers.ZeroAddress, // lendingManager
-            await interestRateModel.getAddress(),
-            ethers.ZeroAddress, // creditSystem
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Setup nullifier registry permissions
@@ -788,7 +784,7 @@ describe("Stablecoin Collateral", function() {
 
     it("should allow borrowing with stablecoin collateral", async function () {
         const borrowAmount = ethers.parseEther("0.1");
-        await liquidityPool.connect(user1).borrow(borrowAmount, generateNullifier());
+        await liquidityPool.connect(user1).borrow(borrowAmount);
         const debt = await liquidityPool.userDebt(user1.address);
         expect(debt).to.equal(borrowAmount);
     });
@@ -839,9 +835,7 @@ describe("Stablecoin Price Feed", function() {
             deployer.address, // timelock
             await stablecoinManager.getAddress(),
             ethers.ZeroAddress, // lendingManager
-            await interestRateModel.getAddress(),
-            ethers.ZeroAddress, // creditSystem
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Allow USDC as collateral first
@@ -911,9 +905,7 @@ describe("Stablecoin Liquidation", function() {
             deployer.address, // timelock
             await stablecoinManager.getAddress(),
             ethers.ZeroAddress, // lendingManager
-            await interestRateModel.getAddress(),
-            ethers.ZeroAddress, // creditSystem
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Setup nullifier registry permissions
@@ -964,7 +956,7 @@ describe("Stablecoin Liquidation", function() {
         const borrowAmount = maxBorrow > ethers.parseEther("10") ?
             ethers.parseEther("10") : maxBorrow / 2n;
 
-        await liquidityPool.connect(user1).borrow(borrowAmount, generateNullifier());
+        await liquidityPool.connect(user1).borrow(borrowAmount);
     });
 
     it("should use correct liquidation threshold for stablecoins", async function () {
@@ -1078,9 +1070,7 @@ describe("Multiple Stablecoin Collateral", function() {
             deployer.address, // timelock
             await stablecoinManager.getAddress(),
             ethers.ZeroAddress, // lendingManager
-            await interestRateModel.getAddress(),
-            ethers.ZeroAddress, // creditSystem
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Set up tokens as stablecoins
@@ -1182,9 +1172,7 @@ describe("Basic Functionality", function() {
             deployer.address, // timelock
             await stablecoinManager.getAddress(),
             ethers.ZeroAddress, // lendingManager
-            await interestRateModel.getAddress(),
-            ethers.ZeroAddress, // creditSystem
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress()
         );
     });
 
@@ -1243,9 +1231,7 @@ describe("Risk Score & Multiplier", function() {
             deployer.address, // timelock
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
-            await interestRateModel.getAddress(),
-            ethers.ZeroAddress, // creditSystem
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Setup nullifier registry permissions
@@ -1293,7 +1279,7 @@ describe("Risk Score & Multiplier", function() {
         await liquidityPool.connect(borrower1).depositCollateral(await glintToken.getAddress(), ethers.parseEther("500"));
 
         // Borrow funds
-        await liquidityPool.connect(borrower1).borrow(ethers.parseEther("2"), generateNullifier());
+        await liquidityPool.connect(borrower1).borrow(ethers.parseEther("2"));
 
         // Get initial risk metrics
         const initialBorrowedByTier = await liquidityPool.borrowedAmountByRiskTier(3); // TIER_4 index
@@ -1320,8 +1306,8 @@ describe("Risk Score & Multiplier", function() {
     await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), depositAmt);
     await liquidityPool.connect(user2).depositCollateral(await glintToken.getAddress(), depositAmt);
     // Both borrow
-    await liquidityPool.connect(user1).borrow(ethers.parseEther("1"), generateNullifier()); // TIER_1
-    await liquidityPool.connect(user2).borrow(ethers.parseEther("3"), generateNullifier()); // TIER_3
+    await liquidityPool.connect(user1).borrow(ethers.parseEther("1")); // TIER_1
+    await liquidityPool.connect(user2).borrow(ethers.parseEther("3")); // TIER_3
     const borrowedByTier = [
         await liquidityPool.borrowedAmountByRiskTier(0),
         await liquidityPool.borrowedAmountByRiskTier(1),
@@ -1344,8 +1330,8 @@ describe("Risk Score & Multiplier", function() {
     await glintToken.connect(user2).approve(await liquidityPool.getAddress(), depositAmt);
     await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), depositAmt);
     await liquidityPool.connect(user2).depositCollateral(await glintToken.getAddress(), depositAmt);
-    await liquidityPool.connect(user1).borrow(ethers.parseEther("2"), generateNullifier()); // TIER_1
-    await liquidityPool.connect(user2).borrow(ethers.parseEther("2"), generateNullifier()); // TIER_4
+    await liquidityPool.connect(user1).borrow(ethers.parseEther("2")); // TIER_1
+    await liquidityPool.connect(user2).borrow(ethers.parseEther("2")); // TIER_4
     let borrowedByTier = [
         await liquidityPool.borrowedAmountByRiskTier(0),
         await liquidityPool.borrowedAmountByRiskTier(1),
@@ -1375,7 +1361,7 @@ describe("Risk Score & Multiplier", function() {
     await glintToken.transfer(user1.address, depositAmt);
     await glintToken.connect(user1).approve(await liquidityPool.getAddress(), depositAmt);
     await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), depositAmt);
-    await liquidityPool.connect(user1).borrow(ethers.parseEther("1"), generateNullifier()); // TIER_3
+    await liquidityPool.connect(user1).borrow(ethers.parseEther("1")); // TIER_3
     const borrowedByTier = [
         await liquidityPool.borrowedAmountByRiskTier(0),
         await liquidityPool.borrowedAmountByRiskTier(1),
@@ -1426,9 +1412,7 @@ describe("Repayment Risk Adjustment", function() {
             deployer.address, // timelock
             await stablecoinManager.getAddress(),
             ethers.ZeroAddress, // lendingManager
-            await interestRateModel.getAddress(),
-            ethers.ZeroAddress, // creditSystem
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Setup nullifier registry permissions
@@ -1486,7 +1470,7 @@ describe("Repayment Risk Adjustment", function() {
         await glintToken.transfer(borrower1.address, depositAmt);
         await glintToken.connect(borrower1).approve(await liquidityPool.getAddress(), depositAmt);
         await liquidityPool.connect(borrower1).depositCollateral(await glintToken.getAddress(), depositAmt);
-        await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"), generateNullifier());
+        await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
         await liquidityPool.connect(borrower1).repay({ value: ethers.parseEther("1") });
         const totalBorrowed = await liquidityPool.totalBorrowedAllTime();
         const totalRepaid = await liquidityPool.totalRepaidAllTime();
@@ -1517,8 +1501,8 @@ describe("Repayment Risk Adjustment", function() {
         await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), depositAmt);
         await liquidityPool.connect(user2).depositCollateral(await glintToken.getAddress(), depositAmt);
         // Both borrow
-        await liquidityPool.connect(user1).borrow(ethers.parseEther("1"), generateNullifier());
-        await liquidityPool.connect(user2).borrow(ethers.parseEther("3"), generateNullifier());
+        await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
+        await liquidityPool.connect(user2).borrow(ethers.parseEther("3"));
         // Only repay part of user2's loan (repay 1 out of 4 total)
         await liquidityPool.connect(user2).repay({ value: ethers.parseEther("1") });
         // Now: totalBorrowedAllTime = 4, totalRepaidAllTime = 1
@@ -1556,7 +1540,7 @@ describe("Repayment Risk Adjustment", function() {
         await glintToken.transfer(user1.address, depositAmt);
         await glintToken.connect(user1).approve(await liquidityPool.getAddress(), depositAmt);
         await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), depositAmt);
-        await liquidityPool.connect(user1).borrow(ethers.parseEther("1"), generateNullifier());
+        await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
         // Force undercollateralization by dropping price
         await mockFeedGlint.setPrice(1e6); // Drop price by 100x
         // Confirm unhealthy
@@ -1581,8 +1565,8 @@ describe("Repayment Risk Adjustment", function() {
         await glintToken.connect(user2).approve(await liquidityPool.getAddress(), depositAmt);
         await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), depositAmt);
         await liquidityPool.connect(user2).depositCollateral(await glintToken.getAddress(), depositAmt);
-        await liquidityPool.connect(user1).borrow(ethers.parseEther("1"), generateNullifier());
-        await liquidityPool.connect(user2).borrow(ethers.parseEther("3"), generateNullifier());
+        await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
+        await liquidityPool.connect(user2).borrow(ethers.parseEther("3"));
         // Only repay part of user2's loan
         await liquidityPool.connect(user2).repay({ value: ethers.parseEther("1") });
         // Now: totalBorrowedAllTime = 4, totalRepaidAllTime = 2
@@ -1633,9 +1617,7 @@ describe("transferOwnership", function() {
             deployer.address,// TODO DAO here
             stablecoinManagerAddress,
             ethers.ZeroAddress,
-            interestRateModelAddress,
-            ethers.ZeroAddress, // _creditSystem
-            nullifierRegistryAddress
+            interestRateModelAddress
         ], {
             initializer: "initialize",
         });

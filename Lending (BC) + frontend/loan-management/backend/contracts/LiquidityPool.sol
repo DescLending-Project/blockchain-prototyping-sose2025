@@ -140,6 +140,7 @@ contract LiquidityPool is
     );
     event GracePeriodExtended(address indexed user, uint256 newDeadline);
     event UserError(address indexed user, string message);
+    event UserHistoryUpdated(address indexed user, string action, uint256 timestamp);
 
     // RISC0 Integration Events
     event CreditScoreContractUpdated(

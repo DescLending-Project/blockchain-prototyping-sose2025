@@ -123,9 +123,7 @@ describe("Fixed Comprehensive Contract Coverage", function() {
             owner.address, // Use owner as timelock for simplicity in tests
             await stablecoinManager.getAddress(),
             await lendingManager.getAddress(),
-            await interestRateModel.getAddress(),
-            await creditSystem.getAddress(),
-            await nullifierRegistry.getAddress()
+            await interestRateModel.getAddress()
         );
 
         // Setup connections
@@ -328,7 +326,7 @@ describe("Fixed Comprehensive Contract Coverage", function() {
                 ethers.parseEther("2000")
             );
 
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"));
             expect(await liquidityPool.userDebt(borrower1.address)).to.be.gte(ethers.parseEther("5"));
 
             const debt = await liquidityPool.userDebt(borrower1.address);
@@ -464,7 +462,7 @@ describe("Fixed Comprehensive Contract Coverage", function() {
             );
 
             // 3. Borrower borrows funds
-            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"), generateNullifier());
+            await liquidityPool.connect(borrower1).borrow(ethers.parseEther("5"));
 
             // 4. Borrower repays loan
             const debt = await liquidityPool.userDebt(borrower1.address);

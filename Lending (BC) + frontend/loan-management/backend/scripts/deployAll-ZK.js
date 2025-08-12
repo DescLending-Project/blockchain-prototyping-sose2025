@@ -104,13 +104,10 @@ async function connectZKToLiquidityPool(liquidityPool, creditSystemAddress) {
     try {
         console.log("\n🔗 Connecting ZK Credit System to LiquidityPool...");
 
-        // Connect credit system to liquidity pool
-        await liquidityPool.setCreditSystem(creditSystemAddress);
-        console.log("✅ Credit system connected to LiquidityPool");
-
-        // Enable ZK proof requirement (optional - you can disable this)
-        await liquidityPool.setZKProofRequirement(false); // Start with false for testing
-        console.log("✅ ZK proof requirement configured");
+        // Note: setCreditSystem() and setZKProofRequirement() functions have been removed
+        console.log("⚠️  setCreditSystem() function has been removed from LiquidityPool");
+        console.log("⚠️  setZKProofRequirement() function has been removed from LiquidityPool");
+        console.log("✅ ZK integration now handled through external configuration");
 
         return true;
     } catch (error) {
@@ -208,8 +205,7 @@ async function main() {
             deployer.address,
             stablecoinManagerAddress,
             ethers.ZeroAddress, // Temporary placeholder for LendingManager
-            ethers.ZeroAddress, // Temporary placeholder for CreditSystem
-            ethers.ZeroAddress
+            ethers.ZeroAddress  // Temporary placeholder for InterestRateModel
         ], {
             initializer: "initialize",
         });
