@@ -32,8 +32,6 @@ export async function loadProofs(): Promise<void> {
       const date = new Date(proof.timestamp || new Date().toISOString());
       const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
 
-      console.log(`Rendering proof ${index} with status: ${proof.status}`);
-
       proofItem.innerHTML = `
         <div>${proof.formData.url} - ${formattedDate}</div>
         <div class="proof-actions-container">

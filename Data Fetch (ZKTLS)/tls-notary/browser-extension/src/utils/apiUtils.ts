@@ -4,7 +4,7 @@ import { HttpMethod } from 'tls-notary-shared/dist/types/tls';
 import { getSettings } from './storageUtils';
 
 export interface PollingStatusCallback {
-  (status: string, attempt: number, maxAttempts: number): void;
+  (status: string): void;
 }
 
 export async function pollForProofRecord(
@@ -17,7 +17,7 @@ export async function pollForProofRecord(
   let lastError: Error | null = null;
 
   if (statusCallback) {
-    statusCallback('Loading...', 0, maxAttempts);
+    statusCallback('Loading...');
   }
 
   while (attempts < maxAttempts) {
@@ -34,13 +34,13 @@ export async function pollForProofRecord(
           lastError = new Error(errorMessage);
 
           if (statusCallback) {
-            statusCallback('Error: ' + errorMessage, attempts, maxAttempts);
+            statusCallback('Error: ' + errorMessage);
           }
 
           return proofRecord;
         } else {
           if (statusCallback) {
-            statusCallback('Done!', attempts, maxAttempts);
+            statusCallback('Done!');
           }
           return proofRecord;
         }
@@ -51,7 +51,7 @@ export async function pollForProofRecord(
         lastError = new Error(errorMessage);
 
         if (statusCallback) {
-          statusCallback('Error: ' + errorMessage, attempts, maxAttempts);
+          statusCallback('Error: ' + errorMessage);
         }
 
         return proofRecord;
@@ -64,7 +64,7 @@ export async function pollForProofRecord(
         errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
 
         if (statusCallback) {
-          statusCallback('Error: ' + errorMessage, attempts, maxAttempts);
+          statusCallback('Error: ' + errorMessage);
         }
         throw lastError;
       }
@@ -86,7 +86,7 @@ export function validateResponse(
 ): { responseReceived: boolean } {
   if (!proofRecord || !proofRecord.tlsCallResponse) {
     if (statusCallback) {
-      statusCallback('Error: Invalid response received from server', 0, 0);
+      statusCallback('Error: Invalid response received from server');
     }
     throw new Error('Invalid response received from server');
   }
@@ -94,7 +94,7 @@ export function validateResponse(
   const responseBody = proofRecord.tlsCallResponse.responseBody;
   if (!responseBody) {
     if (statusCallback) {
-      statusCallback('Error: Empty response received from server', 0, 0);
+      statusCallback('Error: Empty response received from server');
     }
     throw new Error('Empty response received from server');
   }
@@ -170,7 +170,7 @@ export async function sendTLSRequest(
     proofRecord = await pollForProofRecord(requestId, statusCallback);
   } catch (error) {
     if (statusCallback) {
-      statusCallback('Error: Failed to get response', 0, 0);
+      statusCallback('Error: Failed to get response');
     }
     throw new Error(`Failed to get response: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

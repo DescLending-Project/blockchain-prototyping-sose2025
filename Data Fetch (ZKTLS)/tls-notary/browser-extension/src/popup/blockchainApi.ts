@@ -2,6 +2,17 @@ import { PollingStatusCallback, sendTLSRequest } from '../utils/apiUtils';
 import { HttpMethod } from 'tls-notary-shared/dist/types/tls';
 import { validateApiUrl } from '../utils/authUtils';
 
+/**
+ * Sends a blockchain API request to retrieve block information
+ * Uses TLS Notary to generate a verifiable proof of the response
+ * 
+ * @param apiEndpoint - The base URL of the blockchain API (e.g., Alchemy, Infura)
+ * @param apiToken - The API token for authentication
+ * @param blockNumber - The block number to retrieve (with or without 0x prefix)
+ * @param statusCallback - Optional callback to receive status updates during the request
+ * @returns Promise resolving to an object indicating if the response was received
+ * @throws Error if the API endpoint, token, or block number is invalid
+ */
 export async function sendBlockchainRequest(
   apiEndpoint: string,
   apiToken: string,
