@@ -287,7 +287,7 @@ If something goes wrong, restart from scratch:
 
 ```
 loan-management/
-├── backend/                    # Smart contracts and blockchain logic
+├── backend/                   # Smart contracts and blockchain logic
 │   ├── contracts/             # Solidity smart contracts
 │   ├── scripts/               # Deployment and utility scripts
 │   ├── test/                  # Contract tests
@@ -298,6 +298,53 @@ loan-management/
 │   └── package.json           # Frontend dependencies
 └── README.md                  # This file
 ```
+
+---
+
+## ⛽ Gas Cost Analysis
+
+### Running Gas Analysis Scripts
+
+To measure the actual gas costs of deploying and using the lending system, we provide comprehensive gas analysis scripts:
+
+#### Prerequisites
+1. **Start local Hardhat node**:
+   ```bash
+   cd backend
+   npx hardhat node
+   ```
+
+2. **Run gas analysis** (in a new terminal):
+   ```bash
+   cd backend
+   npx hardhat run scripts/gasAnalysis.js --network localhost
+   ```
+
+#### Available Scripts
+- **`gasAnalysis.js`** - Complete system analysis (deployment + methods + full cycle)
+- **`deploymentCostAnalysis.js`** - Detailed deployment cost breakdown
+- **`lendingCycleAnalysis.js`** - User journey gas measurements
+- **`runGasAnalysis.js`** - Master script that runs all analyses
+
+#### Key Findings (Actual Measurements)
+| Operation | Gas Cost | ETH (25 gwei) | USD Cost* |
+|-----------|----------|---------------|-----------|
+| **System Deployment** | 11,390,516 | 0.285 ETH | ~$570 |
+| **Single Borrow** | 385,549 | 0.0096 ETH | ~$19 |
+| **Complete User Cycle** | 729,706 | 0.0182 ETH | ~$37 |
+| **Deposit Collateral** | 163,764 | 0.0041 ETH | ~$8 |
+| **Repay Loan** | 105,906 | 0.0026 ETH | ~$5 |
+
+*Assuming ETH = $2000
+
+#### Cost Optimization Recommendations
+- **Layer 2 Deployment**: Deploy on Polygon/Arbitrum for 90% cost reduction
+- **Transaction Batching**: Combine multiple operations to save gas
+- **Off-peak Usage**: Transact during low gas price periods
+
+For detailed analysis results, see:
+- `backend/REAL_GAS_ANALYSIS_RESULTS.md` - Complete analysis report
+- `backend/FINAL_GAS_SUMMARY.md` - Executive summary with recommendations
 
 ---
 
