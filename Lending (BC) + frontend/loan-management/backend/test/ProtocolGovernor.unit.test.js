@@ -318,7 +318,6 @@ describe("ProtocolGovernor - Comprehensive Coverage", function() {
         it("should queue successful proposals", async function () {
             // Check if proposal succeeded first
             const state = await governor.state(proposalId);
-            console.log("Proposal state before queue:", state.toString());
 
             if (state === 4n) { // Succeeded
                 await expect(
@@ -329,7 +328,6 @@ describe("ProtocolGovernor - Comprehensive Coverage", function() {
                 expect(newState).to.equal(5n); // Queued
             } else {
                 // If proposal didn't succeed, skip the queue test
-                console.log("Proposal did not succeed, skipping queue test");
                 expect(state).to.be.oneOf([3n, 4n]); // Either Defeated or Succeeded
             }
         });
@@ -354,7 +352,6 @@ describe("ProtocolGovernor - Comprehensive Coverage", function() {
                 expect(newState).to.equal(7n); // Executed
             } else {
                 // If proposal didn't succeed, skip the execution test
-                console.log("Proposal did not succeed, skipping execution test");
                 expect(state).to.be.oneOf([3n, 4n]); // Either Defeated or Succeeded
             }
         });

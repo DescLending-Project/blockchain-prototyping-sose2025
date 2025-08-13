@@ -84,9 +84,9 @@ contract ProtocolGovernor is
         bytes[] memory calldatas,
         string memory description
     ) public override(Governor, IGovernor) returns (uint256) {
-        console.log("Proposing with target:", targets[0]);
-        console.log("Value:", values[0]);
-        console.log("Calldata length:", calldatas[0].length);
+       // console.log("Proposing with target:", targets[0]);
+       // console.log("Value:", values[0]);
+       // console.log("Calldata length:", calldatas[0].length);
         return super.propose(targets, values, calldatas, description);
     }
 
@@ -171,7 +171,7 @@ contract ProtocolGovernor is
         p.executeAfter =
             block.timestamp +
             TimelockController(payable(_executor())).getMinDelay();
-        console.log("Scheduled for execution at:", p.executeAfter);
+        //console.log("Scheduled for execution at:", p.executeAfter);
     }
 
     function executeAdvancedProposal(uint256 proposalId) public {
@@ -181,9 +181,9 @@ contract ProtocolGovernor is
         require(!p.executed, "Already executed");
         require(vetoSignatures[proposalId] < 3, "Vetoed by multisig");
 
-        console.log("Executing proposal:", proposalId);
-        console.log("Target contract:", p.targetContract);
-        console.log("Function selector:", uint32(p.functionSelector));
+       // console.log("Executing proposal:", proposalId);
+       // console.log("Target contract:", p.targetContract);
+       // console.log("Function selector:", uint32(p.functionSelector));
 
         bytes32 salt = keccak256(abi.encode(proposalId));
         bytes memory callData = abi.encodePacked(

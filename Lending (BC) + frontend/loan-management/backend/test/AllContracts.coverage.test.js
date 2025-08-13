@@ -389,7 +389,7 @@ describe("Complete Contract Coverage Tests", function () {
             // Test operations when paused
             await liquidityPool.togglePause();
             await expect(
-                liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"), generateNullifier())
+                liquidityPool.connect(user1).borrow(ethers.parseEther("0.1"))
             ).to.be.reverted;
         });
 
