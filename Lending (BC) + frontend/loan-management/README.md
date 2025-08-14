@@ -201,7 +201,7 @@ cd backend
 npx hardhat coverage
 ```
 
-<img width="743" height="311" alt="converage2" src="https://github.com/user-attachments/assets/f18a5fcc-f659-455f-9a6d-6d257e6b2a66" />
+<img width="742" height="380" alt="coverage3" src="https://github.com/user-attachments/assets/e77245c7-4699-46ce-9111-847c07aea79f" />
 
 
 ### Generate Mock Transactions
