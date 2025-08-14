@@ -77,6 +77,51 @@ async function main() {
     const ProtocolGovernor = await ethers.getContractAt('ProtocolGovernor', addresses.ProtocolGovernor);
     const VotingToken = await ethers.getContractAt('VotingToken', addresses.VotingToken);
 
+    // Grant MINTER_ROLE to deployer for minting voting tokens
+    console.log('Setting up permissions for mock transactions...');
+    const MINTER_ROLE = await VotingToken.MINTER_ROLE();
+    const hasRole = await VotingToken.hasRole(MINTER_ROLE, deployer.address);
+
+    if (!hasRole) {
+        console.log('Granting MINTER_ROLE to deployer...');
+        try {
+            // Try to grant role directly (if deployer still has admin rights)
+            await VotingToken.grantRole(MINTER_ROLE, deployer.address);
+            console.log('✅ MINTER_ROLE granted to deployer');
+        } catch (error) {
+            console.log('⚠️ Could not grant MINTER_ROLE directly, trying via timelock...');
+
+            // If direct granting fails, use timelock impersonation
+            const timelockAddress = addresses.TimelockController;
+            await network.provider.send("hardhat_setBalance", [timelockAddress, "0x1000000000000000000"]);
+            const timelockSigner = await ethers.getImpersonatedSigner(timelockAddress);
+
+            await VotingToken.connect(timelockSigner).grantRole(MINTER_ROLE, deployer.address);
+            console.log('✅ MINTER_ROLE granted to deployer via timelock');
+        }
+    } else {
+        console.log('✅ Deployer already has MINTER_ROLE');
+    }
+
+    // Also grant MINTER_ROLE to LiquidityPool for repayment rewards
+    const liquidityPoolHasRole = await VotingToken.hasRole(MINTER_ROLE, addresses.LiquidityPool);
+    if (!liquidityPoolHasRole) {
+        console.log('Granting MINTER_ROLE to LiquidityPool for repayment rewards...');
+        try {
+            // Try to grant role via timelock (since deployer admin was revoked)
+            const timelockAddress = addresses.TimelockController;
+            await network.provider.send("hardhat_setBalance", [timelockAddress, "0x1000000000000000000"]);
+            const timelockSigner = await ethers.getImpersonatedSigner(timelockAddress);
+
+            await VotingToken.connect(timelockSigner).grantRole(MINTER_ROLE, addresses.LiquidityPool);
+            console.log('✅ MINTER_ROLE granted to LiquidityPool via timelock');
+        } catch (error) {
+            console.log('⚠️ Could not grant MINTER_ROLE to LiquidityPool:', error.message);
+        }
+    } else {
+        console.log('✅ LiquidityPool already has MINTER_ROLE');
+    }
+
     // --- Mint voting tokens to as many accounts as possible (up to 10 for dev/test) ---
     // --- Modified Minting Section ---
     // --- Mint voting tokens with guaranteed voting power ---
@@ -113,6 +158,21 @@ async function main() {
 
     // Impersonate timelock for admin actions
     const timelockSigner = await ethers.getImpersonatedSigner(addresses.TimelockController);
+
+    // --- Check and clear existing debts ---
+    console.log('Checking for existing debts...');
+    for (const borrower of [borrower1, borrower2]) {
+        const debt = await LiquidityPool.userDebt(borrower.address);
+        if (debt > 0) {
+            console.log(`Clearing existing debt of ${ethers.formatEther(debt)} ETH for ${borrower.address}`);
+            try {
+                await LiquidityPool.connect(borrower).repay({ value: debt });
+                console.log(`✅ Cleared debt for ${borrower.address}`);
+            } catch (error) {
+                console.log(`⚠️ Could not clear debt for ${borrower.address}:`, error.message);
+            }
+        }
+    }
 
     // --- Owner/Admin Activities (Deployer) ---
     console.log('Mock: Owner/Admin activities');
@@ -256,6 +316,19 @@ async function main() {
     const [, , , , , liquidationBorrower] = await ethers.getSigners();
 
     console.log('Mock: Setting up liquidation scenario');
+
+    // Check and clear existing debt for liquidation borrower
+    const liquidationBorrowerDebt = await LiquidityPool.userDebt(liquidationBorrower.address);
+    if (liquidationBorrowerDebt > 0) {
+        console.log(`Clearing existing debt of ${ethers.formatEther(liquidationBorrowerDebt)} ETH for liquidation borrower`);
+        try {
+            await LiquidityPool.connect(liquidationBorrower).repay({ value: liquidationBorrowerDebt });
+            console.log('✅ Cleared debt for liquidation borrower');
+        } catch (error) {
+            console.log('⚠️ Could not clear debt for liquidation borrower:', error.message);
+        }
+    }
+
     // Set a lower credit score for liquidation borrower
     await LiquidityPool.connect(timelockSigner).setCreditScore(liquidationBorrower.address, 60);
 

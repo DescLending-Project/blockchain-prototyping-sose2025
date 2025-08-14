@@ -82,17 +82,58 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
         console.log(`Voting period (blocks): ${votingPeriodBlocks}`);
     }
 
-    // 4. Mine exactly 1 block to activate proposal
-    await network.provider.send("evm_mine");
-    let state = await governor.state(proposalId);
-    console.log(`Proposal state: ${state}`); // Should be 1 (Active)
+    // 4. Get voting delay and mine enough blocks to activate proposal
+    let votingDelay;
+    try {
+        votingDelay = await governor.votingDelay();
+        console.log(`Voting delay: ${votingDelay} blocks`);
+    } catch {
+        votingDelay = 1; // fallback
+    }
 
-    // 5. Vote immediately with all accounts
+    // Mine voting delay + 1 blocks to ensure proposal is active
+    for (let i = 0; i <= Number(votingDelay); i++) {
+        await network.provider.send("evm_mine");
+    }
+
+    let state = await governor.state(proposalId);
+    console.log(`Proposal state after mining ${Number(votingDelay) + 1} blocks: ${state}`); // Should be 1 (Active)
+
+    // If still not active, mine a few more blocks
+    let attempts = 0;
+    while (state !== 1 && attempts < 10) {
+        await network.provider.send("evm_mine");
+        state = await governor.state(proposalId);
+        attempts++;
+        console.log(`Additional block mined, state: ${state}, attempt: ${attempts}`);
+    }
+
+    if (state !== 1) {
+        console.log(`⚠️ Proposal not active after ${attempts + Number(votingDelay) + 1} blocks. State: ${state} (${getStateName(state)})`);
+        console.log('Attempting to proceed anyway...');
+    } else {
+        console.log('✅ Proposal is now active and ready for voting');
+    }
+
+    // 5. Vote with all accounts
     console.log('Voting on proposal...');
     for (let j = 0; j < maxAccounts; j++) {
-        const voteTx = await governor.connect(accounts[j]).castVote(proposalId, 1, { gasLimit: 200000 });
-        await voteTx.wait();
-        console.log(`Account ${j} voted`);
+        try {
+            // Check if account has voting power
+            const votingPower = await governor.getVotes(accounts[j].address, await governor.proposalSnapshot(proposalId));
+            console.log(`Account ${j} voting power: ${votingPower}`);
+
+            if (votingPower > 0) {
+                const voteTx = await governor.connect(accounts[j]).castVote(proposalId, 1, { gasLimit: 200000 });
+                await voteTx.wait();
+                console.log(`Account ${j} voted successfully`);
+            } else {
+                console.log(`Account ${j} has no voting power, skipping`);
+            }
+        } catch (error) {
+            console.error(`Failed to vote with account ${j}:`, error.message);
+            // Continue with other accounts instead of failing completely
+        }
     }
 
     // 6. Calculate exact time remaining in voting period
@@ -127,7 +168,19 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
         await network.provider.send("evm_mine");
     }
     state = await governor.state(proposalId);
-    console.log(`Proposal state after deadline: ${state}`); // Should be 4 (Succeeded)
+    console.log(`Proposal state after deadline: ${state} (${getStateName(state)})`); // Should be 4 (Succeeded)
+
+    // Debug voting results
+    try {
+        const proposalVotes = await governor.proposalVotes(proposalId);
+        console.log(`Voting results - For: ${proposalVotes.forVotes}, Against: ${proposalVotes.againstVotes}, Abstain: ${proposalVotes.abstainVotes}`);
+
+        const quorum = await governor.quorum(await governor.proposalSnapshot(proposalId));
+        console.log(`Quorum required: ${quorum}`);
+        console.log(`Votes for >= quorum: ${proposalVotes.forVotes >= quorum}`);
+    } catch (error) {
+        console.log('Could not get detailed voting results');
+    }
 
     // 9. Queue the proposal
     console.log('Queueing proposal...');
@@ -142,7 +195,11 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
     console.log("Current block timestamp:", currentBlockTs);
     console.log("Proposal snapshot:", snapshot);
     console.log("Proposal deadline:", deadline);
-    if (state !== 4) throw new Error("Proposal not in Succeeded state before queue");
+    if (Number(state) !== 4) {
+        console.log(`⚠️ Proposal state is ${state} (${getStateName(Number(state))}), expected 4 (Succeeded)`);
+        throw new Error(`Proposal not in Succeeded state before queue. State: ${state} (${getStateName(Number(state))})`);
+    }
+    console.log("✅ Proposal is in Succeeded state, proceeding to queue...");
     const queueTx = await governor.queue(
         targets,
         values,
@@ -162,7 +219,11 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
     // 11. Execute proposal
     state = await governor.state(proposalId);
     console.log("State before execute:", state);
-    if (state !== 5) throw new Error("Proposal not in Queued state before execute");
+    if (Number(state) !== 5) {
+        console.log(`⚠️ Proposal state is ${state} (${getStateName(Number(state))}), expected 5 (Queued)`);
+        throw new Error(`Proposal not in Queued state before execute. State: ${state} (${getStateName(Number(state))})`);
+    }
+    console.log("✅ Proposal is in Queued state, proceeding to execute...");
     console.log('Executing proposal...');
     const executeTx = await governor.execute(
         targets,
@@ -484,33 +545,78 @@ async function main() {
         console.log('⚠️ Some configurations may need to be set manually later');
     }
 
-    // 7.4 Use governance to whitelist LiquidityPool (optional but recommended)
+    // 7.4 Use governance to whitelist LiquidityPool (required for governance)
     console.log('\n🏛️ Setting up governance configurations...');
-    
+
     try {
+        // Simplified governance setup with very low quorum (1 vote)
+        console.log('Setting up minimal governance for whitelist...');
+        const MINTER_ROLE = await votingToken.MINTER_ROLE();
+        const hasRole = await votingToken.hasRole(MINTER_ROLE, deployer.address);
+
+        if (!hasRole) {
+            console.log('Granting MINTER_ROLE to deployer...');
+            await votingToken.grantRole(MINTER_ROLE, deployer.address);
+        }
+
+        // Just mint 1 token to the deployer - enough for the very low quorum
+        console.log('Minting minimal voting tokens...');
+        await votingToken.mint(deployer.address, 10); // Mint 10 tokens for safety
+        await votingToken.connect(deployer).delegate(deployer.address);
+
+        // Wait for delegation to take effect
+        console.log('Waiting for delegation to take effect...');
+        await network.provider.send("evm_mine");
+        await network.provider.send("evm_mine");
+
+        // Verify voting power
+        const votingPower = await votingToken.getVotes(deployer.address);
+        const quorum = await governor.quorum(await ethers.provider.getBlockNumber());
+        console.log(`Deployer voting power: ${votingPower}`);
+        console.log(`Quorum required: ${quorum}`);
+        console.log(`Meets quorum: ${votingPower >= quorum}`);
+
         // Create a governance proposal to whitelist LiquidityPool
         const whitelistCalldata = governor.interface.encodeFunctionData(
-            "setContractWhitelist", 
+            "setContractWhitelist",
             [await liquidityPool.getAddress(), true]
         );
-        
-        // Use the executeGovernanceProposal helper to do this automatically
+
+        // Use the executeGovernanceProposal helper with just the deployer
         await executeGovernanceProposal(
             governor,
             [await governor.getAddress()], // target: governor itself
             [0], // values
             [whitelistCalldata], // calldata
             makeUniqueDescription("Whitelist LiquidityPool for governance"),
-            accounts,
-            Math.min(accounts.length, 5), // use up to 5 accounts for voting
+            [deployer], // just use deployer account
+            1, // use 1 account
             network
         );
-        
+
         console.log('✅ LiquidityPool whitelisted for governance proposals');
-        
+
     } catch (error) {
         console.error('❌ Failed to setup governance whitelist:', error.message);
-        console.log('⚠️ You may need to whitelist LiquidityPool manually later');
+        console.error('Full error:', error);
+
+        // Try alternative approach: direct whitelist while deployer is still admin
+        try {
+            console.log('🔄 Attempting direct whitelist as fallback...');
+            // Check if governor has a direct setContractWhitelist function we can call
+            const hasDirectFunction = governor.interface.fragments.some(f => f.name === 'setContractWhitelist');
+            if (hasDirectFunction) {
+                await governor.setContractWhitelist(await liquidityPool.getAddress(), true);
+                console.log('✅ LiquidityPool whitelisted directly (fallback method)');
+            } else {
+                console.log('⚠️ No direct whitelist method available');
+            }
+        } catch (fallbackError) {
+            console.log('⚠️ Fallback method also failed:', fallbackError.message);
+        }
+
+        console.log('⚠️ You may need to whitelist LiquidityPool manually later via governance');
+        console.log('🔄 Continuing with deployment...');
     }
 
 

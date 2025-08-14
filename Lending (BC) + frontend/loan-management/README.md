@@ -329,13 +329,15 @@ To measure the actual gas costs of deploying and using the lending system, we pr
 #### Key Findings (Actual Measurements)
 | Operation | Gas Cost | ETH (25 gwei) | USD Cost* |
 |-----------|----------|---------------|-----------|
-| **System Deployment** | 11,390,516 | 0.285 ETH | ~$570 |
-| **Single Borrow** | 385,549 | 0.0096 ETH | ~$19 |
-| **Complete User Cycle** | 729,706 | 0.0182 ETH | ~$37 |
-| **Deposit Collateral** | 163,764 | 0.0041 ETH | ~$8 |
-| **Repay Loan** | 105,906 | 0.0026 ETH | ~$5 |
+| **System Deployment** | 11,390,516 | 0.285 ETH | ~$1,283 |
+| **Single Borrow** | 385,549 | 0.0096 ETH | ~$43 |
+| **Complete User Cycle** | 729,706 | 0.0182 ETH | ~$82 |
+| **Deposit Collateral** | 163,764 | 0.0041 ETH | ~$18 |
+| **Repay Loan** | 105,906 | 0.0026 ETH | ~$12 |
 
-*Assuming ETH = $2000
+*Assuming ETH = $4,500
+
+**Note:** Production deployment costs are higher at 19,562,732 gas (0.489 ETH = ~$2,201) when including all real contracts (governance, ZK verifiers, etc.) rather than just testing contracts.
 
 #### Cost Optimization Recommendations
 - **Layer 2 Deployment**: Deploy on Polygon/Arbitrum for 90% cost reduction

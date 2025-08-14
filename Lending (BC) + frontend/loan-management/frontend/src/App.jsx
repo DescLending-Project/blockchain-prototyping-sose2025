@@ -45,7 +45,7 @@ const NETWORK_TOKENS = {
 // Collateral tokens array - will be updated based on network
 const COLLATERAL_TOKENS = [
   {
-    address: '0x942ED2fa862887Dc698682cc6a86355324F0f01e', // GLINT
+    address: '0x3155755b79aA083bd953911C92705B7aA82a18F9', // GLINT
     symbol: 'GLINT',
     name: 'Glint Token',
     isStablecoin: false

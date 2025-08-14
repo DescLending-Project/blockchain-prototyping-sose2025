@@ -36,16 +36,27 @@ This directory contains only the essential scripts needed for deployment, testin
 
 ## ⛽ **Gas Analysis Scripts**
 
-### **Comprehensive Gas Measurement**
+### **Production Gas Analysis**
+
+#### **`productionGasAnalysis.js`** ⭐ **NEW**
+- **Purpose**: Gas analysis for PRODUCTION contracts only (no mocks)
+- **Usage**: `npx hardhat run scripts/productionGasAnalysis.js --network localhost`
+- **Measures**: Real contracts that would be deployed in production
+- **Includes**: LiquidityPool, LendingManager, ZK verifiers, governance contracts
+- **Excludes**: Mock contracts used only for testing
+- **Output**: Production-ready deployment cost analysis
+
+### **Development Gas Analysis (includes mocks)**
 
 #### **`gasAnalysis.js`** ⭐
-- **Purpose**: Complete gas analysis for all system components
+- **Purpose**: Complete gas analysis including mock contracts for testing
 - **Usage**: `npx hardhat run scripts/gasAnalysis.js --network localhost`
 - **Measures**: Deployment costs, method costs, full lending cycles
+- **Includes**: Mock contracts for development/testing
 - **Output**: Detailed gas usage report with cost projections
 
 #### **`deploymentCostAnalysis.js`** ⭐
-- **Purpose**: Detailed analysis of deployment gas costs
+- **Purpose**: Detailed analysis of deployment gas costs (with mocks)
 - **Usage**: `npx hardhat run scripts/deploymentCostAnalysis.js --network localhost`
 - **Measures**: Individual contract deployment costs
 - **Output**: Contract-by-contract gas breakdown
@@ -109,7 +120,10 @@ npx hardhat run scripts/deployAll.js --network polygon
 # Start local node first
 npx hardhat node
 
-# Run complete gas analysis (in new terminal)
+# PRODUCTION gas analysis (recommended for real deployment costs)
+npx hardhat run scripts/productionGasAnalysis.js --network localhost
+
+# Complete development gas analysis (includes mocks)
 npx hardhat run scripts/runGasAnalysis.js --network localhost
 
 # Run specific analysis
@@ -142,9 +156,10 @@ npx hardhat run scripts/update-app-addresses.js
 
 ### **⭐ Essential Scripts (Must Keep)**
 - `deployAll2.js` - Enhanced deployment
-- `deployAll-ZK.js` - ZK-enabled deployment  
+- `deployAll-ZK.js` - ZK-enabled deployment
 - `mockTransactions.js` - Testing transactions
-- `gasAnalysis.js` - Complete gas analysis
+- `productionGasAnalysis.js` - Production gas analysis (NEW)
+- `gasAnalysis.js` - Complete gas analysis (with mocks)
 - `deploymentCostAnalysis.js` - Deployment costs
 - `lendingCycleAnalysis.js` - User journey costs
 - `runGasAnalysis.js` - Master gas analysis
@@ -161,8 +176,14 @@ npx hardhat run scripts/update-app-addresses.js
 
 ## 📊 **Gas Analysis Workflow**
 
+### **For Production Deployment Planning**
 1. **Start Local Node**: `npx hardhat node`
-2. **Run Master Analysis**: `npx hardhat run scripts/runGasAnalysis.js --network localhost`
+2. **Run Production Analysis**: `npx hardhat run scripts/productionGasAnalysis.js --network localhost`
+3. **Review Production Costs**: Real contracts only, no test overhead
+
+### **For Development and Testing**
+1. **Start Local Node**: `npx hardhat node`
+2. **Run Complete Analysis**: `npx hardhat run scripts/runGasAnalysis.js --network localhost`
 3. **Review Reports**: Check generated `.md` and `.json` files
 4. **Individual Analysis**: Run specific scripts as needed
 
@@ -181,10 +202,18 @@ npx hardhat run scripts/update-app-addresses.js
 ## 📝 **Notes**
 
 - **Gas analysis scripts** require a running local Hardhat node
+- **Production gas analysis** measures only real contracts (no mocks)
+- **Development gas analysis** includes mock contracts for testing
 - **Deployment scripts** can target any configured network
 - **ZK scripts** require RISC0 verifier setup
 - **All scripts** include comprehensive error handling
 - **Output files** are generated in the backend directory
+
+### **Production vs Development Gas Analysis**
+- **Use `productionGasAnalysis.js`** for real deployment cost planning
+- **Use `gasAnalysis.js`** for development and testing with mocks
+- **Production analysis** excludes MockToken, MockPriceFeed, MockTimelock
+- **Production analysis** includes real ZK verifiers and governance contracts
 
 ---
 
@@ -197,4 +226,4 @@ npx hardhat run scripts/update-app-addresses.js
 - Deprecated functionality scripts
 - Temporary fix scripts
 
-**Kept 11 essential scripts** for production use, gas analysis, and core functionality.
+**Kept 12 essential scripts** for production use, gas analysis, and core functionality.

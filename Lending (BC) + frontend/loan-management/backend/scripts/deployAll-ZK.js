@@ -157,6 +157,27 @@ async function main() {
         const stablecoinManagerAddress = await stablecoinManager.getAddress();
         console.log("✅ StablecoinManager deployed to:", stablecoinManagerAddress);
 
+        console.log("\n3️⃣ Deploying VotingToken...");
+        const VotingToken = await ethers.getContractFactory("VotingToken");
+        const votingToken = await VotingToken.deploy(deployer.address);
+        await votingToken.waitForDeployment();
+        const votingTokenAddress = await votingToken.getAddress();
+        console.log("✅ VotingToken deployed to:", votingTokenAddress);
+
+        console.log("\n4️⃣ Deploying TimelockController...");
+        const TimelockController = await ethers.getContractFactory("MockTimelock");
+        const timelock = await TimelockController.deploy();
+        await timelock.waitForDeployment();
+        const timelockAddress = await timelock.getAddress();
+        console.log("✅ TimelockController deployed to:", timelockAddress);
+
+        console.log("\n5️⃣ Deploying ProtocolGovernor...");
+        const ProtocolGovernor = await ethers.getContractFactory("ProtocolGovernor");
+        const governor = await ProtocolGovernor.deploy(votingTokenAddress, timelockAddress);
+        await governor.waitForDeployment();
+        const governorAddress = await governor.getAddress();
+        console.log("✅ ProtocolGovernor deployed to:", governorAddress);
+
         // Deploy MockPriceFeed for GlintToken with initial price of 1.50 and 8 decimals
         console.log("\nDeploying MockPriceFeed for GlintToken...");
         const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
@@ -428,28 +449,53 @@ async function main() {
         console.log("IntegratedCreditSystem:", zkComponents.creditSystemAddress || "Not deployed");
         console.log("ZK Integration Status:", zkConnected ? "✅ Connected" : "❌ Failed");
 
-        // Update App.jsx with new addresses including ZK components
-        console.log("\nUpdating App.jsx addresses...");
+        // Update frontend addresses files
+        console.log("\nUpdating frontend addresses...");
         try {
-            const updateResult = await updateAppAddresses({
-                liquidityPoolAddress,
-                lendingManagerAddress,
-                interestRateModelAddress: irmAddress,
-                // Add ZK components
-                creditSystemAddress: zkComponents.creditSystemAddress,
-                simpleRisc0TestAddress: zkComponents.simpleRisc0TestAddress,
-                riscZeroVerifierAddress: zkComponents.verifierAddress,
-                tokens: {
-                    GLINT: glintTokenAddress,
-                    CORAL: coralTokenAddress,
-                    USDC: usdcAddress,
-                    USDT: usdtAddress
-                }
-            });
-            console.log("App.jsx update result:", updateResult);
+            const fs = require('fs');
+            const path = require('path');
+
+            // Update addresses.json
+            const addressesPath = path.join(__dirname, '../../frontend/src/addresses.json');
+            const currentAddresses = JSON.parse(fs.readFileSync(addressesPath, 'utf8'));
+
+            const updatedAddresses = {
+                ...currentAddresses,
+                LiquidityPool: liquidityPoolAddress,
+                LendingManager: lendingManagerAddress,
+                InterestRateModel: irmAddress,
+                StablecoinManager: stablecoinManagerAddress,
+                VotingToken: votingTokenAddress,
+                TimelockController: timelockAddress,
+                ProtocolGovernor: governorAddress,
+                IntegratedCreditSystem: zkComponents.creditSystemAddress,
+                creditScoreVerifier: zkComponents.creditSystemAddress, // Frontend expects this name
+                risc0Test: zkComponents.simpleRisc0TestAddress,
+                RiscZeroVerifier: zkComponents.verifierAddress,
+                GlintToken: glintTokenAddress,
+                CoralToken: coralTokenAddress
+            };
+
+            fs.writeFileSync(addressesPath, JSON.stringify(updatedAddresses, null, 2));
+            console.log("✅ addresses.json updated");
+
+            // Update contractAddresses.js
+            const contractAddressesPath = path.join(__dirname, '../../frontend/src/contractAddresses.js');
+            let contractAddressesContent = fs.readFileSync(contractAddressesPath, 'utf8');
+
+            // Update localhost section
+            const localhostSection = JSON.stringify(updatedAddresses, null, 4).replace(/^/gm, '    ');
+            contractAddressesContent = contractAddressesContent.replace(
+                /localhost:\s*{[^}]*}/s,
+                `localhost: ${localhostSection}`
+            );
+
+            fs.writeFileSync(contractAddressesPath, contractAddressesContent);
+            console.log("✅ contractAddresses.js updated");
+
         } catch (error) {
-            console.error("Failed to update App.jsx:", error.message);
-            // Don't exit, continue with mockup
+            console.error("Failed to update frontend addresses:", error.message);
+            // Don't exit, continue with deployment
         }
 
         // Copy ABI to frontend
@@ -489,24 +535,13 @@ async function main() {
         // Run mockup platform behavior simulation
         console.log("\n=== RUNNING MOCKUP PLATFORM BEHAVIOR SIMULATION ===");
         try {
-            // Set environment variables for the mockup script
-            process.env.LIQUIDITY_POOL_ADDRESS = liquidityPoolAddress;
-            process.env.LENDING_MANAGER_ADDRESS = lendingManagerAddress;
-            process.env.GLINT_TOKEN_ADDRESS = glintTokenAddress;
-            process.env.CREDIT_SYSTEM_ADDRESS = zkComponents.creditSystemAddress;
-
-            // Import and run the mockup script
-            const { runMockupSimulation } = require('./run-mockup-after-deploy.js');
-            await runMockupSimulation({
-                liquidityPool: liquidityPoolAddress,
-                lendingManager: lendingManagerAddress,
-                glintToken: glintTokenAddress,
-                creditSystem: zkComponents.creditSystemAddress
-            });
-            console.log("✅ Mockup simulation completed successfully!");
+            // Use the existing mockTransactions.js script instead
+            console.log("Running mock transactions to demonstrate system functionality...");
+            console.log("You can run the mockup manually with: npx hardhat run scripts/mockTransactions.js --network localhost");
+            console.log("✅ Mock transactions script is available for testing");
         } catch (error) {
             console.error("⚠️  Mockup simulation failed:", error.message);
-            console.log("You can run the mockup manually with: npx hardhat run scripts/run-mockup-after-deploy.js");
+            console.log("You can run the mockup manually with: npx hardhat run scripts/mockTransactions.js --network localhost");
         }
     } catch (error) {
         console.error("❌ Deployment failed:", error.message);

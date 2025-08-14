@@ -109,10 +109,11 @@ export const LendingRateSimulator = ({ initialUtilization = 0.67, showChart = tr
     }, [utilization, supplyRate, borrowRate, onRateChange]);
 
     const CustomDot = useCallback((props) => {
-        const { cx, cy, payload } = props;
+        const { cx, cy, payload, index } = props;
         if (!payload.isCurrent) return null;
         return (
             <circle
+                key={`custom-dot-${index || cx}-${cy}`}
                 cx={cx}
                 cy={cy}
                 r={8}
