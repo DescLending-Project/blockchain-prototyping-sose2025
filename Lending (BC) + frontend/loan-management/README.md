@@ -113,6 +113,59 @@ The frontend will start at: **http://localhost:5173**
 
 ---
 
+## 🔐 RISC Zero Verifier Contracts Setup
+
+### Overview
+The platform uses RISC Zero verifier contracts for zero-knowledge proof verification, particularly for credit scoring functionality. These contracts need to be deployed separately from the main lending contracts.
+
+
+### Deployment Steps
+
+1. **Follow RISC Zero Documentation**
+   - Refer to the [RISC Zero Readme](https://github.com/DescLending-Project/risc_zero_banking/blob/main/solidity/README.md) for the setup instructions
+   - Follow the deployment guides for verifier contracts
+   - Follow the instructions to proceed with the proof generation steps. You can first generate the Signatures & Nullifiers yourself (refer to Generating Proof Data section), or proceed with the test data. The account used for the proof generation will have its credit score automatically updated on the frontend after following the proof generation insturctions. 
+
+
+2. **Manual Address Configuration**
+   After successfully deploying the RISC Zero verifier contracts, you **must manually add** the creditScore contract address to two files:
+
+   **File 1: `frontend/addresses.json`**
+   ```json
+   {
+     "VotingToken": "0x...",
+     "TimelockController": "0x...",
+     // ... other contracts ...
+     "creditScoreVerifier": "YOUR_DEPLOYED_VERIFIER_ADDRESS_HERE"
+   }
+   ```
+
+   **File 2: `frontend/src/contractAddresses.js`**
+   ```javascript
+   export const CONTRACT_ADDRESSES = {
+     localhost: {
+       "VotingToken": "0x...",
+       // ... other contracts ...
+       "creditScoreVerifier": "YOUR_DEPLOYED_VERIFIER_ADDRESS_HERE"
+     },
+     // ... other networks
+     // You can alternatively use this Sepolia deployment: 0x8b0AE475403343eB734E93da6AFb8f4BB83C2E96
+   };
+   ```
+
+### Why Manual Configuration?
+🔄 **Important**: The main deployment script (`deployAll.js`) overwrites the address files completely. Since RISC Zero verifier contracts are deployed separately, their addresses must be added manually after running the main deployment script.
+
+### Deployment Order
+1. ✅ Deploy main lending contracts: `npx hardhat run scripts/deployAll.js --network localhost` (or `--network sepolia` if configured)
+2. ✅ Deploy RISC Zero verifier contracts (follow RISC Zero docs)
+3. ✅ Manually add verifier contract addresses to the two files mentioned above
+4. ✅ Restart the frontend: `npm run dev`
+
+
+
+---
+
 ## 🦊 MetaMask Setup
 
 ### Add Local Network to MetaMask
@@ -160,7 +213,66 @@ The system creates several test accounts with different roles. Import these into
 3. Paste the private key (without quotes)
 4. Click "Import"
 
----
+## TLSN Extension Setup
+To use the TLSN Extension, it should be added to the Chrome browser via the Extensions menu. Please follow the setup instructions in this order:
+
+1. **First**: Set up the shared TLS Notary library - [Shared README](../../Data%20Fetch%20(ZKTLS)/tls-notary/shared/README.md)
+2. **Then**: Install the browser extension - [Browser Extension README](../../Data%20Fetch%20(ZKTLS)/tls-notary/browser-extension/README.md)
+
+## 🔐 Generating Proof Data for RISC Zero Verifiers
+
+### Overview
+Before using the RISC Zero verifier contracts for zero-knowledge proofs, you need to generate the required input files. The platform includes a **Signature & Nullifier Generator** component that creates the necessary cryptographic data.
+
+
+### Using the Signature & Nullifier Generator
+
+#### Step 1: Navigate to "Signatures" tab and Select Accounts
+- **Import (test) accounts**: Make sure you have imported the Hardhat accounts to your Metamask extension if you are using the localhost. 
+- **Select accounts**: Choose which accounts you want to generate signatures and nullifiers for
+  - Use "Test Accounts" button for quick selection of the first 5 standard Hardhat accounts OR proceed with the lender / borrower accounts
+  - Or manually select specific accounts using checkboxes
+- **Account switching**: You'll need to manually switch between MetaMask accounts during the process - as Metamask does not allow for signing with a different account than the one currently selected in the extension
+
+#### Step 2: Generate Signatures & Nullifiers
+1. Click **"Generate Signatures & Nullifiers"**
+2. **Follow prompts**: The generator will ask you to switch MetaMask accounts when needed
+3. **Sign messages**: For each account, you'll sign the fixed message `"Block 2"`
+4. **Wait for completion**: The process generates cryptographic nullifiers using `SHA256(address_bytes + signature_bytes)`
+
+#### Step 3: Download Required Files
+After successful generation, download the following files needed for RISC Zero proofs:
+
+**Essential Files for RISC Zero:**
+- `user_owned_addresses.json` - List of account addresses
+- `signatures.json` - Normalized signature data (v=0/1 format)
+- `nullifiers.json` - 32-byte nullifier arrays
+- `all_merkle_proofs.json` - Merkle proof template (This file is intended as a placeholder)
+
+**Download Options:**
+- **"Download Separate Files"**: Gets individual JSON files matching RISC Zero input requirements
+- **"Download All"**: Complete results in single file for backup/debugging
+
+#### Step 4: Use with RISC Zero Verifiers
+1. **Place files**: Put the downloaded JSON files in your relevant RISC Zero project directory -> risc0_proofs -> defi_inputs_validation -> defi_inputs
+2. **Follow RISC Zero docs**: Use these files as inputs for your zero-knowledge proof generation
+3. **Verify compatibility**: Files are generated using the same algorithm as the original RISC Zero nullifiers
+
+### Important Notes
+⚠️ **Technical Details:**
+- **Fixed Message**: All signatures use the message `"Block 2"` for consistency
+- **Normalization**: Both signatures and nullifiers use normalized v values (0/1 instead of 27/28)
+- **Algorithm**: Nullifiers generated using `SHA256(address_bytes + signature_bytes)`
+- **Compatibility**: Output matches the format of original RISC Zero nullifiers.json files
+
+🔄 **Manual Process**: 
+- MetaMask requires manual account switching between signatures
+- Follow the on-screen prompts to switch accounts when requested
+- Each account generates one unique nullifier
+
+💡 **Best Practice**: 
+- Test with a few accounts first before generating for many accounts
+- Keep the downloaded files secure as they contain cryptographic signatures if using real wallet addresses. The test accounts are public and should not be used for any real transactions!
 
 ## 🎮 Using the Platform
 
@@ -219,18 +331,6 @@ This creates sample transactions for testing the user interface.
 
 ## 🔮 Advanced Features
 
-### Zero-Knowledge Proofs (ZK)
-The platform includes experimental ZK proof functionality for enhanced privacy:
-
-```bash
-cd backend
-npx hardhat run scripts/deployAll-ZK.js --network localhost
-```
-
-This deploys additional contracts for:
-- Private credit scoring
-- Confidential transaction verification
-- Advanced privacy features
 
 ### Automated Mockup Simulation
 The `run-mockup-after-deploy.js` script creates realistic platform activity:
@@ -272,6 +372,7 @@ If MetaMask opens but doesn't connect to the application:
 
 #### "Contract Not Found" Errors
 - ✅ Make sure contracts are deployed: `npx hardhat run scripts/deployAll.js --network localhost`
+- ✅ Make sure Risc0 Verifier contracts are also deployed (relate to the relevant section of the README). Alternatively, if you want to test the system without ZK functionality, you can comment out the Credit Score Verifier contract initialization from the "App.jsx" 
 - ✅ Restart the Hardhat node if needed
 - ✅ Clear browser cache and refresh
 
@@ -391,6 +492,8 @@ If you encounter any issues:
 If everything is working correctly, you should see:
 - ✅ MetaMask connects successfully
 - ✅ Account balances display correctly
+- ✅ Can generate signatures
+- ✅ Upon successful proof generation, you will be able to see your RISC Zero verified credit score in the frontend
 - ✅ Transactions process smoothly
 - ✅ Real-time updates in the interface
 
