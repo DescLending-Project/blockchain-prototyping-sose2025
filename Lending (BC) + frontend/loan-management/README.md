@@ -200,7 +200,9 @@ npx hardhat test
 cd backend
 npx hardhat coverage
 ```
-<img width="738" height="364" alt="coverage" src="https://github.com/user-attachments/assets/54c94d6e-052d-4c64-b5b8-fcf39156779f" />
+
+<img width="743" height="311" alt="converage2" src="https://github.com/user-attachments/assets/f18a5fcc-f659-455f-9a6d-6d257e6b2a66" />
+
 
 ### Generate Mock Transactions
 To populate the frontend with realistic data:
