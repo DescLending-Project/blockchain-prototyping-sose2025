@@ -341,11 +341,6 @@ To measure the actual gas costs of deploying and using the lending system, we pr
 
 **Note:** Production deployment costs are higher at 19,562,732 gas (0.489 ETH = ~$2,201) when including all real contracts (governance, ZK verifiers, etc.) rather than just testing contracts.
 
-#### Cost Optimization Recommendations
-- **Layer 2 Deployment**: Deploy on Polygon/Arbitrum for 90% cost reduction
-- **Transaction Batching**: Combine multiple operations to save gas
-- **Off-peak Usage**: Transact during low gas price periods
-
 For detailed analysis results, see:
 - `backend/REAL_GAS_ANALYSIS_RESULTS.md` - Complete analysis report
 - `backend/FINAL_GAS_SUMMARY.md` - Executive summary with recommendations
