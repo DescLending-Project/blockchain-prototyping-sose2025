@@ -345,6 +345,8 @@ cd backend
 npx hardhat run scripts/run-mockup-after-deploy.js --network localhost
 ```
 
+⚠️ Note: If you encounter the error Proposal state is Defeated (expected Succeeded), simply restart the mock transactions command. This can happen when governance proposals don't receive enough votes due to timing issues or insufficient token distribution during the initial setup phase. The script will retry with fresh proposals and should succeed on subsequent runs.
+
 ---
 
 ## 🛠️ Troubleshooting
