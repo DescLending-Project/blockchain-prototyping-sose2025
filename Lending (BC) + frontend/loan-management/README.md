@@ -132,7 +132,7 @@ To interact with the platform, import the test account private keys into MetaMas
 
 1. **Open MetaMask** and click on the account icon
 2. **Select "Import Account"**
-3. **Paste one of the private keys below** (⚠️ TEST ACCOUNTS ONLY - never use on mainnet!)
+3. **Paste one of the private keys below**
 4. **Connect to localhost:8545** (Hardhat network)
 
 **Test Account Private Keys:**
