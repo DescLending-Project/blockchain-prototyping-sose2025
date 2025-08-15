@@ -545,7 +545,18 @@ export function LenderPanel({ contract, liquidityPoolContract, account, contract
                     </div>
                 </CardContent>
             </Card>
-            <LendingPoolStatus contract={liquidityPoolContract} />
+            {liquidityPoolContract ? (
+                <LendingPoolStatus contract={liquidityPoolContract} />
+            ) : (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Pool Status</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-gray-600">Loading pool information...</p>
+                    </CardContent>
+                </Card>
+            )}
 
             <Card>
                 <CardHeader>

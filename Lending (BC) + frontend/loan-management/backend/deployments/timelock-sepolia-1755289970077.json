@@ -1,0 +1,21 @@
+{
+  "network": "sepolia",
+  "chainId": "11155111",
+  "deployer": "0xeCc6f14F4b64EeDD56111d80f46Ce46933dC2d64",
+  "timestamp": "2025-08-15T20:32:50.077Z",
+  "contracts": {
+    "TimelockController": {
+      "address": "0x43d9d03518c9d022358143cCF9BF54357bBbd442",
+      "constructorArgs": {
+        "minDelay": 3600,
+        "proposers": [
+          "0xeCc6f14F4b64EeDD56111d80f46Ce46933dC2d64"
+        ],
+        "executors": [
+          "0x0000000000000000000000000000000000000000"
+        ],
+        "admin": "0xeCc6f14F4b64EeDD56111d80f46Ce46933dC2d64"
+      }
+    }
+  }
+}
