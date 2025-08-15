@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AdminPanel } from "./admin/AdminPanel"
 import { LiquidatorPanel } from "./liquidator/LiquidatorPanel"
 import BorrowerPanel from "./borrower/BorrowerPanel"
@@ -7,12 +7,51 @@ import { LenderPanel } from "./lender/LenderPanel"
 import { TransactionHistory } from "./shared/TransactionHistory"
 import { UserPanel } from "./user/UserPanel"
 import { CreditScorePanel } from "./borrower/CreditScorePanel"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Component, ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import { Settings, Shield } from "lucide-react"
+import { Settings, Shield, AlertCircle } from "lucide-react"
 import { ethers } from "ethers"
 import { GovernancePanel } from "./governance/GovernancePanel";
 import { SignatureNullifierGenerator } from "./SignatureNullifierGenerator";
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
+// Error Boundary for Dashboard Components
+class DashboardErrorBoundary extends Component<{children: ReactNode, componentName: string}, {hasError: boolean}> {
+    constructor(props: {children: ReactNode, componentName: string}) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error: Error, errorInfo: any) {
+        console.error(`${this.props.componentName} Error:`, error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{this.props.componentName}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                This component is temporarily unavailable. Please refresh the page or try again later.
+                            </AlertDescription>
+                        </Alert>
+                    </CardContent>
+                </Card>
+            );
+        }
+
+        return this.props.children;
+    }
+}
 
 
 interface DashboardProps {
@@ -148,7 +187,9 @@ export function Dashboard({ contract, lendingManagerContract, account, isAdmin, 
 
                 <TabsContent value="lend">
                     <Card className="p-6 bg-muted/30 backdrop-blur-sm">
-                        <LenderPanel contract={lendingManagerContract} liquidityPoolContract={contract} account={account || ''} contracts={contracts} />
+                        <DashboardErrorBoundary componentName="Lending Dashboard">
+                            <LenderPanel contract={lendingManagerContract} liquidityPoolContract={contract} account={account || ''} contracts={contracts} />
+                        </DashboardErrorBoundary>
                     </Card>
                 </TabsContent>
 

@@ -617,11 +617,14 @@ export function GovernancePanel({ account, provider }) {
                     const state = await governorInstance.state(proposalId);
                     let forVotes = "0", againstVotes = "0", abstainVotes = "0";
                     try {
-                        const proposal = await governorInstance.proposals(proposalId);
-                        forVotes = proposal.forVotes?.toString() || "0";
-                        againstVotes = proposal.againstVotes?.toString() || "0";
-                        abstainVotes = proposal.abstainVotes?.toString() || "0";
-                    } catch { }
+                        // Use proposalVotes instead of proposals to get vote counts
+                        const votes = await governorInstance.proposalVotes(proposalId);
+                        forVotes = votes.forVotes?.toString() || "0";
+                        againstVotes = votes.againstVotes?.toString() || "0";
+                        abstainVotes = votes.abstainVotes?.toString() || "0";
+                    } catch (err) {
+                        console.log('Failed to get votes for proposal', proposalId.toString(), ':', err.message);
+                    }
                     props.push({
                         id: proposalId.toString(),
                         description,
@@ -771,7 +774,7 @@ export function GovernancePanel({ account, provider }) {
                         <li key={p.id} className="border rounded p-4 bg-white/80">
                             <div className="mb-2 font-medium">Proposal #{p.id}</div>
                             <div className="mb-1 text-sm text-gray-700">{p.description}</div>
-                            <div className="mb-1 text-xs">State: <span className="font-mono">{getStateLabel(p.state)}</span></div>
+                            <div className="mb-1 text-xs">State: <span className="font-mono">{getStateLabel(p.state)} ({p.state})</span></div>
                             <div className="mb-1 text-xs">For: {p.forVotes} | Against: {p.againstVotes} | Abstain: {p.abstainVotes}</div>
                             <ProposalAnalytics
                                 forVotes={p.forVotes}
@@ -783,11 +786,24 @@ export function GovernancePanel({ account, provider }) {
                                 timeLeft={null} // Add time left logic if available
                             />
                             <div className="flex gap-2 mt-2">
-                                <button className="bg-green-500 text-white px-3 py-1 rounded" onClick={() => vote(p.id, 1)}>Vote For</button>
-                                <button className="bg-red-500 text-white px-3 py-1 rounded" onClick={() => vote(p.id, 0)}>Vote Against</button>
-                                <button className="bg-gray-400 text-white px-3 py-1 rounded" onClick={() => vote(p.id, 2)}>Abstain</button>
-                                {getStateLabel(p.state) === "Succeeded" && (
+                                {(getStateLabel(p.state) === "Active" || p.state === 1) && (
+                                    <>
+                                        <button className="bg-green-500 text-white px-3 py-1 rounded" onClick={() => vote(p.id, 1)}>Vote For</button>
+                                        <button className="bg-red-500 text-white px-3 py-1 rounded" onClick={() => vote(p.id, 0)}>Vote Against</button>
+                                        <button className="bg-gray-400 text-white px-3 py-1 rounded" onClick={() => vote(p.id, 2)}>Abstain</button>
+                                    </>
+                                )}
+                                {(getStateLabel(p.state) === "Succeeded" || p.state === 4) && (
                                     <button className="bg-blue-600 text-white px-3 py-1 rounded" onClick={() => execute(p.targets, [0], p.calldatas, p.description)}>Execute</button>
+                                )}
+                                {(getStateLabel(p.state) === "Pending" || p.state === 0) && (
+                                    <div className="text-sm text-gray-600 py-1">⏳ Waiting for voting delay to pass...</div>
+                                )}
+                                {(getStateLabel(p.state) === "Defeated" || p.state === 3) && (
+                                    <div className="text-sm text-red-600 py-1">❌ Proposal defeated</div>
+                                )}
+                                {(getStateLabel(p.state) === "Executed" || p.state === 7) && (
+                                    <div className="text-sm text-green-600 py-1">✅ Proposal executed</div>
                                 )}
                             </div>
                         </li>

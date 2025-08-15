@@ -77,10 +77,23 @@ export function ZKProofPanel({ contract, account }: ZKProofPanelProps) {
 
     useEffect(() => {
         if (contract && account) {
-            fetchZKStatus()
             getCreditSystemAddress()
+            // Only fetch ZK status if we have a credit system address
+            if (creditSystemAddress && creditSystemAddress !== null) {
+                fetchZKStatus()
+            }
         }
-    }, [contract, account])
+    }, [contract, account, creditSystemAddress])
+
+    // If credit system is not available, render a simple message instead of crashing
+    if (creditSystemAddress === null) {
+        return (
+            <div className="bg-gray-100 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold mb-2">ZK Proof System</h3>
+                <p className="text-gray-600">ZK proof system not available in this deployment.</p>
+            </div>
+        )
+    }
 
     useEffect(() => {
         // Autofill sample data when proof type changes
@@ -90,25 +103,68 @@ export function ZKProofPanel({ contract, account }: ZKProofPanelProps) {
     const getCreditSystemAddress = async () => {
         try {
             // Try to get credit system address from the contract
-            const address = await contract.creditSystem()
-            setCreditSystemAddress(address)
+            // Note: creditSystem() function may not exist, use fallback
+            if (contract.creditSystem && typeof contract.creditSystem === 'function') {
+                const address = await contract.creditSystem()
+                setCreditSystemAddress(address)
+            } else {
+                // Fallback: Use the deployed IntegratedCreditSystem address from addresses
+                const addresses = await import('../../../addresses.json')
+                if (addresses.IntegratedCreditSystem) {
+                    setCreditSystemAddress(addresses.IntegratedCreditSystem)
+                } else {
+                    console.log('Credit system not available - ZK proofs disabled')
+                    setCreditSystemAddress(null)
+                }
+            }
         } catch (err) {
             console.error('Failed to get credit system address:', err)
+            // Try fallback
+            try {
+                const addresses = await import('../../../addresses.json')
+                if (addresses.IntegratedCreditSystem) {
+                    setCreditSystemAddress(addresses.IntegratedCreditSystem)
+                }
+            } catch (fallbackErr) {
+                console.error('Fallback also failed:', fallbackErr)
+                setCreditSystemAddress(null)
+            }
         }
     }
 
     const fetchZKStatus = async () => {
         try {
-            const status = await contract.getZKVerificationStatus(account)
-            setZKStatus({
-                hasTradFi: status[0],
-                hasAccount: status[1], 
-                hasNesting: status[2],
-                finalScore: Number(status[3]),
-                isEligible: status[4]
-            })
+            // Check if the function exists before calling it
+            if (contract && contract.getZKVerificationStatus && typeof contract.getZKVerificationStatus === 'function') {
+                const status = await contract.getZKVerificationStatus(account)
+                setZKStatus({
+                    hasTradFi: status[0],
+                    hasAccount: status[1],
+                    hasNesting: status[2],
+                    finalScore: Number(status[3]),
+                    isEligible: status[4]
+                })
+            } else {
+                // Function doesn't exist, set default values
+                console.log('ZK verification functions not available on this contract')
+                setZKStatus({
+                    hasTradFi: false,
+                    hasAccount: false,
+                    hasNesting: false,
+                    finalScore: 0,
+                    isEligible: false
+                })
+            }
         } catch (err) {
             console.error('Failed to fetch ZK status:', err)
+            // Set default values instead of crashing
+            setZKStatus({
+                hasTradFi: false,
+                hasAccount: false,
+                hasNesting: false,
+                finalScore: 0,
+                isEligible: false
+            })
         }
     }
 

@@ -115,20 +115,23 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
         console.log('✅ Proposal is now active and ready for voting');
     }
 
-    // 5. Vote with all accounts
+    // 5. Vote with available accounts
     console.log('Voting on proposal...');
-    for (let j = 0; j < maxAccounts; j++) {
+    const availableAccounts = Math.min(maxAccounts, accounts.length);
+    for (let j = 0; j < availableAccounts; j++) {
         try {
-            // Check if account has voting power
-            const votingPower = await governor.getVotes(accounts[j].address, await governor.proposalSnapshot(proposalId));
-            console.log(`Account ${j} voting power: ${votingPower}`);
+            // Check if account exists and has voting power
+            if (accounts[j]) {
+                const votingPower = await governor.getVotes(accounts[j].address, await governor.proposalSnapshot(proposalId));
+                console.log(`Account ${j} voting power: ${votingPower}`);
 
-            if (votingPower > 0) {
-                const voteTx = await governor.connect(accounts[j]).castVote(proposalId, 1, { gasLimit: 200000 });
-                await voteTx.wait();
-                console.log(`Account ${j} voted successfully`);
-            } else {
-                console.log(`Account ${j} has no voting power, skipping`);
+                if (votingPower > 0) {
+                    const voteTx = await governor.connect(accounts[j]).castVote(proposalId, 1, { gasLimit: 200000 });
+                    await voteTx.wait();
+                    console.log(`Account ${j} voted successfully`);
+                } else {
+                    console.log(`Account ${j} has no voting power, skipping`);
+                }
             }
         } catch (error) {
             console.error(`Failed to vote with account ${j}:`, error.message);
@@ -277,10 +280,23 @@ async function main() {
     
     let deployer, accounts;
     try {
-        [deployer] = await ethers.getSigners();
         accounts = await ethers.getSigners();
+
+        if (accounts.length === 0) {
+            throw new Error(`No accounts configured for network "${network.name}". Please check your .env file and ensure PRIVATE_KEY is set for testnet deployments.`);
+        }
+
+        [deployer] = accounts;
         console.log("✅ Got signers successfully");
         console.log("Deploying with account:", deployer.address);
+        console.log("Account balance:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH");
+
+        if (network.name !== 'localhost' && network.name !== 'hardhat') {
+            const balance = await ethers.provider.getBalance(deployer.address);
+            if (balance === 0n) {
+                console.log("⚠️ WARNING: Deployer account has 0 ETH balance. Make sure to fund it before deployment.");
+            }
+        }
     } catch (error) {
         console.error("❌ Failed to get signers:", error);
         throw error;
@@ -465,24 +481,28 @@ async function main() {
     console.log("LendingManager deployed at:", await lendingManager.getAddress());
     console.log(`[DEPLOYED] LendingManager at: ${await lendingManager.getAddress()} (new deployment)`);
 
-    // 7.1 Set credit scores for two users (lender, borrower) before admin transfer
+    // 7.1 Set credit scores for test accounts (only on localhost)
     console.log('Setting credit scores for test accounts...');
-    if (accounts.length >= 3) {
-        const lender = accounts[1];
-        const borrower = accounts[2];
-        
-        console.log('Lender account:', lender.address);
-        console.log('Borrower account:', borrower.address);
-        
-        const setCreditScore1Tx = await liquidityPool.setCreditScore(lender.address, 85, { gasLimit: 100000 });
-        await setCreditScore1Tx.wait();
-        
-        const setCreditScore2Tx = await liquidityPool.setCreditScore(borrower.address, 80, { gasLimit: 100000 });
-        await setCreditScore2Tx.wait();
-        
-        console.log(`✅ Set credit scores: lender (${lender.address}) = 85, borrower (${borrower.address}) = 80`);
+    if (network.name === 'localhost' || network.name === 'hardhat') {
+        if (accounts.length >= 3) {
+            const lender = accounts[1];
+            const borrower = accounts[2];
+
+            console.log('Lender account:', lender.address);
+            console.log('Borrower account:', borrower.address);
+
+            const setCreditScore1Tx = await liquidityPool.setCreditScore(lender.address, 85, { gasLimit: 100000 });
+            await setCreditScore1Tx.wait();
+
+            const setCreditScore2Tx = await liquidityPool.setCreditScore(borrower.address, 80, { gasLimit: 100000 });
+            await setCreditScore2Tx.wait();
+
+            console.log(`✅ Set credit scores: lender (${lender.address}) = 85, borrower (${borrower.address}) = 80`);
+        } else {
+            console.log('⚠️ Not enough accounts available for setting credit scores (need at least 3 accounts)');
+        }
     } else {
-        console.log('⚠️ Not enough accounts available for setting credit scores (need at least 3 accounts)');
+        console.log('⚠️ Skipping credit score setup on testnet/mainnet (use governance instead)');
     }
 
     // 7.2 Setup Credit Score Contract (BEFORE transferring admin to timelock)
@@ -551,10 +571,16 @@ async function main() {
     console.log('\n🏛️ Setting up governance configurations...');
 
     try {
-        // Simplified governance setup with very low quorum (1 vote)
-        console.log('Setting up minimal governance for whitelist...');
-        const MINTER_ROLE = await votingToken.MINTER_ROLE();
-        const hasRole = await votingToken.hasRole(MINTER_ROLE, deployer.address);
+        // Skip governance setup on testnets/mainnet for security
+        if (network.name !== 'localhost' && network.name !== 'hardhat') {
+            console.log('⚠️ Skipping governance whitelist setup on testnet/mainnet');
+            console.log('⚠️ You may need to whitelist LiquidityPool manually later via governance');
+            console.log('🔄 Continuing with deployment...');
+        } else {
+            // Simplified governance setup with very low quorum (1 vote)
+            console.log('Setting up minimal governance for whitelist...');
+            const MINTER_ROLE = await votingToken.MINTER_ROLE();
+            const hasRole = await votingToken.hasRole(MINTER_ROLE, deployer.address);
 
         if (!hasRole) {
             console.log('Granting MINTER_ROLE to deployer...');
@@ -594,6 +620,7 @@ async function main() {
         );
 
         console.log('✅ LiquidityPool whitelisted for governance proposals');
+        }
 
     } catch (error) {
         console.error('❌ Failed to setup governance whitelist:', error.message);

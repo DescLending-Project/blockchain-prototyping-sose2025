@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Component, ReactNode } from "react"
 import { ethers } from "ethers"
 import { formatUnits, formatEther } from "ethers"
 import { Alert, AlertDescription } from "../../../components/ui/alert"
@@ -14,6 +14,30 @@ import { COLLATERAL_TOKENS } from "../../../App"
 import { CollateralPanel } from './CollateralPanel';
 import { ZKProofPanel } from "./ZKProofPanel"
 import { AccountSelectionModal } from "../AccountSelectionModal"
+
+// Simple Error Boundary Component
+class ErrorBoundary extends Component<{children: ReactNode, fallback: ReactNode}, {hasError: boolean}> {
+    constructor(props: {children: ReactNode, fallback: ReactNode}) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error: Error, errorInfo: any) {
+        console.error('ZKProofPanel Error:', error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return this.props.fallback;
+        }
+
+        return this.props.children;
+    }
+}
 
 
 interface UserPanelProps {
@@ -596,7 +620,18 @@ export function UserPanel({ contract, account, mode = 'user', contracts }: UserP
                         </TabsContent>
 
                         <TabsContent value="zkproof">
-                            <ZKProofPanel contract={contract} account={account || ''} />
+                            <ErrorBoundary fallback={
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>ZK Proof System</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-gray-600">ZK proof system is not available in this deployment.</p>
+                                    </CardContent>
+                                </Card>
+                            }>
+                                <ZKProofPanel contract={contract} account={account || ''} />
+                            </ErrorBoundary>
                         </TabsContent>
                     </Tabs>
 

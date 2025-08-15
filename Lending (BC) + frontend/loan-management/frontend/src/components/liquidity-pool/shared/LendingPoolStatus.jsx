@@ -13,6 +13,8 @@ import {
 export function LendingPoolStatus({ contract }) {
     const [poolInfo, setPoolInfo] = useState(null)
     const [tokenSymbol, setTokenSymbol] = useState('ETH')
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
     useEffect(() => {
         if (contract) {
@@ -20,8 +22,14 @@ export function LendingPoolStatus({ contract }) {
             checkNetwork()
 
             // Refresh pool info every 10 seconds
-            const interval = setInterval(loadPoolInfo, 10000)
+            const interval = setInterval(() => {
+                loadPoolInfo().catch(err => {
+                    console.error('Failed to refresh pool info:', err)
+                })
+            }, 10000)
             return () => clearInterval(interval)
+        } else {
+            setLoading(false)
         }
     }, [contract])
 
@@ -49,16 +57,57 @@ export function LendingPoolStatus({ contract }) {
 
     const loadPoolInfo = async () => {
         try {
-            const totalFunds = await contract.getBalance()
-            setPoolInfo({
-                totalFunds: formatEther(totalFunds)
-            })
+            setLoading(true)
+            setError(null)
+
+            // Check if the function exists before calling it
+            if (contract && contract.getBalance && typeof contract.getBalance === 'function') {
+                const totalFunds = await contract.getBalance()
+                setPoolInfo({
+                    totalFunds: formatEther(totalFunds)
+                })
+            } else {
+                // Fallback: try to get balance using provider
+                console.log('getBalance function not available, using fallback')
+                const contractAddress = await contract.getAddress()
+                const balance = await contract.provider.getBalance(contractAddress)
+                setPoolInfo({
+                    totalFunds: formatEther(balance)
+                })
+            }
         } catch (err) {
             console.error('Failed to load pool info:', err)
+            setError(err.message)
+            // Set default values to prevent UI crash
+            setPoolInfo({
+                totalFunds: '0.0'
+            })
+        } finally {
+            setLoading(false)
         }
     }
 
     if (!poolInfo) return null
+
+    if (loading) {
+        return (
+            <Card className="mb-6">
+                <CardContent className="p-4">
+                    <p className="text-gray-600">Loading pool information...</p>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    if (error) {
+        return (
+            <Card className="mb-6">
+                <CardContent className="p-4">
+                    <p className="text-red-600">Error loading pool data. Using fallback values.</p>
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
         <Card className="mb-6">
@@ -80,7 +129,7 @@ export function LendingPoolStatus({ contract }) {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Total Pool</p>
-                            <p className="text-lg font-semibold">{poolInfo.totalFunds} {tokenSymbol}</p>
+                            <p className="text-lg font-semibold">{poolInfo?.totalFunds || '0.0'} {tokenSymbol}</p>
                         </div>
                     </div>
                 </div>
