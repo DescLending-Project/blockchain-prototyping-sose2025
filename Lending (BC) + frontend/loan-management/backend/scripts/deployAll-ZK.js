@@ -219,14 +219,42 @@ async function main() {
         const usdtMockFeedAddress = await usdtMockFeed.getAddress();
         console.log("MockPriceFeed for USDT deployed to:", usdtMockFeedAddress);
 
-        // Deploy LiquidityPool first (without LendingManager for now)
+        // Deploy InterestRateModel first (needed for LiquidityPool initialization)
+        console.log("\nDeploying InterestRateModel...");
+        const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+
+        // Deploy OracleMock for InterestRateModel
+        const OracleMock = await ethers.getContractFactory("OracleMock");
+        const oracleMock = await OracleMock.deploy();
+        await oracleMock.waitForDeployment();
+        const oracleAddress = await oracleMock.getAddress();
+
+        const irm = await InterestRateModel.deploy(
+            oracleAddress, // _ethUsdOracle
+            timelockAddress, // _timelock
+            ethers.parseUnits("0.02", 18), // _baseRate
+            ethers.parseUnits("0.8", 18),  // _kink
+            ethers.parseUnits("0.20", 18), // _slope1
+            ethers.parseUnits("1.00", 18), // _slope2
+            ethers.parseUnits("0.10", 18), // _reserveFactor
+            ethers.parseUnits("1.00", 18), // _maxBorrowRate
+            ethers.parseUnits("0.05", 18), // _maxRateChange
+            ethers.parseUnits("0.03", 18), // _ethPriceRiskPremium
+            ethers.parseUnits("0.05", 18), // _ethVolatilityThreshold
+            3600 // _oracleStalenessWindow
+        );
+        await irm.waitForDeployment();
+        const irmAddress = await irm.getAddress();
+        console.log("InterestRateModel deployed to:", irmAddress);
+
+        // Deploy LiquidityPool with proper InterestRateModel address
         console.log("\nDeploying LiquidityPool...");
         const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
         const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
-            deployer.address,
+            timelockAddress,
             stablecoinManagerAddress,
             ethers.ZeroAddress, // Temporary placeholder for LendingManager
-            ethers.ZeroAddress  // Temporary placeholder for InterestRateModel
+            irmAddress  // Use the actual InterestRateModel address
         ], {
             initializer: "initialize",
         });
@@ -253,9 +281,9 @@ async function main() {
         }
 
         // Update LiquidityPool with the correct LendingManager address
-        console.log("\nUpdating LiquidityPool with LendingManager address...");
-        await liquidityPool.setLendingManager(lendingManagerAddress);
-        console.log("LiquidityPool updated with LendingManager address");
+        await network.provider.send("hardhat_setBalance", [timelockAddress, "0x1000000000000000000"]);
+        const timelockSigner = await ethers.getImpersonatedSigner(timelockAddress);
+        await liquidityPool.connect(timelockSigner).setLendingManager(lendingManagerAddress);
 
         // NEW: Deploy ZK Proof System
         const zkComponents = await deployZKComponents(deployer, config, liquidityPoolAddress);
@@ -267,13 +295,13 @@ async function main() {
 
         // Set up GlintToken as collateral
         console.log("\nSetting up GlintToken as collateral...");
-        const setCollateralTx = await liquidityPool.setAllowedCollateral(glintTokenAddress, true);
+        const setCollateralTx = await liquidityPool.connect(timelockSigner).setAllowedCollateral(glintTokenAddress, true);
         await setCollateralTx.wait();
         console.log("GlintToken set as allowed collateral");
 
         // Set price feed for GLINT after LendingManager is set
         try {
-            await liquidityPool.setPriceFeed(glintTokenAddress, glintFeedAddress);
+            await liquidityPool.connect(timelockSigner).setPriceFeed(glintTokenAddress, glintFeedAddress);
             console.log("GLINT price feed set");
             // Verify
             const pf = await liquidityPool.getPriceFeed(glintTokenAddress);
@@ -287,13 +315,13 @@ async function main() {
         // Set up CORAL as collateral
         console.log("\nSetting up CORAL as collateral...");
         const coralTokenAddress = "0xecc6f14f4b64eedd56111d80f46ce46933dc2d64";
-        const setCoralCollateralTx = await liquidityPool.setAllowedCollateral(coralTokenAddress, true);
+        const setCoralCollateralTx = await liquidityPool.connect(timelockSigner).setAllowedCollateral(coralTokenAddress, true);
         await setCoralCollateralTx.wait();
         console.log("CORAL set as allowed collateral");
 
         // Set price feed for CORAL on the deployed LiquidityPool
         try {
-            await liquidityPool.setPriceFeed(coralTokenAddress, coralFeedAddress);
+            await liquidityPool.connect(timelockSigner).setPriceFeed(coralTokenAddress, coralFeedAddress);
             console.log("CORAL price feed set");
         } catch (e) {
             console.error("Failed to set CORAL price feed:", e);
@@ -302,13 +330,13 @@ async function main() {
         // Set up USDC as collateral (only if not localhost)
         if (networkName !== "localhost") {
             console.log("\nSetting up USDC as collateral...");
-            const setUsdcCollateralTx = await liquidityPool.setAllowedCollateral(usdcAddress, true);
+            const setUsdcCollateralTx = await liquidityPool.connect(timelockSigner).setAllowedCollateral(usdcAddress, true);
             await setUsdcCollateralTx.wait();
             console.log("USDC set as allowed collateral");
 
             // Set price feed for USDC based on network config
             try {
-                await liquidityPool.setPriceFeed(usdcAddress, usdcMockFeedAddress);
+                await liquidityPool.connect(timelockSigner).setPriceFeed(usdcAddress, usdcMockFeedAddress);
                 console.log("USDC price feed set");
             } catch (e) {
                 console.error("Failed to set USDC price feed:", e);
@@ -316,13 +344,13 @@ async function main() {
 
             // Set up USDT as collateral
             console.log("\nSetting up USDT as collateral...");
-            const setUsdtCollateralTx = await liquidityPool.setAllowedCollateral(usdtAddress, true);
+            const setUsdtCollateralTx = await liquidityPool.connect(timelockSigner).setAllowedCollateral(usdtAddress, true);
             await setUsdtCollateralTx.wait();
             console.log("USDT set as allowed collateral");
 
             // Set price feed for USDT based on network config
             try {
-                await liquidityPool.setPriceFeed(usdtAddress, usdtMockFeedAddress);
+                await liquidityPool.connect(timelockSigner).setPriceFeed(usdtAddress, usdtMockFeedAddress);
                 console.log("USDT price feed set");
             } catch (e) {
                 console.error("Failed to set USDT price feed:", e);
@@ -355,7 +383,7 @@ async function main() {
         const setupPriceFeed = async (token, feed, retries = 3) => {
             for (let i = 0; i < retries; i++) {
                 try {
-                    await liquidityPool.setPriceFeed(token, feed);
+                    await liquidityPool.connect(timelockSigner).setPriceFeed(token, feed);
                     console.log(`Price feed set for ${token}`);
                     // Verify it works
                     await verifyTokenSetup(liquidityPool, token);
@@ -401,32 +429,7 @@ async function main() {
             console.log("\nSkipping stablecoin parameters setup for localhost");
         }
 
-        // Deploy InterestRateModel
-        console.log("\nDeploying InterestRateModel...");
-        const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
-        // Use deployer.address and a mock oracle for now
-        const OracleMock = await ethers.getContractFactory("OracleMock");
-        const oracleMock = await OracleMock.deploy();
-        await oracleMock.waitForDeployment();
-        const oracleAddress = await oracleMock.getAddress();
-
-        const irm = await InterestRateModel.deploy(
-            oracleAddress, // _ethUsdOracle
-            deployer.address, // _timelock
-            ethers.parseUnits("0.02", 18), // _baseRate
-            ethers.parseUnits("0.8", 18),  // _kink
-            ethers.parseUnits("0.20", 18), // _slope1
-            ethers.parseUnits("1.00", 18), // _slope2
-            ethers.parseUnits("0.10", 18), // _reserveFactor
-            ethers.parseUnits("2.00", 18), // _maxBorrowRate
-            ethers.parseUnits("0.05", 18), // _maxRateChange
-            ethers.parseUnits("0.02", 18), // _ethPriceRiskPremium
-            ethers.parseUnits("0.05", 18), // _ethVolatilityThreshold
-            3600 // _oracleStalenessWindow
-        );
-        await irm.waitForDeployment();
-        const irmAddress = await irm.getAddress();
-        console.log("InterestRateModel deployed to:", irmAddress);
+        // InterestRateModel already deployed earlier before LiquidityPool
 
         // Deployment summary with ZK components
         console.log("\nDeployment Summary:");

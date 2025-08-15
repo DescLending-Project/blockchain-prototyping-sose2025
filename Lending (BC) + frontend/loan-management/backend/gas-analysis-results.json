@@ -6,26 +6,26 @@
     "timelock": "381313",
     "stablecoinManager": "496082",
     "interestRateModel": "1081445",
-    "liquidityPool": "1307966",
+    "liquidityPool": "1308098",
     "lendingManager": "4537594",
-    "total": "11390516"
+    "total": "11390648"
   },
   "methods": {
-    "deposit": "163764",
-    "borrow": "385549",
+    "deposit": "163830",
+    "borrow": "385835",
     "repay": "105906",
     "withdraw": "91478",
     "liquidate": "150000"
   },
   "fullCycle": {
-    "total": "729706"
+    "total": "730058"
   },
   "summary": {
-    "totalDeploymentGas": "11390516",
-    "totalFullCycleGas": "729706",
+    "totalDeploymentGas": "11390648",
+    "totalFullCycleGas": "730058",
     "mostExpensiveMethod": [
       "borrow",
-      "385549"
+      "385835"
     ],
     "leastExpensiveMethod": [
       "withdraw",

@@ -94,7 +94,14 @@ Open a **new terminal** and navigate to the backend folder:
 ```bash
 cd backend
 npx hardhat run scripts/deployAll.js --network localhost
+npx hardhat run scripts/deployAll-ZK.js --network localhost
 ```
+
+**⚠️ Critical**: Both deployment scripts must be run in sequence:
+1. **First**: `deployAll.js` - Deploys core lending contracts
+2. **Second**: `deployAll-ZK.js` - Deploys ZK verifier and additional contracts
+
+**Do not skip the second script!** The platform requires both deployments to function correctly.
 
 This will:
 - ✅ Compile all smart contracts
@@ -103,13 +110,37 @@ This will:
 - ✅ Run automatic mockup simulations
 - ✅ Transfer admin rights to the DAO/Timelock system
 
-### Step 3: Start the Frontend
+### Step 3: Test the Platform (Optional)
+Run the comprehensive test suite:
+```bash
+npx hardhat run scripts/mockTransactions.js --network localhost
+```
+
+This demonstrates all platform features including lending, borrowing, liquidations, and governance. Note: Any "Governance queue/execute failed" warnings can be ignored as the core voting functionality works correctly.
+
+### Step 4: Start the Frontend
 Open a **third terminal** and navigate to the root folder:
 ```bash
 npm run dev
 ```
 
 The frontend will start at: **http://localhost:5173**
+
+### Using Test Accounts with MetaMask
+
+To interact with the platform, import the test account private keys into MetaMask:
+
+1. **Open MetaMask** and click on the account icon
+2. **Select "Import Account"**
+3. **Paste one of the private keys below**
+4. **Connect to localhost:8545** (Hardhat network)
+
+**Test Account Private Keys:**
+- **Deployer**: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+- **Lender1**: `0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
+- **Lender2**: `0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a`
+- **Borrower1**: `0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6`
+- **Borrower2**: `0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a`
 
 ---
 
@@ -180,38 +211,7 @@ The platform uses RISC Zero verifier contracts for zero-knowledge proof verifica
    - **Currency Symbol**: `ETH`
 5. Click "Save"
 
-### Import Test Accounts
 
-The system creates several test accounts with different roles. Import these into MetaMask:
-
-#### 💰 Lender Accounts
-- **Lender 1**
-  - **Private Key**: `59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
-  - **Address**: `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`
-
-- **Lender 2**
-  - **Private Key**: `5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a`
-  - **Address**: `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC`
-
-#### 🏠 Borrower Accounts
-- **Borrower 1**
-  - **Private Key**: `7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6`
-  - **Address**: `0x90F79bf6EB2c4f870365E785982E1f101E93b906`
-
-- **Borrower 2**
-  - **Private Key**: `47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a`
-  - **Address**: `0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65`
-
-#### 🏛️ Deployer Account (Initial Setup Only)
-- **Role**: Used for initial deployment, then admin rights transfer to DAO
-- **Private Key**: `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-- **Address**: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
-
-**How to import:**
-1. Click MetaMask account dropdown
-2. Select "Import Account"
-3. Paste the private key (without quotes)
-4. Click "Import"
 
 ## TLSN Extension Setup
 To use the TLSN Extension, it should be added to the Chrome browser via the Extensions menu. Please follow the setup instructions in this order:
@@ -383,7 +383,11 @@ If something goes wrong, restart from scratch:
 
 1. Stop all running processes (Ctrl+C in terminals)
 2. Restart Hardhat node: `cd backend && npx hardhat node`
-3. Redeploy contracts: `npx hardhat run scripts/deployAll.js --network localhost`
+3. Redeploy contracts:
+   ```bash
+   npx hardhat run scripts/deployAll.js --network localhost
+   npx hardhat run scripts/deployAll-ZK.js --network localhost
+   ```
 4. Restart frontend: `npm run dev`
 
 ---
