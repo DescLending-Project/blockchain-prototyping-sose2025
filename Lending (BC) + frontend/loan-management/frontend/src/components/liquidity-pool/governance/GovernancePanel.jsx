@@ -315,6 +315,13 @@ const PROPOSAL_OPTIONS = [
                 params: [
                     { name: "providerName", type: "string", tooltip: "Name of the state root provider to authorize" }
                 ]
+            },
+            {
+                label: "Set Timelock",
+                selector: getSelector("setTimelock(address)"),
+                params: [
+                    { name: "newTimelock", type: "address", tooltip: "New timelock address for access control" }
+                ]
             }
         ]
     }
