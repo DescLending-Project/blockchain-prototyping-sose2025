@@ -19,6 +19,11 @@ function downloadJson(data: any, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Sets up the modal dialog functionality
+ * Initializes event listeners for closing the modal dialog
+ * Handles both close button clicks and clicks outside the modal
+ */
 export function setupModal(): void {
   const closeModal = document.getElementById('closeModal');
   const modal = document.getElementById('proofModal');
@@ -44,6 +49,12 @@ export function setupModal(): void {
 }
 
 
+/**
+ * Displays the details of a proof in the modal dialog
+ * Formats and renders proof information, headers, response data, and verification results
+ * Sets up download buttons and verification functionality
+ * @param proof - The proof record to display
+ */
 export function showProofDetails(proof: ProofRecord): void {
   const modal = document.getElementById('proofModal');
   const proofDetails = document.getElementById('proofDetails');
@@ -53,8 +64,6 @@ export function showProofDetails(proof: ProofRecord): void {
     return;
   }
 
-  console.log('Showing proof details with status:', proof.status);
-
   // Format headers
   let headersHtml = '';
   try {
@@ -63,7 +72,6 @@ export function showProofDetails(proof: ProofRecord): void {
       headersHtml += `<div><strong>${name}:</strong> ${value}</div>`;
     }
   } catch (error) {
-    console.error('Error formatting headers:', error);
     headersHtml = '<div>Error displaying headers</div>';
   }
 
@@ -154,23 +162,25 @@ export function showProofDetails(proof: ProofRecord): void {
   }
 }
 
+/**
+ * Verifies a proof from the modal dialog
+ * Sends the proof to the TLS Notary service for verification
+ * Updates the UI with the verification result and refreshes the proof list
+ * @param proof - The proof record to verify
+ * @returns Promise that resolves when verification is complete
+ */
 async function verifyModalProof(proof: ProofRecord): Promise<void> {
   try {
     if (!proof) {
-      console.log('Proof not found');
       return;
     }
 
     if (proof.status !== RequestStatus.Received) {
-      console.log('Proof is not ready for verification. It must be in Received state.');
       return;
     }
 
-    console.log('Proof verification started. This may take a moment.');
-
     try {
       await TLSNotaryService.verifyProof(proof);
-      console.log('Proof verified successfully!');
     } catch (error) {
       console.error('Error during verification:', error);
     }

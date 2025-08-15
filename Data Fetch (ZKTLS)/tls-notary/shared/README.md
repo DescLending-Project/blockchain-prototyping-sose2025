@@ -17,7 +17,7 @@ The shared library includes several key components:
 ### Services
 
 - `ITLSNotaryService`: Interface for TLS Notary service implementation
-- `MockTLSNotaryService`: Mock implementation for testing
+- `TLSNotaryServiceImpl`: Implementation of the TLS Notary service
 - `TunnelService`: Service for establishing secure tunnels
 
 ### Utilities

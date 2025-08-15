@@ -36,22 +36,22 @@ module.exports = {
         {from: "src/popup.html", to: "../popup.html"},
         {from: "css", to: "../css"},
         {
-          from: 'node_modules/tlsn-js/build',
+          from: '../shared/node_modules/tlsn-js/build',
           to: '../js',
           force: true,
         },
         {
-          from: 'node_modules/tlsn-js/build/tlsn_wasm.js',
+          from: '../shared/node_modules/tlsn-js/build/tlsn_wasm.js',
           to: '../',
           force: true,
         },
         {
-          from: 'node_modules/tlsn-js/build/tlsn_wasm_bg.wasm',
+          from: '../shared/node_modules/tlsn-js/build/tlsn_wasm_bg.wasm',
           to: '../',
           force: true,
         },
         {
-          from: 'node_modules/tlsn-js/build/snippets',
+          from: '../shared/node_modules/tlsn-js/build/snippets',
           to: '../snippets',
           force: true,
         },

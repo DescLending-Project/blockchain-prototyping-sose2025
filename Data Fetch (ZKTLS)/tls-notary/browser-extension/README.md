@@ -68,6 +68,24 @@ If you make changes to the extension and rebuild it, you'll need to reload the e
 3. View your captured requests in the "Proofs" tab
 4. Click on a proof to view details and verify it
 
+## OpenbankingAPI usage
+
+1. Get credentials for PLAID sandbox from https://plaid.com/docs/quickstart/
+2. Open OpenbankingAPI tab
+3. Enter credentials
+4. Click "Fetch Credit Score"
+5. Request with proof would be added on the "Proofs" tab
+
+## BlockchainAPI usage
+
+1. Get api key from blockchain data provider (default is https://sonic-blaze.g.alchemy.com/v2/)
+2. Open BlockchainAPI tab
+3. Enter api key
+4. Enter number of blocks to fetch
+5. Click "Send Request"
+6. Request with proof would be added on the "Proofs" tab
+
+
 ## Troubleshooting
 
 - If the extension doesn't load, check the console in Chrome DevTools for any errors
