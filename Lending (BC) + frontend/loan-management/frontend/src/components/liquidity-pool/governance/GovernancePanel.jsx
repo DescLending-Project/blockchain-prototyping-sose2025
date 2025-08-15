@@ -252,7 +252,7 @@ const PROPOSAL_OPTIONS = [
                     },
                     {
                         label: "Set Emergency Multisig",
-                        selector: getSelector("setEmergencyMultisig(address[]"),
+                        selector: getSelector("setEmergencyMultisig(address[])"),
                         params: [
                             { name: "signers", type: "address[]", tooltip: "Array of multisig signer addresses (comma-separated)" }
                         ]

@@ -15,7 +15,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function() {
         await timelock.connect(signer).schedule(target, value, data, predecessor, salt, delay);
 
         // Advance time past the delay
-        await ethers.provider.send("evm_increaseTime", [delay + 1]);
+        await ethers.provider.send("evm_increaseTime", [Number(delay) + 1]);
         await ethers.provider.send("evm_mine", []);
 
         // Execute the operation
@@ -341,7 +341,7 @@ describe("ProtocolGovernor - Comprehensive Coverage", function() {
 
                 // Wait for timelock delay
                 const delay = await timelock.getMinDelay();
-                await ethers.provider.send("evm_increaseTime", [delay + 1]);
+                await ethers.provider.send("evm_increaseTime", [Number(delay) + 1]);
                 await ethers.provider.send("evm_mine");
 
                 await expect(
