@@ -6,6 +6,9 @@ module.exports = {
   mode: "production",
   entry: {
     "popup/popup": path.resolve(__dirname, "..", "src", "popup", "index.ts"),
+    "../background": path.resolve(__dirname, "..", "src", "background.js"),  // ../ moves it up one level
+    "../content-script": path.resolve(__dirname, "..", "src", "content-script.js"),
+    "../main-world-script": path.resolve(__dirname, "..", "src", "main-world-script.js"),
   },
   output: {
     path: path.join(__dirname, "../dist/js"),
@@ -31,7 +34,6 @@ module.exports = {
       patterns: [
         {from: ".", to: "../", context: "public"},
         {from: "src/popup.html", to: "../popup.html"},
-        {from: ".env", to: "../"},
         {from: "css", to: "../css"},
         {
           from: 'node_modules/tlsn-js/build',

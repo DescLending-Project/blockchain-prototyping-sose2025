@@ -104,18 +104,7 @@ export async function generateProof(
         notaryUrl: call.notaryUrl
     });
 
-    if (!wasmInitialized) {
-        try {
-            await init({
-                loggingLevel: loggingLevel,
-                // wasmURL: '/build/tlsn_wasm_bg.wasm',
-            });
-            wasmInitialized = true;
-        } catch (error) {
-            console.error('Error initializing WASM:', error);
-            throw new Error('Failed to initialize WASM. Please check if the WASM file exists at the specified path.');
-        }
-    }
+    await initWasm();
 
     console.log('Creating notary server from URL:', call.notaryUrl);
     const notary = NotaryServer.from(call.notaryUrl);
@@ -134,6 +123,8 @@ export async function generateProof(
     await prover.setup(sessionUrl);
 
     console.log('Sending request through prover to:', call.request.url, 'via websocket proxy:', call.websocketProxyUrl);
+    console.log('Request headers:', call.request.headers);
+    console.log('Request body:', call.request.body);
     const resp = await prover.sendRequest(call.websocketProxyUrl, {
         url: call.request.url,
         method: call.request.method,
@@ -248,7 +239,9 @@ export async function generateProof(
 export async function verifyProof(notaryUrl: string, presentationJSON: PresentationJSON): Promise<VerifyProofResult> {
     console.log('Starting verifyProof function with notaryUrl:', notaryUrl);
 
-    console.log('Creating presentation object from JSON data');
+    await initWasm();
+
+    console.log('Creating presentation object from JSON data:', presentationJSON.data);
     const proof = (await new Presentation(
         presentationJSON.data,
     )) as TPresentation;
@@ -305,4 +298,20 @@ function flattenObjectToStrings(obj: Record<string, any>, separator: string = '.
 
     console.log(`flattenObjectToStrings returning ${result.length} entries`);
     return result;
+}
+
+
+async function initWasm() {
+    if (!wasmInitialized) {
+        try {
+            await init({
+                loggingLevel: loggingLevel,
+                // wasmURL: '/build/tlsn_wasm_bg.wasm',
+            });
+            wasmInitialized = true;
+        } catch (error) {
+            console.error('Error initializing WASM:', error);
+            throw new Error('Failed to initialize WASM. Please check if the WASM file exists at the specified path.');
+        }
+    }
 }

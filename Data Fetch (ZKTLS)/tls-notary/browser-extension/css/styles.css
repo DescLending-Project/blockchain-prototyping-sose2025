@@ -121,6 +121,28 @@ button:hover {
 .status-verified { background-color: #188038; }
 .status-failed { background-color: #d93025; }
 
+.delete-proof-btn {
+  background-color: #d93025;
+  color: white;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 10px;
+  float: right;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.delete-proof-btn:hover {
+  background-color: #b7271e;
+}
+
 .modal {
   display: none;
   position: fixed;
@@ -247,4 +269,149 @@ button:hover {
 
 .download-btn:hover {
   background-color: #0d47a1;
+}
+.command-container {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.scrollable {
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: monospace;
+  margin: 0;
+  white-space: nowrap;
+  overflow-x: auto;
+  position: relative;
+  /* Space for the button */
+  padding: 8px 40px 8px 8px;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  background: transparent; /* No background color */
+  border: none; /* Remove default borders */
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  color: inherit; /* Inherit color from the parent */
+  width: 30px;
+  height: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0; /* Initially hidden */
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.command-container:hover .copy-btn {
+  opacity: 1; /* Fully visible on hover */
+  visibility: visible;
+}
+
+.copy-btn:hover {
+  background: rgba(0, 0, 0, 0.1); /* Subtle translucent background */
+  border: 1px solid rgba(0, 0, 0, 0.1); /* Minimal border for hover */
+}
+
+.copy-icon {
+  width: 16px;
+  height: 16px;
+}
+
+#apiUnavailable {
+  display: none;
+  padding: 20px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 5px;
+  margin: 20px 0;
+}
+
+#mainContent {
+  display: block;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.button-group button {
+  flex: 1;
+}
+
+/* Tooltip styles */
+.copy-tooltip {
+  position: fixed;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.copy-tooltip.show {
+  opacity: 1;
+}
+
+/* OpenBanking API Tab Styles */
+.transactions-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+.transaction-item {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.transaction-item:last-child {
+  border-bottom: none;
+}
+
+.transaction-amount {
+  font-weight: bold;
+}
+
+.transaction-amount.positive {
+  color: #188038;
+}
+
+.transaction-amount.negative {
+  color: #d93025;
+}
+
+.transaction-date {
+  font-size: 12px;
+  color: #5f6368;
+}
+
+.error-message {
+  color: #d93025;
+  font-size: 14px;
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #fce8e6;
+  border-radius: 4px;
+  border: 1px solid #d93025;
 }

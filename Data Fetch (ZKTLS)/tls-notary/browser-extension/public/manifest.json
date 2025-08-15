@@ -5,22 +5,30 @@
   "description": "A browser extension for TLS notary functionality",
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "activeTab",
+    "scripting",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
-  },
-  "action": {
-    "default_popup": "popup.html"
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {},
+  "background": {
+    "service_worker": "background.js"
   },
   "web_accessible_resources": [
     {
-      "resources": ["tlsn_wasm_bg.wasm", "tlsn_wasm.js"],
+      "resources": ["main-world-script.js", "tlsn_wasm_bg.wasm", "tlsn_wasm.js"],
       "matches": ["<all_urls>"]
     }
   ]
-
 }

@@ -1,13 +1,21 @@
 # TLS Notary Extension
 
-A browser extension for TLS notary functionality. This extension allows you to capture and verify TLS connections, providing cryptographic proofs of the data exchanged.
+A browser extension for TLS notary functionality. This extension allows you to capture and verify TLS connections, providing cryptographic proofs of the data exchanged. It integrates with the TLS Notary protocol to enable secure and verifiable data capture from web sources.
+
+## Overview
+
+The TLS Notary Extension enables users to:
+- Capture HTTPS requests and responses
+- Generate cryptographic proofs of the captured data
+- Verify the authenticity of the data using the TLS Notary protocol
+- Store and manage proofs for later verification
 
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
-- [Node.js](https://nodejs.org/) (v14 or higher)
+- [Node.js](https://nodejs.org/) (v16 or higher)
 - [npm](https://www.npmjs.com/) (usually comes with Node.js)
-- Google Chrome browser
+- Google Chrome browser (v88 or higher)
 
 ## Installation
 
@@ -20,6 +28,7 @@ npm install
 ```
 
 ## Building the Extension
+**IMPORTANT**: First, you need to build `shared` module of this repository
 
 To build the extension, run:
 
@@ -32,12 +41,6 @@ This will:
 2. Compile TypeScript files
 3. Copy necessary assets to the `dist` directory
 4. Generate the extension bundle in the `dist` directory
-
-For development with automatic rebuilding on file changes, use:
-
-```bash
-npm run dev
-```
 
 ## Loading the Extension in Chrome
 

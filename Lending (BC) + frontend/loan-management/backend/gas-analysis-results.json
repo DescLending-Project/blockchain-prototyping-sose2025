@@ -1,0 +1,35 @@
+{
+  "deployment": {
+    "mockToken": "740259",
+    "mockPriceFeed": "214685",
+    "votingToken": "2631172",
+    "timelock": "381313",
+    "stablecoinManager": "496082",
+    "interestRateModel": "1081445",
+    "liquidityPool": "1307966",
+    "lendingManager": "4537594",
+    "total": "11390516"
+  },
+  "methods": {
+    "deposit": "163764",
+    "borrow": "385549",
+    "repay": "105906",
+    "withdraw": "91478",
+    "liquidate": "150000"
+  },
+  "fullCycle": {
+    "total": "729706"
+  },
+  "summary": {
+    "totalDeploymentGas": "11390516",
+    "totalFullCycleGas": "729706",
+    "mostExpensiveMethod": [
+      "borrow",
+      "385549"
+    ],
+    "leastExpensiveMethod": [
+      "withdraw",
+      "91478"
+    ]
+  }
+}

@@ -30,7 +30,11 @@ export function setProofs(proofs: TLSProof[]): Promise<void> {
 export function getSettings(): Promise<Settings> {
   return new Promise((resolve) => {
     chrome.storage.local.get('settings', (data) => {
-      resolve(data.settings || { notaryServer: 'https://notary.pse.dev/v0.1.0-alpha.10' });
+      resolve(data.settings || { 
+        notaryServer: 'https://notary.pse.dev/v0.1.0-alpha.10',
+        apiBase: 'http://localhost:8090/tunnels',
+        tlsLocalPort: '8091'
+      });
     });
   });
 }
@@ -55,9 +59,11 @@ export function initializeStorage(): void {
       await setProofs([]);
     }
 
-    if (!settings.notaryServer) {
+    if (!settings.notaryServer || !settings.apiBase || !settings.tlsLocalPort) {
       await setSettings({
-        notaryServer: 'https://notary.pse.dev/v0.1.0-alpha.10'
+        notaryServer: settings.notaryServer || 'https://notary.pse.dev/v0.1.0-alpha.10',
+        apiBase: settings.apiBase || 'http://localhost:8090/tunnels',
+        tlsLocalPort: settings.tlsLocalPort || '8091'
       });
     }
   });

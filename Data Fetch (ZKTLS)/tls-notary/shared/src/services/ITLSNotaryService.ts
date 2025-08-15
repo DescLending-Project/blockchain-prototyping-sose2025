@@ -6,4 +6,5 @@ export interface ITLSNotaryService {
   getProof(id: string): Promise<ProofRecord | null>; // returns a single proof by ID
   subscribe(callback: (records: ProofRecord[]) => void): () => void; // listener for changes
   verifyProof(record : ProofRecord): Promise<VerifyProofResult>
+  deleteProof(id: string): Promise<void>;           // deletes a proof by ID
 }
