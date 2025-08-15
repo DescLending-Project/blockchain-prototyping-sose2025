@@ -1,6 +1,6 @@
-import { ProofRecord, RequestStatus, VerifyProofResult, TLSFormData, TLSNotaryService } from 'tls-notary-shared';
-import { getProofs, setProofs } from '../utils/storageUtils';
-import { TLSProof } from '../types/types';
+import {ProofRecord, RequestStatus, TLSNotaryService} from 'tls-notary-shared';
+import {getProofs, setProofs} from '../utils/storageUtils';
+import {TLSProof} from '../types/types';
 
 /**
  * Convert a ProofRecord to a TLSProof for storage
@@ -96,15 +96,12 @@ class BrowserTLSNotaryService {
    */
   private async loadProofsFromStorage() {
     try {
-      console.log('Loading proofs from browser storage');
       const storedProofs = await getProofs();
       if (storedProofs && storedProofs.length > 0) {
         // Convert TLSProof objects to ProofRecord objects
         this.records = storedProofs.map(tlsProofToProofRecord);
-        console.log(`Loaded ${storedProofs.length} proofs from browser storage`);
         this.notifySubscribers();
       } else {
-        console.log('No proofs found in browser storage');
       }
     } catch (error) {
       console.error('Error loading proofs from browser storage:', error);
@@ -117,13 +114,12 @@ class BrowserTLSNotaryService {
   private async saveProofsToStorage() {
     try {
       // Filter records to only include those that have been received
-      const receivedRecords = this.records.filter(record => 
-        record.status === RequestStatus.Received || 
-        record.status === RequestStatus.Pending || 
+      const receivedRecords = this.records.filter(record =>
+        record.status === RequestStatus.Received ||
+        record.status === RequestStatus.Pending ||
         record.status === RequestStatus.Verified
       );
 
-      console.log(`Saving ${receivedRecords.length} received proofs to browser storage (out of ${this.records.length} total)`);
 
       // Convert ProofRecord objects to TLSProof objects
       const tlsProofs = receivedRecords.map(proofRecordToTLSProof);
@@ -134,55 +130,43 @@ class BrowserTLSNotaryService {
   }
 
   private notifySubscribers() {
-    console.log(`Notifying ${this.subscribers.length} subscribers of record changes`);
     const snapshot = [...this.records];
     this.subscribers.forEach((cb) => cb(snapshot));
-    console.log('All subscribers notified');
 
     // Save proofs to storage whenever they change
     this.saveProofsToStorage();
   }
 
   async subscribe(callback: (records: ProofRecord[]) => void): Promise<() => void> {
-    console.log('New subscriber added to BrowserTLSNotaryService');
 
     // Ensure the service is initialized before proceeding
     await this.initialize();
 
     this.subscribers.push(callback);
-    console.log('Sending initial records to new subscriber');
     callback([...this.records]);
     return () => {
-      console.log('Unsubscribing from BrowserTLSNotaryService');
       this.subscribers = this.subscribers.filter((cb) => cb !== callback);
-      console.log(`Remaining subscribers: ${this.subscribers.length}`);
     };
   }
 
   async getAllProofs(): Promise<ProofRecord[]> {
-    console.log('BrowserTLSNotaryService.getAllProofs called');
 
     // Ensure the service is initialized before proceeding
     await this.initialize();
 
-    const records = [...this.records];
-    console.log(`Returning ${records.length} proof records`);
-    return records;
+    return [...this.records];
   }
 
   // Method to add a proof record (used by the shared module's service)
   async addProofRecord(record: ProofRecord): Promise<void> {
-    console.log('BrowserTLSNotaryService.addProofRecord called with record:', record);
 
     // Ensure the service is initialized before proceeding
     await this.initialize();
 
     const existingIndex = this.records.findIndex((r) => r.id === record.id);
     if (existingIndex >= 0) {
-      console.log('Updating existing proof record');
       this.records[existingIndex] = record;
     } else {
-      console.log('Adding new proof record');
       this.records.unshift(record);
     }
     this.notifySubscribers();
@@ -194,20 +178,17 @@ class BrowserTLSNotaryService {
    * @returns Promise that resolves when the proof is deleted
    */
   async deleteProof(id: string): Promise<void> {
-    console.log(`BrowserTLSNotaryService.deleteProof called with ID: ${id}`);
 
     // Ensure the service is initialized before proceeding
     await this.initialize();
 
     const existingIndex = this.records.findIndex((r) => r.id === id);
     if (existingIndex >= 0) {
-      console.log('Deleting proof record from BrowserTLSNotaryService');
       this.records.splice(existingIndex, 1);
       this.notifySubscribers();
 
       // Also delete the proof from the shared module's TLSNotaryService
       try {
-        console.log('Deleting proof record from shared module TLSNotaryService');
         await TLSNotaryService.deleteProof(id);
       } catch (error) {
         console.error('Error deleting proof from shared module:', error);

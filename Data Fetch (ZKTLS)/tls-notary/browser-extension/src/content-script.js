@@ -1,8 +1,18 @@
-// content-script.js
-(function() {
-  console.log('Content script starting in isolated world...');
+/**
+ * Content script for the TLS Notary browser extension
+ * Runs in the context of web pages and facilitates communication between the page and the extension
+ */
 
-  // Listen for messages from the web page
+/**
+ * Immediately Invoked Function Expression (IIFE) to avoid polluting the global scope
+ * Sets up message listeners and injects the main world script
+ */
+(function() {
+  /**
+   * Listens for messages from the web page
+   * Handles TLSN_OPEN_EXTENSION messages to open the extension popup
+   * @param {MessageEvent} event - The message event from the web page
+   */
   window.addEventListener("message", (event) => {
     // We only accept messages from ourselves
     if (event.source !== window) {
@@ -16,8 +26,11 @@
     }
   }, false);
 
-  // Inject a script into the MAIN WORLD (not isolated world)
-  // This is the key - we need to inject into the main world where React runs
+  /**
+   * Injects the main-world-script.js into the page's main JavaScript context
+   * This allows the script to interact with the page's JavaScript environment directly
+   * The script is removed after it loads to avoid cluttering the DOM
+   */
   function injectMainWorldScript() {
     const script = document.createElement('script');
     script.src = chrome.runtime.getURL('main-world-script.js');
@@ -27,12 +40,12 @@
     (document.head || document.documentElement).appendChild(script);
   }
 
-  // Inject when DOM is ready
+  // Check if DOM is ready and inject the script accordingly
   if (document.readyState === 'loading') {
+    // If DOM is still loading, wait for it to be ready
     document.addEventListener('DOMContentLoaded', injectMainWorldScript);
   } else {
+    // If DOM is already ready, inject immediately
     injectMainWorldScript();
   }
-
-  console.log('Content script setup complete');
 })();

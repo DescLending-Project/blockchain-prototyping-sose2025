@@ -1,19 +1,23 @@
 // This file is automatically updated by the deployment script
 export const CONTRACT_ADDRESSES = {
-  localhost: {
-    "VotingToken": "0x9A676e781A523b5d0C0e43731313A708CB607508",
-    "TimelockController": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
-    "ProtocolGovernor": "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE",
-    "StablecoinManager": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
-    "InterestRateModel": "0x4A679253410272dd5232B3Ff7cF5dbB88f295319",
-    "LiquidityPool": "0x09635F643e140090A9A8Dcd712eD6285858ceBef",
-    "LendingManager": "0xc5a5C42992dECbae36851359345FE25997F5C42d",
-    "GlintToken": "0x70e0bA845a1A0F2DA3359C97E0285013525FFC49",
-    "MockPriceFeed": "0x4826533B4897376654Bb4d4AD88B7faFD0C98528",
-    "MockPriceFeedUSDC": "0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1",
-    "MockPriceFeedUSDT": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
-    "creditScoreVerifier": "0xE3F3a75ef923023FFeb9a502c3Bc7dF30c334B6a"
-},
+  localhost:     {
+        "VotingToken": "0x5fc748f1FEb28d7b76fa1c6B07D8ba2d5535177c",
+        "TimelockController": "0xB82008565FdC7e44609fA118A4a681E92581e680",
+        "ProtocolGovernor": "0x2a810409872AfC346F9B5b26571Fd6eC42EA4849",
+        "StablecoinManager": "0x38a024C0b412B9d1db8BC398140D00F5Af3093D4",
+        "InterestRateModel": "0x99dBE4AEa58E518C50a1c04aE9b48C9F6354612f",
+        "LiquidityPool": "0x6F6f570F45833E249e27022648a26F4076F48f78",
+        "LendingManager": "0xCA8c8688914e0F7096c920146cd0Ad85cD7Ae8b9",
+        "GlintToken": "0x525C7063E7C20997BaaE9bDa922159152D0e8417",
+        "MockPriceFeed": "0xD5ac451B0c50B9476107823Af206eD814a2e2580",
+        "MockPriceFeedUSDC": "0xC9a43158891282A2B1475592D5719c001986Aaec",
+        "MockPriceFeedUSDT": "0x1c85638e118b37167e9298c2268758e058DdfDA0",
+        "IntegratedCreditSystem": "0x19cEcCd6942ad38562Ee10bAfd44776ceB67e923",
+        "creditScoreVerifier": "0x19cEcCd6942ad38562Ee10bAfd44776ceB67e923",
+        "risc0Test": "0x5FeaeBfB4439F3516c74939A9D04e95AFE82C4ae",
+        "RiscZeroVerifier": "0xB0f05d25e41FbC2b52013099ED9616f1206Ae21B",
+        "CoralToken": "0xecc6f14f4b64eedd56111d80f46ce46933dc2d64"
+    },
   sepolia: {
     // Add Sepolia addresses when deployed
   },

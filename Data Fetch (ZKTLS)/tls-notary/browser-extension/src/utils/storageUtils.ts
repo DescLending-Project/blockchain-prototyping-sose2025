@@ -30,7 +30,7 @@ export function setProofs(proofs: TLSProof[]): Promise<void> {
 export function getSettings(): Promise<Settings> {
   return new Promise((resolve) => {
     chrome.storage.local.get('settings', (data) => {
-      resolve(data.settings || { 
+      resolve(data.settings || {
         notaryServer: 'https://notary.pse.dev/v0.1.0-alpha.10',
         apiBase: 'http://localhost:8090/tunnels',
         tlsLocalPort: '8091'

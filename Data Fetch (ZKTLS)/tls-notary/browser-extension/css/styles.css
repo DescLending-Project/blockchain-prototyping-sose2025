@@ -2,21 +2,36 @@ body {
   font-family: Arial, sans-serif;
   width: 400px;
   height: 600px;
-  margin: 0;
+  margin: 0 auto;
   padding: 16px;
   box-sizing: border-box;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow-x: hidden;
 }
 
 h1 {
   font-size: 18px;
   margin-top: 0;
   margin-bottom: 16px;
+  text-align: center;
 }
 
 .tabs {
   display: flex;
   margin-bottom: 16px;
   border-bottom: 1px solid #ccc;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 5px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tab {
@@ -25,6 +40,7 @@ h1 {
   border: 1px solid transparent;
   border-bottom: none;
   margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .tab.active {
@@ -37,10 +53,19 @@ h1 {
   display: none;
   height: 500px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .tab-content.active {
   display: block;
+}
+
+.tab-content h3, .tab-content h4 {
+  text-align: center;
+}
+
+.tab-content > p {
+  text-align: center;
 }
 
 .form-group {
@@ -52,14 +77,18 @@ label {
   margin-bottom: 4px;
   font-weight: bold;
   font-size: 14px;
+  text-align: left;
 }
 
 input, select, textarea {
   width: 100%;
+  max-width: 100%;
   padding: 8px;
   box-sizing: border-box;
   border: 1px solid #ccc;
   border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 button {
@@ -72,22 +101,58 @@ button {
   font-weight: bold;
 }
 
+
 button:hover {
   background-color: #3367d6;
 }
 
+button[disabled] {
+  background-color: #9aa0a6;
+  color: #f8f9fa;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+button[disabled]:hover {
+  background-color: #9aa0a6;
+}
+
 .proof-list {
-  max-height: 300px;
-  overflow-y: auto;
   border: 1px solid #ccc;
   border-radius: 4px;
   margin-bottom: 16px;
+  max-height: 350px;
+  overflow-y: auto;
 }
 
 .proof-item {
   padding: 8px;
   border-bottom: 1px solid #eee;
   cursor: pointer;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-height: 40px;
+  position: relative;
+}
+
+.proof-actions-container {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.proof-item > div:first-child {
+  flex: 1;
+  min-width: 0;
+  margin-right: 10px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 80%;
+  white-space: normal;
+  line-height: 1.4;
 }
 
 .proof-item:hover {
@@ -99,14 +164,17 @@ button:hover {
 }
 
 .status {
-  display: inline-block;
+  display: inline-flex;
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: bold;
   color: white;
-  margin: 5px 0;
+  margin: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-items: center;
 }
 
 .status-container {
@@ -129,14 +197,16 @@ button:hover {
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  margin-left: 10px;
-  float: right;
+  margin-left: 8px;
   width: 24px;
   height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .delete-proof-btn:hover {
@@ -166,6 +236,25 @@ button:hover {
   overflow-y: auto;
   overflow-x: hidden;
   word-wrap: break-word;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.modal-content h2 {
+  text-align: center;
+}
+
+#proofDetails {
+  text-align: left;
+}
+
+#openbanking-user-info {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+#openbanking-user-info p {
+  margin: 5px 0;
 }
 
 .close {
@@ -177,11 +266,13 @@ button:hover {
 
 .header-items {
   margin-top: 8px;
+  text-align: left;
 }
 
 .header-item {
   display: flex;
   margin-bottom: 4px;
+  justify-content: center;
 }
 
 .header-item input {
@@ -215,10 +306,13 @@ button:hover {
 .scrollable-container {
   max-height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
   border: 1px solid #eee;
   border-radius: 4px;
   padding: 8px;
   margin-bottom: 12px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .status-message {
@@ -283,11 +377,13 @@ button:hover {
   border-radius: 4px;
   font-family: monospace;
   margin: 0;
-  white-space: nowrap;
-  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
   position: relative;
   /* Space for the button */
   padding: 8px 40px 8px 8px;
+  text-align: left;
+  max-width: 100%;
 }
 
 .copy-btn {
@@ -337,6 +433,13 @@ button:hover {
 
 #mainContent {
   display: block;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+#mainContent .tabs {
+  display: flex;
 }
 
 .button-group {
@@ -375,14 +478,21 @@ button:hover {
 .transactions-list {
   max-height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
   border: 1px solid #ccc;
   border-radius: 4px;
   margin-top: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .transaction-item {
   padding: 8px;
   border-bottom: 1px solid #eee;
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .transaction-item:last-child {
@@ -414,4 +524,5 @@ button:hover {
   background-color: #fce8e6;
   border-radius: 4px;
   border: 1px solid #d93025;
+  text-align: center;
 }

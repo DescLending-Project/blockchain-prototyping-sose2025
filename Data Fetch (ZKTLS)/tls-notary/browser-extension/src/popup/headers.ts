@@ -1,3 +1,8 @@
+/**
+ * Sets up the header management functionality in the extension
+ * Initializes event listeners for adding and removing custom HTTP headers
+ * Allows users to dynamically add and remove headers for API requests
+ */
 export function setupHeaderManagement(): void {
   const addHeaderBtn = document.getElementById('addHeader');
   const headerItems = document.getElementById('headerItems');

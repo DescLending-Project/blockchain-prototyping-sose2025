@@ -2,7 +2,7 @@
 
 // Services
 export * from './services/ITLSNotaryService';
-export * from './services/MockTLSNotaryService';
+export * from './services/TLSNotaryServiceImpl';
 export * from './services/TunnelService';
 
 // Types

@@ -15,12 +15,12 @@ export type HttpMethod = (typeof HttpMethod)[keyof typeof HttpMethod];
 
 
 export const RequestStatus = {
-  Error : "Error",
-  Sending: "Sending",
-  Received : "Received",
-  Pending: "Pending",
-  Verified: "Verified",
-  Failed: "Failed",
+  Error : "Error",      // An error occurred during processing
+  Sending: "Sending",   // Request is being sent
+  Received : "Received", // Response has been received
+  Pending: "Pending",   // Verification is pending
+  Verified: "Verified", // Proof has been verified
+  Failed: "Failed",     // Verification failed
 } as const;
 
 export type RequestStatus = (typeof RequestStatus)[keyof typeof RequestStatus];
