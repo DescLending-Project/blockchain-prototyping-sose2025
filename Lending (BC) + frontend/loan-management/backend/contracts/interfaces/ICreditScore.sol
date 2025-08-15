@@ -1,30 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-
-// Interface for interacting with the RISC0 Credit Score Verifier Contract
-
+// Interface for interacting with the RISC0 Credit Score Verifier Contract - moved this outside from the LiquidityPool
 interface ICreditScore {
-
+    
     function getCreditScore(address user) external view returns (
         uint64 score,
-        bool isValid,
+        bool isUnused,
         uint256 timestamp
     );
 
-    function isServerAuthorized(string calldata serverName) external view returns (bool);
+    function authorizeServer(string calldata serverName, bool authorized) external;
+    
+    function authorizeStateRootProvider(string calldata providerName, bool authorized) external;
 
-
-    function isStateRootProviderAuthorized(string calldata providerName) external view returns (bool);
-
-    function SCORE_EXPIRY_PERIOD() external view returns (uint256);
+    function markCreditScoreAsUsed(address user) external;
 
     // Events that might be useful to listen to
     event CreditScoreSubmitted(
         address indexed user,
         uint64 score,
-        string serverName,
-        string stateRootProvider,
-        uint256 timestamp
+        uint256 timestamp,
+        bytes32 tradfiNullifier
     );
 }

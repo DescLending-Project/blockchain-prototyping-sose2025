@@ -1,5 +1,5 @@
 console.log('==============================');
-console.log('🚀 Starting deployAll.js script');
+console.log('🚀 Starting deployAll2.js script');
 console.log('==============================');
 const { ethers, upgrades, network } = require("hardhat");
 const { execSync } = require('child_process');
@@ -82,17 +82,58 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
         console.log(`Voting period (blocks): ${votingPeriodBlocks}`);
     }
 
-    // 4. Mine exactly 1 block to activate proposal
-    await network.provider.send("evm_mine");
-    let state = await governor.state(proposalId);
-    console.log(`Proposal state: ${state}`); // Should be 1 (Active)
+    // 4. Get voting delay and mine enough blocks to activate proposal
+    let votingDelay;
+    try {
+        votingDelay = await governor.votingDelay();
+        console.log(`Voting delay: ${votingDelay} blocks`);
+    } catch {
+        votingDelay = 1; // fallback
+    }
 
-    // 5. Vote immediately with all accounts
+    // Mine voting delay + 1 blocks to ensure proposal is active
+    for (let i = 0; i <= Number(votingDelay); i++) {
+        await network.provider.send("evm_mine");
+    }
+
+    let state = await governor.state(proposalId);
+    console.log(`Proposal state after mining ${Number(votingDelay) + 1} blocks: ${state}`); // Should be 1 (Active)
+
+    // If still not active, mine a few more blocks
+    let attempts = 0;
+    while (state !== 1 && attempts < 10) {
+        await network.provider.send("evm_mine");
+        state = await governor.state(proposalId);
+        attempts++;
+        console.log(`Additional block mined, state: ${state}, attempt: ${attempts}`);
+    }
+
+    if (state !== 1) {
+        console.log(`⚠️ Proposal not active after ${attempts + Number(votingDelay) + 1} blocks. State: ${state} (${getStateName(state)})`);
+        console.log('Attempting to proceed anyway...');
+    } else {
+        console.log('✅ Proposal is now active and ready for voting');
+    }
+
+    // 5. Vote with all accounts
     console.log('Voting on proposal...');
     for (let j = 0; j < maxAccounts; j++) {
-        const voteTx = await governor.connect(accounts[j]).castVote(proposalId, 1, { gasLimit: 200000 });
-        await voteTx.wait();
-        console.log(`Account ${j} voted`);
+        try {
+            // Check if account has voting power
+            const votingPower = await governor.getVotes(accounts[j].address, await governor.proposalSnapshot(proposalId));
+            console.log(`Account ${j} voting power: ${votingPower}`);
+
+            if (votingPower > 0) {
+                const voteTx = await governor.connect(accounts[j]).castVote(proposalId, 1, { gasLimit: 200000 });
+                await voteTx.wait();
+                console.log(`Account ${j} voted successfully`);
+            } else {
+                console.log(`Account ${j} has no voting power, skipping`);
+            }
+        } catch (error) {
+            console.error(`Failed to vote with account ${j}:`, error.message);
+            // Continue with other accounts instead of failing completely
+        }
     }
 
     // 6. Calculate exact time remaining in voting period
@@ -127,7 +168,19 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
         await network.provider.send("evm_mine");
     }
     state = await governor.state(proposalId);
-    console.log(`Proposal state after deadline: ${state}`); // Should be 4 (Succeeded)
+    console.log(`Proposal state after deadline: ${state} (${getStateName(state)})`); // Should be 4 (Succeeded)
+
+    // Debug voting results
+    try {
+        const proposalVotes = await governor.proposalVotes(proposalId);
+        console.log(`Voting results - For: ${proposalVotes.forVotes}, Against: ${proposalVotes.againstVotes}, Abstain: ${proposalVotes.abstainVotes}`);
+
+        const quorum = await governor.quorum(await governor.proposalSnapshot(proposalId));
+        console.log(`Quorum required: ${quorum}`);
+        console.log(`Votes for >= quorum: ${proposalVotes.forVotes >= quorum}`);
+    } catch (error) {
+        console.log('Could not get detailed voting results');
+    }
 
     // 9. Queue the proposal
     console.log('Queueing proposal...');
@@ -142,7 +195,11 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
     console.log("Current block timestamp:", currentBlockTs);
     console.log("Proposal snapshot:", snapshot);
     console.log("Proposal deadline:", deadline);
-    if (state !== 4) throw new Error("Proposal not in Succeeded state before queue");
+    if (Number(state) !== 4) {
+        console.log(`⚠️ Proposal state is ${state} (${getStateName(Number(state))}), expected 4 (Succeeded)`);
+        throw new Error(`Proposal not in Succeeded state before queue. State: ${state} (${getStateName(Number(state))})`);
+    }
+    console.log("✅ Proposal is in Succeeded state, proceeding to queue...");
     const queueTx = await governor.queue(
         targets,
         values,
@@ -162,7 +219,11 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
     // 11. Execute proposal
     state = await governor.state(proposalId);
     console.log("State before execute:", state);
-    if (state !== 5) throw new Error("Proposal not in Queued state before execute");
+    if (Number(state) !== 5) {
+        console.log(`⚠️ Proposal state is ${state} (${getStateName(Number(state))}), expected 5 (Queued)`);
+        throw new Error(`Proposal not in Queued state before execute. State: ${state} (${getStateName(Number(state))})`);
+    }
+    console.log("✅ Proposal is in Queued state, proceeding to execute...");
     console.log('Executing proposal...');
     const executeTx = await governor.execute(
         targets,
@@ -228,12 +289,25 @@ async function main() {
     const minDelay = 3600; // 1 hour
     const proposers = [deployer.address];
     const executors = [ethers.ZeroAddress];
-  
-    const TimelockController = await ethers.getContractFactory("TimelockController");
-    const timelock = await TimelockController.deploy(minDelay, proposers, executors, deployer.address);
-    await timelock.waitForDeployment();
-    console.log("TimelockController deployed at:", await timelock.getAddress());
-    console.log(`[DEPLOYED] TimelockController at: ${await timelock.getAddress()} (new deployment)`);
+    
+    let TimelockController, timelock;
+    try {
+        TimelockController = await ethers.getContractFactory("TimelockController");
+        console.log("✅ TimelockController factory created");
+        
+        timelock = await TimelockController.deploy(minDelay, proposers, executors, deployer.address);
+        console.log("✅ TimelockController deployment transaction sent");
+        
+        await timelock.waitForDeployment();
+        console.log("✅ TimelockController deployment confirmed");
+        
+        const timelockAddress = await timelock.getAddress();
+        console.log("TimelockController deployed at:", timelockAddress);
+        console.log(`[DEPLOYED] TimelockController at: ${timelockAddress} (new deployment)`);
+    } catch (error) {
+        console.error("❌ Failed to deploy TimelockController:", error);
+        throw error;
+    }
 
     // 2. Deploy VotingToken with Timelock as DAO
     const VotingToken = await ethers.getContractFactory("VotingToken");
@@ -244,12 +318,16 @@ async function main() {
 
     // Grant MINTER_ROLE to TimelockController immediately after deployment
     const MINTER_ROLE = await votingToken.MINTER_ROLE();
-    await votingToken.grantRole(MINTER_ROLE, await timelock.getAddress());
+    console.log('Granting MINTER_ROLE to TimelockController...');
+    const grantMinterTx = await votingToken.grantRole(MINTER_ROLE, await timelock.getAddress(), { gasLimit: 1000000 });
+    await grantMinterTx.wait();
     console.log('VotingToken MINTER_ROLE granted to TimelockController:', await votingToken.hasRole(MINTER_ROLE, await timelock.getAddress()));
 
     // Grant DEFAULT_ADMIN_ROLE to TimelockController
     const DEFAULT_ADMIN_ROLE = await votingToken.DEFAULT_ADMIN_ROLE();
-    await votingToken.grantRole(DEFAULT_ADMIN_ROLE, await timelock.getAddress());
+    console.log('Granting DEFAULT_ADMIN_ROLE to TimelockController...');
+    const grantAdminTx = await votingToken.grantRole(DEFAULT_ADMIN_ROLE, await timelock.getAddress(), { gasLimit: 1000000 });
+    await grantAdminTx.wait();
     console.log('VotingToken DEFAULT_ADMIN_ROLE granted to TimelockController:', await votingToken.hasRole(DEFAULT_ADMIN_ROLE, await timelock.getAddress()));
     console.log('VotingToken DAO:', await votingToken.dao());
 
@@ -260,23 +338,34 @@ async function main() {
     console.log("ProtocolGovernor deployed at:", await governor.getAddress());
     console.log(`[DEPLOYED] ProtocolGovernor at: ${await governor.getAddress()} (new deployment)`);
     // Grant MINTER_ROLE to Governor immediately after deployment
-    await votingToken.grantRole(MINTER_ROLE, await governor.getAddress());
+    console.log('Granting MINTER_ROLE to Governor...');
+    const grantMinterToGovTx = await votingToken.grantRole(MINTER_ROLE, await governor.getAddress(), { gasLimit: 1000000 });
+    await grantMinterToGovTx.wait();
+    
     // Set DAO to Governor immediately after deployment
-    await votingToken.setDAO(await governor.getAddress());
+    console.log('Setting DAO to Governor...');
+    const setDAOTx = await votingToken.setDAO(await governor.getAddress(), { gasLimit: 1000000 });
+    await setDAOTx.wait();
+    
     // Debug prints for role assignment
     const hasMinterRole = await votingToken.hasRole(MINTER_ROLE, await governor.getAddress());
     console.log('MINTER_ROLE:', MINTER_ROLE);
     console.log('Governor address:', await governor.getAddress());
     console.log('VotingToken has MINTER_ROLE for Governor:', hasMinterRole);
+    
     // Grant PROPOSER_ROLE to Governor on TimelockController
     const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
-    await timelock.grantRole(PROPOSER_ROLE, await governor.getAddress());
+    console.log('Granting PROPOSER_ROLE to Governor...');
+    const grantProposerTx = await timelock.grantRole(PROPOSER_ROLE, await governor.getAddress(), { gasLimit: 1000000 });
+    await grantProposerTx.wait();
     console.log('TimelockController PROPOSER_ROLE granted to Governor:', await timelock.hasRole(PROPOSER_ROLE, await governor.getAddress()));
 
     // Grant roles on TimelockController
     const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
     // Grant EXECUTOR_ROLE to AddressZero (anyone can execute after delay)
-    await timelock.grantRole(EXECUTOR_ROLE, ethers.ZeroAddress);
+    console.log('Granting EXECUTOR_ROLE to AddressZero...');
+    const grantExecutorTx = await timelock.grantRole(EXECUTOR_ROLE, ethers.ZeroAddress, { gasLimit: 1000000 });
+    await grantExecutorTx.wait();
 
     // DON'T revoke admin role from deployer yet - do it at the very end
     // await timelock.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address); // REMOVE THIS LINE
@@ -353,34 +442,18 @@ async function main() {
     console.log("InterestRateModel:", interestRateModelAddress);
     console.log(`[DEPLOYED] InterestRateModel at: ${interestRateModelAddress} (new deployment)`);
 
-    // 6. Deploy IntegratedCreditSystem first (as before)
-    const IntegratedCreditSystem = await ethers.getContractFactory("IntegratedCreditSystem");
-    const creditSystem = await IntegratedCreditSystem.deploy(
-        ethers.ZeroAddress, // SimpleRISC0Test placeholder
-        ethers.ZeroAddress  // LiquidityPool placeholder
-    );
-    await creditSystem.waitForDeployment();
-    console.log("IntegratedCreditSystem deployed at:", await creditSystem.getAddress());
-
-    // Deploy LiquidityPool with updated 4-parameter initialization
+    // 6. Deploy LiquidityPool with DAO as admin
     const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
     const liquidityPool = await upgrades.deployProxy(LiquidityPool, [
         deployer.address, // LOCAL/DEV: deployer is admin
         stablecoinManagerAddress,
         ethers.ZeroAddress, // LendingManager placeholder
-        interestRateModelAddress
+        interestRateModelAddress,
     ], {
         initializer: "initialize",
     });
     await liquidityPool.waitForDeployment();
     console.log("LiquidityPool deployed at:", await liquidityPool.getAddress());
-
-    // Set LiquidityPool address in IntegratedCreditSystem (if setter exists)
-    if (creditSystem.setLiquidityPool) {
-        const tx = await creditSystem.setLiquidityPool(await liquidityPool.getAddress());
-        await tx.wait();
-        console.log("LiquidityPool address set in IntegratedCreditSystem.");
-    }
 
     // 7. Deploy LendingManager
     console.log("\nDeploying LendingManager...");
@@ -391,31 +464,177 @@ async function main() {
     console.log(`[DEPLOYED] LendingManager at: ${await lendingManager.getAddress()} (new deployment)`);
 
     // 7.1 Set credit scores for two users (lender, borrower) before admin transfer
-    const lender = accounts[1];
-    const borrower = accounts[2];
-    await liquidityPool.setCreditScore(lender.address, 85);
-    await liquidityPool.setCreditScore(borrower.address, 80);
-    console.log(`Set credit scores: lender (${lender.address}) = 85, borrower (${borrower.address}) = 80`);
+    console.log('Setting credit scores for test accounts...');
+    if (accounts.length >= 3) {
+        const lender = accounts[1];
+        const borrower = accounts[2];
+        
+        console.log('Lender account:', lender.address);
+        console.log('Borrower account:', borrower.address);
+        
+        const setCreditScore1Tx = await liquidityPool.setCreditScore(lender.address, 85, { gasLimit: 100000 });
+        await setCreditScore1Tx.wait();
+        
+        const setCreditScore2Tx = await liquidityPool.setCreditScore(borrower.address, 80, { gasLimit: 100000 });
+        await setCreditScore2Tx.wait();
+        
+        console.log(`✅ Set credit scores: lender (${lender.address}) = 85, borrower (${borrower.address}) = 80`);
+    } else {
+        console.log('⚠️ Not enough accounts available for setting credit scores (need at least 3 accounts)');
+    }
+
+    // 7.2 Setup Credit Score Contract (BEFORE transferring admin to timelock)
+    console.log('\n🔗 Setting up RISC0 Credit Score integration...');
+    
+    const RISC0_CREDIT_SCORE_ADDRESS = "0xE3F3a75ef923023FFeb9a502c3Bc7dF30c334B6a"; // actual RISC0 contract
+    
+    // Option B: Deploy a simple mock contract for testing
+    // const MockCreditScore = await ethers.getContractFactory("MockCreditScore");
+    // const mockCreditScore = await MockCreditScore.deploy();
+    // await mockCreditScore.waitForDeployment();
+    // const RISC0_CREDIT_SCORE_ADDRESS = await mockCreditScore.getAddress();
+    
+    try {
+        if (RISC0_CREDIT_SCORE_ADDRESS && RISC0_CREDIT_SCORE_ADDRESS !== "0x0000000000000000000000000000000000000000") {
+            console.log('Setting credit score contract to:', RISC0_CREDIT_SCORE_ADDRESS);
+            
+            // Set the credit score contract (deployer is still admin at this point)
+            const setCreditScoreTx = await liquidityPool.setCreditScoreContract(
+                RISC0_CREDIT_SCORE_ADDRESS,
+                { gasLimit: 200000 }
+            );
+            await setCreditScoreTx.wait();
+            
+            // Verify it was set
+            const currentCreditScoreContract = await liquidityPool.creditScoreContract();
+            const risc0Enabled = await liquidityPool.useRISC0CreditScores();
+            
+            console.log('✅ Credit score contract set to:', currentCreditScoreContract);
+            console.log('✅ RISC0 scores enabled:', risc0Enabled);
+            
+            // Optional: Set up other RISC0-related configurations
+            // await liquidityPool.toggleRISC0CreditScores(true); // Already auto-enabled
+            
+        } else {
+            console.log('⚠️ No RISC0 credit score contract address provided, skipping setup');
+        }
+    } catch (error) {
+        console.error('❌ Failed to set credit score contract:', error.message);
+        console.log('⚠️ Continuing deployment, you can set this later via governance');
+    }
+
+    // 7.3 Setup other initial configurations while deployer is still admin
+    console.log('\n⚙️ Setting up additional configurations...');
+    
+    try {
+        // Set VotingToken reference in LiquidityPool (if needed)
+        if (await liquidityPool.votingToken && (await liquidityPool.votingToken()) === ethers.ZeroAddress) {
+            console.log('Setting VotingToken in LiquidityPool...');
+            await liquidityPool.setVotingToken(await votingToken.getAddress());
+            console.log('✅ VotingToken set in LiquidityPool');
+        }
+        
+        // Add LiquidityPool to governor's contract whitelist (for future governance)
+        console.log('Whitelisting LiquidityPool in ProtocolGovernor...');
+        // Note: This requires governance, so we'll do it via executeGovernanceProposal
+        
+        // Price feeds and collateral are now set up before admin transfer
+        
+    } catch (error) {
+        console.error('❌ Error in additional setup:', error.message);
+        console.log('⚠️ Some configurations may need to be set manually later');
+    }
+
+    // 7.4 Use governance to whitelist LiquidityPool (required for governance)
+    console.log('\n🏛️ Setting up governance configurations...');
+
+    try {
+        // Simplified governance setup with very low quorum (1 vote)
+        console.log('Setting up minimal governance for whitelist...');
+        const MINTER_ROLE = await votingToken.MINTER_ROLE();
+        const hasRole = await votingToken.hasRole(MINTER_ROLE, deployer.address);
+
+        if (!hasRole) {
+            console.log('Granting MINTER_ROLE to deployer...');
+            await votingToken.grantRole(MINTER_ROLE, deployer.address);
+        }
+
+        // Just mint 1 token to the deployer - enough for the very low quorum
+        console.log('Minting minimal voting tokens...');
+        await votingToken.mint(deployer.address, 10); // Mint 10 tokens for safety
+        await votingToken.connect(deployer).delegate(deployer.address);
+
+        // Wait for delegation to take effect
+        console.log('Waiting for delegation to take effect...');
+        await network.provider.send("evm_mine");
+        await network.provider.send("evm_mine");
+
+        // Verify voting power
+        const votingPower = await votingToken.getVotes(deployer.address);
+        const quorum = await governor.quorum(await ethers.provider.getBlockNumber());
+        console.log(`Deployer voting power: ${votingPower}`);
+        console.log(`Quorum required: ${quorum}`);
+        console.log(`Meets quorum: ${votingPower >= quorum}`);
+
+        // Create a governance proposal to whitelist LiquidityPool
+        const whitelistCalldata = governor.interface.encodeFunctionData(
+            "setContractWhitelist",
+            [await liquidityPool.getAddress(), true]
+        );
+
+        // Use the executeGovernanceProposal helper with just the deployer
+        await executeGovernanceProposal(
+            governor,
+            [await governor.getAddress()], // target: governor itself
+            [0], // values
+            [whitelistCalldata], // calldata
+            makeUniqueDescription("Whitelist LiquidityPool for governance"),
+            [deployer], // just use deployer account
+            1, // use 1 account
+            network
+        );
+
+        console.log('✅ LiquidityPool whitelisted for governance proposals');
+
+    } catch (error) {
+        console.error('❌ Failed to setup governance whitelist:', error.message);
+        console.error('Full error:', error);
+
+        // Try alternative approach: direct whitelist while deployer is still admin
+        try {
+            console.log('🔄 Attempting direct whitelist as fallback...');
+            // Check if governor has a direct setContractWhitelist function we can call
+            const hasDirectFunction = governor.interface.fragments.some(f => f.name === 'setContractWhitelist');
+            if (hasDirectFunction) {
+                await governor.setContractWhitelist(await liquidityPool.getAddress(), true);
+                console.log('✅ LiquidityPool whitelisted directly (fallback method)');
+            } else {
+                console.log('⚠️ No direct whitelist method available');
+            }
+        } catch (fallbackError) {
+            console.log('⚠️ Fallback method also failed:', fallbackError.message);
+        }
+
+        console.log('⚠️ You may need to whitelist LiquidityPool manually later via governance');
+        console.log('🔄 Continuing with deployment...');
+    }
+
 
     // 8. Update LiquidityPool with LendingManager address (deployer is admin)
     console.log("Updating LiquidityPool with LendingManager address...");
     await liquidityPool.setLendingManager(await lendingManager.getAddress());
     console.log("LiquidityPool updated.");
 
-    // 9. Transfer LiquidityPool admin to Timelock (for full governance)
-    console.log("Transferring LiquidityPool admin to Timelock...");
-    await liquidityPool.setAdmin(await timelock.getAddress());
-    console.log("LiquidityPool admin transferred to Timelock.");
-
-    // 3. Deploy GlintToken
+    // 8.1. Deploy GlintToken
+    console.log("\n📦 Deploying GlintToken...");
     const GlintToken = await ethers.getContractFactory("GlintToken");
     const glintToken = await GlintToken.deploy(ethers.parseEther('1000000'));
     await glintToken.waitForDeployment();
     const glintTokenAddress = await glintToken.getAddress();
     console.log("GlintToken deployed at:", glintTokenAddress);
 
-    // 10. Deploy MockPriceFeed for GlintToken
-    console.log("\nDeploying MockPriceFeed for GlintToken...");
+    // 8.2. Deploy MockPriceFeed for GlintToken
+    console.log("Deploying MockPriceFeed for GlintToken...");
     const glintMockFeed = await MockPriceFeed.deploy(
         ethers.parseUnits("1.00", 8), // 1.00 with 8 decimals
         8
@@ -423,6 +642,31 @@ async function main() {
     await glintMockFeed.waitForDeployment();
     const glintMockFeedAddress = await glintMockFeed.getAddress();
     console.log("MockPriceFeed for GlintToken deployed to:", glintMockFeedAddress);
+
+    // 8.3. Setup GLINT token as collateral (BEFORE transferring admin to timelock)
+    console.log("\n⚙️  Setting up GLINT token as collateral...");
+    try {
+        // Set up GLINT as allowed collateral
+        await liquidityPool.setAllowedCollateral(glintTokenAddress, true);
+        console.log("✅ GLINT token allowed as collateral");
+
+        // Set up price feed for GLINT
+        await liquidityPool.setPriceFeed(glintTokenAddress, glintMockFeedAddress);
+        console.log("✅ Price feed set for GLINT token");
+    } catch (error) {
+        console.error("❌ Failed to setup GLINT collateral:", error.message);
+        throw error;
+    }
+
+    console.log("  Setting credit score contract...");
+    const creditScoreAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"; // NOTE: CHANGE WITH ACTUAL ADDRESS, OR MOVE THE CONTRACT INTO THIS PROJECT FOLDER TO USE IT DYNAMICALLY
+    await liquidityPool.setCreditScoreContract(creditScoreAddress);
+    console.log("  ✅ Credit score contract set to:", creditScoreAddress);
+
+    // 9. Transfer LiquidityPool admin to Timelock (for full governance)
+    console.log("\nTransferring LiquidityPool admin to Timelock...");
+    await liquidityPool.setAdmin(await timelock.getAddress());
+    console.log("LiquidityPool admin transferred to Timelock.");
 
     // Output all addresses
     console.log("\nDeployment complete:");
@@ -433,11 +677,10 @@ async function main() {
     console.log("InterestRateModel:", interestRateModelAddress);
     console.log("LiquidityPool:", await liquidityPool.getAddress());
     console.log("LendingManager:", await lendingManager.getAddress());
-    console.log("GlintToken:", await glintToken.getAddress());
-    console.log("MockPriceFeed (Glint):", await glintMockFeed.getAddress()); 
+    console.log("GlintToken:", glintTokenAddress);
+    console.log("MockPriceFeed (Glint):", glintMockFeedAddress);
     console.log("MockPriceFeed USDC:", await usdcMockFeed.getAddress());
     console.log("MockPriceFeed USDT:", await usdtMockFeed.getAddress());
-    console.log("IntegratedCreditSystem:", await creditSystem.getAddress());
 
     // Optionally update frontend/app addresses
     const addressesObj = {
@@ -448,11 +691,10 @@ async function main() {
         InterestRateModel: interestRateModelAddress,
         LiquidityPool: await liquidityPool.getAddress(),
         LendingManager: await lendingManager.getAddress(),
-        GlintToken: await glintToken.getAddress(),
-        MockPriceFeed: await glintMockFeed.getAddress(),
+        GlintToken: glintTokenAddress,
+        MockPriceFeed: glintMockFeedAddress,
         MockPriceFeedUSDC: await usdcMockFeed.getAddress(),
-        MockPriceFeedUSDT: await usdtMockFeed.getAddress(),
-        IntegratedCreditSystem: await creditSystem.getAddress()
+        MockPriceFeedUSDT: await usdtMockFeed.getAddress()
     };
     // Also write to frontend/src/addresses.json for compatibility
     const fs = require('fs');
@@ -509,15 +751,16 @@ export const getContractAddresses = (networkName) => {
     timelock.removeAllListeners();
 }
 
-// Execute main function if this script is run directly
+// Run main function if this script is executed directly
 if (require.main === module) {
     main()
         .then(() => {
-            console.log("✅ Deployment completed successfully!");
+            console.log("✅ Deployment completed successfully");
             process.exit(0);
         })
         .catch((error) => {
-            console.error("❌ Deployment failed:", error);
+            console.error("❌ Deployment failed:");
+            console.error(error);
             process.exit(1);
         });
 }

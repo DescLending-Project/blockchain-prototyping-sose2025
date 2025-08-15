@@ -290,6 +290,33 @@ const PROPOSAL_OPTIONS = [
                 ]
             }
         ]
+    },
+    {
+        label: "Verifier Management",
+        contract: addresses.LiquidityPool,
+        functions: [
+            {
+                label: "Set Credit Score Contract",
+                selector: getSelector("setCreditScoreContract(address)"),
+                params: [
+                    { name: "creditScoreContract", type: "address", tooltip: "Address of the new CreditScore contract" }
+                ]
+            },
+            {
+                label: "Authorize Server",
+                selector: getSelector("authorizeCreditScoreServer(string)"),
+                params: [
+                    { name: "serverName", type: "string", tooltip: "Name of the server to authorize (e.g., openbanking-api.example.com)" }
+                ]
+            },
+            {
+                label: "Authorize State Root Provider",
+                selector: getSelector("authorizeCreditScoreStateRootProvider(string)"),
+                params: [
+                    { name: "providerName", type: "string", tooltip: "Name of the state root provider to authorize" }
+                ]
+            }
+        ]
     }
 ];
 
