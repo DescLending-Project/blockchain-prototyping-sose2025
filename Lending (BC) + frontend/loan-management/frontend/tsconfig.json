@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        "types": [],
         "target": "ES2020",
         "useDefineForClassFields": true,
         "lib": [
@@ -24,7 +25,8 @@
             "@/*": [
                 "./src/*"
             ]
-        }
+        },
+        "noImplicitAny": false,
     },
     "include": [
         "src"

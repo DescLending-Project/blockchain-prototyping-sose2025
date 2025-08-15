@@ -1,0 +1,45 @@
+[dotenv@17.2.1] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+Version
+=======
+> solidity-coverage: v0.8.16
+
+Instrumenting for coverage...
+=============================
+
+> DemoTester.sol
+> GlintToken.sol
+> IntegratedCreditSystem.sol
+> InterestRateModel.sol
+> interfaces/AggregatorV3Interface.sol
+> interfaces/IVotingToken.sol
+> LendingManager.sol
+> LiquidityPool.sol
+> MockRiscZeroVerifier.sol
+> mocks/GovToken.sol
+> mocks/MockERC20.sol
+> mocks/MockInterestRateModel.sol
+> mocks/MockLiquidityPool.sol
+> mocks/MockPool.sol
+> mocks/MockPriceFeed.sol
+> mocks/MockTimelock.sol
+> mocks/MockToken.sol
+> mocks/OracleMock.sol
+> ProtocolGovernor.sol
+> SimpleRISC0Test.sol
+> StablecoinManager.sol
+> verifiers/groth16/ControlID.sol
+> verifiers/groth16/Groth16Verifier.sol
+> verifiers/groth16/RiscZeroGroth16Verifier.sol
+> verifiers/ImageID.sol
+> verifiers/IRiscZeroSelectable.sol
+> verifiers/IRiscZeroVerifier.sol
+> verifiers/RiscZeroVerifierRouter.sol
+> verifiers/StructHash.sol
+> verifiers/TLSNVerifier.sol
+> verifiers/Util.sol
+> VotingToken.sol
+
+Compilation:
+============
+

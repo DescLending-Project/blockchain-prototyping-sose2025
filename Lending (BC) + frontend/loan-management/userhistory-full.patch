@@ -1,0 +1,1456 @@
+diff --git a/Lending (BC) + frontend/loan-management/USERHISTORY_IMPLEMENTATION.md b/Lending (BC) + frontend/loan-management/USERHISTORY_IMPLEMENTATION.md
+deleted file mode 100644
+index 61a7e26..0000000
+--- a/Lending (BC) + frontend/loan-management/USERHISTORY_IMPLEMENTATION.md	
++++ /dev/null
+@@ -1,189 +0,0 @@
+-# UserHistory Implementation Summary
+-
+-## Overview
+-Successfully implemented the `UserHistory` struct and integrated it throughout the LiquidityPool contract and frontend. This tracks user interaction history including first borrow timestamp, successful payments, and liquidations.
+-
+-## Backend Changes
+-
+-### 1. Smart Contract Updates (`LiquidityPool.sol`)
+-
+-#### Added UserHistory Struct
+-```solidity
+-struct UserHistory{
+-    uint256 firstInteractionTimestamp; // only set the first time borrowed
+-    uint256 liquidations; // amount of liquidations
+-    uint256 succesfullPayments; // amount of repayments
+-}
+-```
+-
+-#### Added Storage and Functions
+-- `mapping(address => UserHistory) public userHistory;`
+-- `function getUserHistory(address user) external view returns (UserHistory memory)`
+-- `event UserHistoryUpdated(address indexed user, string action, uint256 timestamp);`
+-
+-#### Updated Functions
+-- **`borrow()`**: Sets `firstInteractionTimestamp` on first borrow only
+-- **`repay()`**: Increments `succesfullPayments` counter
+-- **`repayInstallment()`**: Increments `succesfullPayments` counter  
+-- **`clearDebt()`**: Increments `liquidations` counter (called during liquidations)
+-
+-### 2. Test Files Fixed
+-Fixed all test files to use correct 6-parameter initialization (added NullifierRegistry):
+-- ✅ `LiquidityPool.test.js` - Already correct
+-- ✅ `LiquidityPool.coverage.test.js` - Already correct
+-- ✅ `LiquidityPool.lines-boost.test.js` - Fixed
+-- ✅ `LiquidityPool.maxcoverage.test.js` - Already correct
+-- ✅ `LiquidityPool.lines-80-push.test.js` - Fixed
+-- ✅ `LiquidityPool.comprehensive.test.js` - Fixed
+-
+-### 3. Created Comprehensive Test Suite
+-Created `test/UserHistory.test.js` with:
+-- Initialization tests
+-- First interaction timestamp tests
+-- Successful payments tracking tests
+-- Liquidation tracking tests
+-- Event emission tests
+-- Multi-user independence tests
+-
+-## Frontend Changes
+-
+-### 1. Deployment Script Fixes (`deployAll2.js`)
+-- ✅ Added missing `nullifierRegistry` address to addresses object
+-- ✅ Added `creditScoreVerifier` address (RISC0 contract)
+-- ✅ Commented out problematic governance proposal setup
+-- ✅ Fixed address mapping for frontend compatibility
+-
+-### 2. ABI Copy Script Updates (`copy-artifacts.js`)
+-- ✅ Added `TimelockController` to contracts list
+-- ✅ Added interface contracts copying (ICreditScore as CreditScore)
+-- ✅ Added proper interface handling for frontend compatibility
+-
+-### 3. Frontend App.jsx Updates
+-- ✅ Added null checks for `creditScoreVerifier` and `nullifierRegistry` contracts
+-- ✅ Added `fetchUserHistory()` function
+-- ✅ Updated Dashboard props to include `fetchUserHistory`
+-- ✅ Improved error handling for missing contracts
+-
+-### 4. New UserHistoryPanel Component
+-Created `components/liquidity-pool/user/UserHistoryPanel.jsx`:
+-- ✅ Displays user's complete interaction history
+-- ✅ Shows history score based on payment performance
+-- ✅ Visual indicators for successful payments vs liquidations
+-- ✅ Performance insights and recommendations
+-- ✅ Responsive design with proper loading states
+-
+-### 5. Dashboard Integration
+-Updated `Dashboard.tsx`:
+-- ✅ Added UserHistoryPanel import
+-- ✅ Added new "History" tab
+-- ✅ Updated grid layout to accommodate new tab
+-- ✅ Proper prop passing for fetchUserHistory function
+-
+-## Key Features
+-
+-### 1. Smart Contract Features
+-- **First Interaction Tracking**: Only set once when user first borrows
+-- **Payment Counting**: Incremented on both full repayments and installment payments
+-- **Liquidation Tracking**: Automatically incremented when liquidations occur
+-- **Event Logging**: All updates emit events for frontend integration
+-- **Gas Efficient**: Minimal storage overhead with packed struct
+-
+-### 2. Frontend Features
+-- **History Score**: Calculated performance metric (0-100%)
+-- **Visual Dashboard**: Clean, intuitive display of user statistics
+-- **Performance Insights**: Automated recommendations based on history
+-- **Real-time Updates**: Fetches latest data with refresh capability
+-- **Error Handling**: Graceful handling of missing data or network issues
+-
+-## Testing Instructions
+-
+-### Backend Testing
+-```bash
+-cd "Lending (BC) + frontend/loan-management/backend"
+-
+-# Run UserHistory-specific tests
+-npx hardhat test test/UserHistory.test.js
+-
+-# Run all tests to ensure nothing is broken
+-npx hardhat test
+-
+-# Run specific test patterns
+-npx hardhat test --grep "UserHistory"
+-```
+-
+-### Frontend Testing
+-```bash
+-# 1. Start Hardhat node
+-cd "Lending (BC) + frontend/loan-management/backend"
+-npx hardhat node
+-
+-# 2. Deploy contracts (in new terminal)
+-npx hardhat run scripts/deployAll2.js --network localhost
+-
+-# 3. Start frontend (in new terminal)
+-cd "Lending (BC) + frontend/loan-management/frontend"
+-npm run dev
+-
+-# 4. Test in browser
+-# - Connect wallet
+-# - Navigate to "History" tab
+-# - Perform borrow/repay operations
+-# - Verify history updates correctly
+-```
+-
+-## Usage Examples
+-
+-### Smart Contract
+-```solidity
+-// Get a user's complete history
+-UserHistory memory history = liquidityPool.getUserHistory(userAddress);
+-
+-// Access individual fields
+-uint256 firstBorrow = history.firstInteractionTimestamp;
+-uint256 totalPayments = history.succesfullPayments;
+-uint256 totalLiquidations = history.liquidations;
+-```
+-
+-### Frontend
+-```javascript
+-// Fetch user history
+-const history = await fetchUserHistory(userAddress);
+-console.log('User history:', history);
+-
+-// Listen for history updates
+-liquidityPool.on("UserHistoryUpdated", (user, action, timestamp) => {
+-    console.log(`User ${user} performed ${action} at ${timestamp}`);
+-});
+-```
+-
+-## Fixed Issues
+-
+-### 1. Contract Initialization Error
+-- **Problem**: Frontend getting "invalid value for Contract target" error
+-- **Solution**: Added null checks for missing contract addresses
+-- **Fix**: Updated deployment script to include all required addresses
+-
+-### 2. Missing ABIs
+-- **Problem**: Frontend couldn't find CreditScore.json ABI
+-- **Solution**: Updated copy-artifacts.js to copy interface contracts
+-- **Fix**: ICreditScore interface now copied as CreditScore.json
+-
+-### 3. Governance Proposal Timing
+-- **Problem**: "Governor: vote not currently active" error in deployment
+-- **Solution**: Commented out problematic governance setup for development
+-- **Fix**: Can be done manually later via governance interface
+-
+-### 4. Test File Initialization
+-- **Problem**: Test files using old 5-parameter initialization
+-- **Solution**: Updated all test files to use 6-parameter initialization
+-- **Fix**: Added NullifierRegistry parameter to all test setups
+-
+-## Next Steps
+-
+-1. **Test the implementation** using the provided instructions
+-2. **Verify UserHistory data** is correctly tracked across borrow/repay cycles
+-3. **Check frontend display** shows accurate history information
+-4. **Test edge cases** like multiple users, liquidations, etc.
+-5. **Consider additional features** like history export, detailed analytics, etc.
+-
+-The implementation is now complete and ready for production use!
+diff --git a/Lending (BC) + frontend/loan-management/backend/contracts/LiquidityPool.sol b/Lending (BC) + frontend/loan-management/backend/contracts/LiquidityPool.sol
+index b41e0d3..a34eecc 100644
+--- a/Lending (BC) + frontend/loan-management/backend/contracts/LiquidityPool.sol	
++++ b/Lending (BC) + frontend/loan-management/backend/contracts/LiquidityPool.sol	
+@@ -9,15 +9,7 @@ import "./interfaces/AggregatorV3Interface.sol";
+ import "./StablecoinManager.sol";
+ import "./LendingManager.sol";
+ import "./InterestRateModel.sol";
+-import "./IntegratedCreditSystem.sol";
+ import "./VotingToken.sol";
+-import "./NullifierRegistry.sol";
+-
+-struct UserHistory{
+-    uint256 firstInteractionTimestamp; // only set the first time borrowed
+-    uint256 liquidations; // amount of liquidations
+-    uint256 succesfullPayments; // amount of repayments
+-}
+ 
+ //interface for verifier
+ interface ICreditScore {
+@@ -26,6 +18,7 @@ interface ICreditScore {
+         bool isValid,
+         uint256 timestamp
+     );
++
+ }
+ 
+ contract LiquidityPool is
+@@ -52,8 +45,6 @@ contract LiquidityPool is
+     // Remove per-token threshold/ltv logic from this contract
+     mapping(address => address) public priceFeed;
+ 
+-    mapping(address => UserHistory) public userHistory;
+-
+     address[] public collateralTokenList;
+     address[] public users;
+     mapping(address => bool) public isKnownUser;
+@@ -72,16 +63,10 @@ contract LiquidityPool is
+     LendingManager public lendingManager;
+     InterestRateModel public interestRateModel;
+     VotingToken public votingToken;
+-    NullifierRegistry public nullifierRegistry;
+-
+ 
+     address public timelock;
+ 
+-    // ZK-Proof Integration
+-    IntegratedCreditSystem public creditSystem;
+-    bool public zkProofRequired; // Whether ZK proofs are required for borrowing
+-
+-    // NEW: RISC0 Credit Score Integration
++    // RISC0 Credit Score Integration
+     ICreditScore public creditScoreContract;
+     bool public useRISC0CreditScores; // Toggle for RISC0 vs local scores
+     uint256 public constant SCORE_EXPIRY_PERIOD = 90 days; // How long RISC0 scores are valid
+@@ -149,30 +134,12 @@ contract LiquidityPool is
+     event GracePeriodExtended(address indexed user, uint256 newDeadline);
+     event UserError(address indexed user, string message);
+ 
+-    // ZK-Proof Integration Events
+-    event CreditSystemUpdated(
+-        address indexed oldSystem,
+-        address indexed newSystem
+-    );
+-    event ZKProofRequirementToggled(bool required);
+-    event ZKProofValidationFailed(address indexed user, string reason);
+-
+-    // NEW: RISC0 Integration Events
++    // RISC0 Integration Events
+     event CreditScoreContractUpdated(
+         address indexed oldContract,
+         address indexed newContract
+     );
+     event RISC0ScoreToggled(bool useRISC0);
+-    event CreditScoreSourceUsed(
+-        address indexed user,
+-        string source,
+-        uint256 score,
+-        uint256 convertedScore
+-    );
+-
+-    event BorrowWithNullifier(address indexed user, uint256 amount, bytes32 nullifier);
+-    event UserHistoryUpdated(address indexed user, string action, uint256 timestamp);
+-
+ 
+     // --- New for Partial Liquidation and Tiered Fees ---
+     uint256 public constant SAFETY_BUFFER = 10; // 10% over-collateralization
+@@ -252,16 +219,6 @@ contract LiquidityPool is
+         _;
+     }
+ 
+-    modifier requiresZKProof() {
+-        if (zkProofRequired && address(creditSystem) != address(0)) {
+-            require(
+-                creditSystem.isEligibleToBorrow(msg.sender),
+-                "ZK proof verification required"
+-            );
+-        }
+-        _;
+-    }
+-
+     modifier onlyTimelock() {
+         if (msg.sender != timelock) revert OnlyTimelockLiquidityPool();
+         _;
+@@ -271,24 +228,15 @@ contract LiquidityPool is
+         address _timelock,
+         address _stablecoinManager,
+         address _lendingManager,
+-        address _interestRateModel,
+-        address _creditSystem,
+-        address _nullifierRegistry
++        address _interestRateModel
+     ) public initializer {
+         __AccessControl_init();
+         timelock = _timelock;
+         stablecoinManager = StablecoinManager(_stablecoinManager);
+         lendingManager = LendingManager(payable(_lendingManager));
+         interestRateModel = InterestRateModel(_interestRateModel);
+-        nullifierRegistry = NullifierRegistry(_nullifierRegistry);
+-
+-        // Initialize ZK-proof system
+-        if (_creditSystem != address(0)) {
+-            creditSystem = IntegratedCreditSystem(_creditSystem);
+-            zkProofRequired = true; // Enable ZK proof requirement by default
+-        }
+ 
+-        // NEW: Initialize RISC0 integration
++        // Initialize RISC0 integration
+         useRISC0CreditScores = false; // Disabled by default until contract is set
+ 
+         _initializeRiskTiers();
+@@ -354,17 +302,11 @@ contract LiquidityPool is
+     }
+ 
+     /**
+-     * @notice Enhanced credit score retrieval with RISC0 integration
++     * @notice Simple function to get credit score with RISC0 priority (no caching)
+      * @param user Address of the user
+-     * @return score Credit score (0-100)
+-     * @return source Source of the credit score
+-     * @return isVerified Whether the score is RISC0 verified
++     * @return Credit score (0-100)
+      */
+-    function getCreditScoreWithSource(address user) external view returns (
+-        uint256 score,
+-        string memory source,
+-        bool isVerified
+-    ) {
++    function _getCreditScore(address user) internal view returns (uint256) {
+         // Try RISC0 verified score first
+         if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
+             try creditScoreContract.getCreditScore(user) returns (
+@@ -376,43 +318,25 @@ contract LiquidityPool is
+                     // Check if score is not expired
+                     if (block.timestamp <= timestamp + SCORE_EXPIRY_PERIOD) {
+                         uint256 convertedScore = convertFICOToContractScore(ficoScore);
+-                        return (convertedScore, "RISC0_VERIFIED", true);
++                        return convertedScore;
+                     }
+                 }
+             } catch {
+-                // Fall through to next source
+-            }
+-        }
+-
+-        // Try IntegratedCreditSystem
+-        if (address(creditSystem) != address(0)) {
+-            try creditSystem.getUserCreditProfile(user) returns (
+-                bool hasTradFi,
+-                bool hasAccount,
+-                bool hasNesting,
+-                uint256 finalScore,
+-                bool isEligible,
+-                uint256 lastUpdate
+-            ) {
+-                if (finalScore > 0) {
+-                    return (finalScore, "INTEGRATED_SYSTEM", false);
+-                }
+-            } catch {
+-                // Fall through to final source
++                // Fall through to local scores
+             }
+         }
+-
+-        // Use local stored score as final fallback
+-        uint256 localScore = creditScore[user];
+-        return (localScore, "LOCAL_STORAGE", false);
++        
++        // Use local stored score as fallback
++        return creditScore[user];
+     }
+ 
+     /**
+-     * @notice Internal function to get credit score with RISC0 priority
++     * @notice Get credit score and usage status in one call (for borrow function)
+      * @param user Address of the user
+-     * @return Credit score (0-100)
++     * @return score Credit score (0-100)
++     * @return canUseScore Whether score can be used for borrowing
+      */
+-    function _getCreditScore(address user) internal view returns (uint256) {
++    function _getCreditScoreForBorrowing(address user) internal view returns (uint256 score, bool canUseScore) {
+         // Try RISC0 verified score first
+         if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
+             try creditScoreContract.getCreditScore(user) returns (
+@@ -420,35 +344,21 @@ contract LiquidityPool is
+                 bool isValid,
+                 uint256 timestamp
+             ) {
+-                if (isValid && ficoScore > 0) {
+-                    // Check if score is not expired
+-                    if (block.timestamp <= timestamp + SCORE_EXPIRY_PERIOD) {
+-                        return convertFICOToContractScore(ficoScore);
+-                    }
++                if (isValid && ficoScore > 0 && block.timestamp <= timestamp + SCORE_EXPIRY_PERIOD) {
++                    score = convertFICOToContractScore(ficoScore);
++                    
++                    canUseScore = true; // Temporary -  this will be changed to actually use the logic from the Creditscore contract
++                    return (score, canUseScore);
+                 }
+             } catch {
+-                // Fall through to existing logic
++
+             }
+         }
+         
+-        // Existing fallback logic from your original contract
+-        if (address(creditSystem) != address(0)) {
+-            try creditSystem.getUserCreditProfile(user) returns (
+-                bool hasTradFi,
+-                bool hasAccount,
+-                bool hasNesting,
+-                uint256 finalScore,
+-                bool isEligible,
+-                uint256 lastUpdate
+-            ) {
+-                if (finalScore > 0) {
+-                    return finalScore;
+-                }
+-            } catch {
+-                // Fall back to stored score if ZK system fails
+-            }
+-        }
+-        return creditScore[user];
++        // Use local stored score as fallback
++        score = creditScore[user];
++        canUseScore = score > 0; // Local scores can always be used
++        return (score, canUseScore);
+     }
+ 
+     /**
+@@ -673,15 +583,15 @@ contract LiquidityPool is
+         return userDebt[msg.sender];
+     }
+ 
+-    function getUserHistory(address user) external view returns (UserHistory memory) {
+-        return userHistory[user];
+-    }
+-
+     // Get user's risk tier
+     // Get user's risk tier (UPDATED to use RISC0 scores)
+     function getRiskTier(address user) public view returns (RiskTier) {
+         uint256 score = _getCreditScore(user); // Now uses RISC0 if available
++        return _getRiskTierFromScore(score);
++    }
+ 
++    // OPTIMIZED: Internal function to calculate risk tier from score (avoids redundant credit score calls)
++    function _getRiskTierFromScore(uint256 score) internal view returns (RiskTier) {
+         for (uint256 i = 0; i < borrowTierConfigs.length; i++) {
+             if (
+                 score >= borrowTierConfigs[i].minScore &&
+@@ -694,6 +604,20 @@ contract LiquidityPool is
+         return RiskTier(borrowTierConfigs.length - 1); // Default to lowest tier
+     }
+ 
++    // OPTIMIZED: Get borrow terms from pre-calculated tier (avoids redundant risk tier calculation)
++    function _getBorrowTermsFromTier(RiskTier tier) internal view returns (
++        uint256 collateralRatio,
++        int256 interestRateModifier,
++        uint256 maxLoanAmount
++    ) {
++        BorrowTierConfig memory config = borrowTierConfigs[uint256(tier)];
++        return (
++            config.collateralRatio,
++            config.interestRateModifier,
++            (totalFunds * config.maxLoanAmount) / 100
++        );
++    }
++
+     // Admin function to update tier configurations
+     function updateBorrowTier(
+         uint256 tierIndex,
+@@ -726,15 +650,10 @@ contract LiquidityPool is
+         )
+     {
+         RiskTier tier = getRiskTier(user);
+-        BorrowTierConfig memory config = borrowTierConfigs[uint256(tier)];
+-        return (
+-            config.collateralRatio,
+-            config.interestRateModifier,
+-            (totalFunds * config.maxLoanAmount) / 100
+-        );
++        return _getBorrowTermsFromTier(tier);
+     }
+ 
+-    // Get dynamic borrower rate for a user based on utilization and risk tier
++    // OPTIMIZED: Get dynamic borrower rate for a user based on utilization and risk tier
+     function getBorrowerRate(address user) public view returns (uint256) {
+         uint256 totalSupplied = totalFunds;
+         uint256 totalBorrowed = totalBorrowedAllTime - totalRepaidAllTime;
+@@ -742,7 +661,10 @@ contract LiquidityPool is
+             ? (totalBorrowed * 1e18) / totalSupplied
+             : 0;
+         uint256 baseRate = interestRateModel.getBorrowRate(utilization);
+-        (, int256 modifierBps, ) = getBorrowTerms(user);
++        
++        // OPTIMIZED: Get tier and modifier in one call to avoid redundant credit score lookup
++        RiskTier tier = getRiskTier(user);
++        int256 modifierBps = borrowTierConfigs[uint256(tier)].interestRateModifier;
+         uint256 adjustedRate = baseRate;
+         if (modifierBps < 0) {
+             adjustedRate = (baseRate * (10000 - uint256(-modifierBps))) / 10000;
+@@ -775,6 +697,28 @@ contract LiquidityPool is
+         return adjustedRate;
+     }
+ 
++    // OPTIMIZED: Calculate borrow rate using pre-calculated tier data (avoids redundant tier config lookup)
++    function _calculateBorrowRateFromTierData(
++        uint256 amount,
++        RiskTier tier,
++        int256 modifierBps
++    ) internal view returns (uint256) {
++        uint256 totalSupplied = totalFunds;
++        uint256 totalBorrowed = totalBorrowedAllTime - totalRepaidAllTime;
++        uint256 utilization = 0;
++        if (totalSupplied > 0) {
++            utilization = (totalBorrowed * 1e18) / totalSupplied;
++        }
++        uint256 baseRate = interestRateModel.getBorrowRate(utilization);
++        uint256 adjustedRate = baseRate;
++        if (modifierBps < 0) {
++            adjustedRate = (baseRate * (10000 - uint256(-modifierBps))) / 10000;
++        } else if (modifierBps > 0) {
++            adjustedRate = (baseRate * (10000 + uint256(modifierBps))) / 10000;
++        }
++        return adjustedRate;
++    }
++
+     // Helper function to create loan
+     function _createLoan(uint256 amount, uint256 rate) internal {
+         uint256 installment = amount / 12;
+@@ -791,25 +735,19 @@ contract LiquidityPool is
+     }
+ 
+     function borrow(
+-        uint256 amount, bytes32 nullifier
++        uint256 amount
+     ) external payable whenNotPaused noReentrancy {
+         // 1. Check for existing debt
+         require(userDebt[msg.sender] == 0, "Repay your existing debt first");
+-        require(!nullifierRegistry.isNullifierUsed(nullifier), "Proof already used!");
+-        require(nullifierRegistry.hasSelectedAccounts(msg.sender), "Select accounts first");
+-        nullifierRegistry.useNullifier(nullifier, msg.sender);
+-
+-
+ 
+-        // 2. Get credit score (now uses RISC0 if available)
+-        uint256 userCreditScore = _getCreditScore(msg.sender);
++        // 2. SIMPLIFIED: Get credit score and usage status in ONE call
++        (uint256 userCreditScore, bool canUseScore) = _getCreditScoreForBorrowing(msg.sender);
+         
+-        // NEW: Log which credit score source was used
+-        (uint256 score, string memory source, bool isVerified) = this.getCreditScoreWithSource(msg.sender);
+-        emit CreditScoreSourceUsed(msg.sender, source, score, userCreditScore);
+-
+-        // 3. Check for credit score (TIER_5)
+-        RiskTier tier = getRiskTier(msg.sender);
++        // NOTE: something like this will be added to the creditscore contract
++        // require(canUseScore, "Credit score already used for borrowing");
++        
++        // 3. Calculate risk tier from fetched credit score (no redundant calls)
++        RiskTier tier = _getRiskTierFromScore(userCreditScore);
+         require(tier != RiskTier.TIER_5, "Credit score too low");
+ 
+         // 4. Check for available lending capacity (not more than half the pool)
+@@ -818,22 +756,23 @@ contract LiquidityPool is
+             "Borrow amount exceeds available lending capacity"
+         );
+ 
+-        // 5. Check for tier limit
+-        (, , uint256 maxLoanAmount) = getBorrowTerms(msg.sender);
++        // 5. Get all borrow terms at once using pre-calculated tier
++        (uint256 requiredRatio, int256 interestRateModifier, uint256 maxLoanAmount) = _getBorrowTermsFromTier(tier);
++        
++        // 5a. Check for tier limit
+         require(
+             amount <= maxLoanAmount,
+             "Borrow amount exceeds your tier limit"
+         );
+ 
+-        // 6. Check for sufficient collateral
+-        (uint256 requiredRatio, , ) = getBorrowTerms(msg.sender);
++        // 6. Check for sufficient collateral (using already calculated requiredRatio)
+         uint256 collateralValue = getTotalCollateralValue(msg.sender);
+         require(
+             collateralValue * 100 >= amount * requiredRatio,
+             "Insufficient collateral for this loan"
+         );
+ 
+-        // 7. Calculate and apply origination fee
++        // 7. Calculate and apply origination fee (using already calculated tier)
+         uint256 originationFee = 0;
+         if (reserveAddress != address(0)) {
+             originationFee =
+@@ -853,8 +792,8 @@ contract LiquidityPool is
+             );
+         }
+ 
+-        // 9. Calculate dynamic rate
+-        uint256 adjustedRate = _calculateBorrowRate(amount, tier);
++        // 9. Calculate dynamic rate using pre-calculated tier and rate modifier
++        uint256 adjustedRate = _calculateBorrowRateFromTierData(amount, tier, interestRateModifier);
+ 
+         // 10. Create loan
+         require(amount >= 12, "Loan amount too small for amortization");
+@@ -866,21 +805,16 @@ contract LiquidityPool is
+         borrowedAmountByRiskTier[tier] += amount;
+         totalBorrowedAllTime += amount;
+ 
+-        // Update user history - set first interaction timestamp if this is their first borrow
+-        if (userHistory[msg.sender].firstInteractionTimestamp == 0) {
+-            userHistory[msg.sender].firstInteractionTimestamp = block.timestamp;
+-            emit UserHistoryUpdated(msg.sender, "first_borrow", block.timestamp);
+-        }
++        // 12. Mark credit score as used (not done yet)
++        // if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
++        //     creditScoreContract.markScoreAsUsed(msg.sender);
++        // }
+ 
+-        // 12. Transfer net amount to borrower (after deducting origination fee)
++        // 13. Transfer net amount to borrower (after deducting origination fee)
+         payable(msg.sender).transfer(netAmount);
+ 
+-        // TODO: set creditscore to used in the CreditScore.sol contract
+-        // call a function passing the user
+-
+         emit LoanDisbursed(msg.sender, amount, adjustedRate);
+         emit Borrowed(msg.sender, amount);
+-        emit BorrowWithNullifier(msg.sender, amount, nullifier);
+     }
+ 
+     function repayInstallment() external payable whenNotPaused {
+@@ -913,11 +847,6 @@ contract LiquidityPool is
+         userDebt[msg.sender] -= loan.installmentAmount;
+         totalRepaidAllTime += loan.installmentAmount;
+         loan.nextDueDate += 30 days;
+-
+-        // Update user history - increment successful payments
+-        userHistory[msg.sender].succesfullPayments += 1;
+-        emit UserHistoryUpdated(msg.sender, "installment_payment", block.timestamp);
+-
+         emit LoanInstallmentPaid(msg.sender, msg.value, loan.outstanding);
+         if (loan.outstanding == 0) {
+             loan.active = false;
+@@ -939,10 +868,6 @@ contract LiquidityPool is
+         RiskTier tier = getRiskTier(msg.sender);
+         borrowedAmountByRiskTier[tier] -= repayAmount;
+ 
+-        // Update user history - increment successful payments
+-        userHistory[msg.sender].succesfullPayments += 1;
+-        emit UserHistoryUpdated(msg.sender, "repayment", block.timestamp);
+-
+         // Clear liquidation status
+         if (isLiquidatable[msg.sender]) {
+             isLiquidatable[msg.sender] = false;
+@@ -1004,64 +929,6 @@ contract LiquidityPool is
+         return creditScore[user];
+     }*/
+ 
+-    function updateCreditScoreFromZK(address user, uint256 score) external {
+-        require(
+-            msg.sender == address(creditSystem),
+-            "Only credit system can update"
+-        );
+-        require(score <= 100, "Score out of range");
+-
+-        uint256 oldScore = creditScore[user];
+-        creditScore[user] = score;
+-
+-        emit CreditScoreAssigned(user, score);
+-    }
+-
+-    /// @notice Set the integrated credit system
+-    /// @param _creditSystem Address of the credit system contract
+-    function setCreditSystem(address _creditSystem) external onlyTimelock {
+-        address oldSystem = address(creditSystem);
+-        creditSystem = IntegratedCreditSystem(_creditSystem);
+-        emit CreditSystemUpdated(oldSystem, _creditSystem);
+-    }
+-
+-    /// @notice Toggle ZK proof requirement for borrowing
+-    /// @param required Whether ZK proofs are required
+-    function setZKProofRequirement(bool required) external onlyTimelock {
+-        zkProofRequired = required;
+-        emit ZKProofRequirementToggled(required);
+-    }
+-
+-    function getZKVerificationStatus(
+-        address user
+-    )
+-        external
+-        view
+-        returns (
+-            bool hasTradFi,
+-            bool hasAccount,
+-            bool hasNesting,
+-            uint256 finalScore,
+-            bool isEligible
+-        )
+-    {
+-        if (address(creditSystem) != address(0)) {
+-            try creditSystem.getUserCreditProfile(user) returns (
+-                bool tradFi,
+-                bool account,
+-                bool nesting,
+-                uint256 score,
+-                bool eligible,
+-                uint256 lastUpdate
+-            ) {
+-                return (tradFi, account, nesting, score, eligible);
+-            } catch {
+-                return (false, false, false, 0, false);
+-            }
+-        }
+-        return (false, false, false, 0, false);
+-    }
+-
+     function setPriceFeed(address token, address feed) external onlyTimelock {
+         require(isAllowedCollateral[token], "Token not allowed as collateral");
+         priceFeed[token] = feed;
+@@ -1335,7 +1202,7 @@ contract LiquidityPool is
+ 
+     // SIZE CONCERN
+     // Get detailed loan information including payment schedule
+-    /*function getLoanDetails(
++    function getLoanDetails(
+         address user
+     )
+         external
+@@ -1392,7 +1259,7 @@ contract LiquidityPool is
+         } else {
+             totalInstallmentsRemaining = 0;
+         }
+-    }*/
++    }
+ 
+     // --- Interface hooks for LendingManager ---
+     function clearCollateral(
+@@ -1415,10 +1282,6 @@ contract LiquidityPool is
+         // Remove all debt from borrowedAmountByRiskTier
+         borrowedAmountByRiskTier[getRiskTier(user)] -= amount;
+         totalRepaidAllTime += amount;
+-
+-        // Update user history - increment liquidations counter
+-        userHistory[user].liquidations += 1;
+-        emit UserHistoryUpdated(user, "liquidation", block.timestamp);
+     }
+ 
+     function withdrawPartialCollateral(
+@@ -1476,7 +1339,7 @@ contract LiquidityPool is
+         RiskTier tier,
+         address user
+     ) internal view returns (uint256) {
+-        uint256 creditScore = _getCreditScore(user);
++        uint256 userCreditScore = _getCreditScore(user);
+ 
+         // Base tier collateral ratios (from borrowTierConfigs)
+         uint256 tierCollateralRatio = borrowTierConfigs[uint256(tier)]
+@@ -1485,28 +1348,28 @@ contract LiquidityPool is
+         // Apply credit score bonuses based on tier
+         if (tier == RiskTier.TIER_1) {
+             // Tier 1 (90-100 score): Already lowest ratio, minimal additional reduction
+-            if (creditScore >= 95) {
++            if (userCreditScore >= 95) {
+                 return (baseRequirement * 95) / 100; // 5% reduction
+             }
+         } else if (tier == RiskTier.TIER_2) {
+             // Tier 2 (80-89 score): More significant reductions possible
+-            if (creditScore >= 85) {
++            if (userCreditScore >= 85) {
+                 return (baseRequirement * 90) / 100; // 10% reduction
+-            } else if (creditScore >= 82) {
++            } else if (userCreditScore >= 82) {
+                 return (baseRequirement * 95) / 100; // 5% reduction
+             }
+         } else if (tier == RiskTier.TIER_3) {
+             // Tier 3 (70-79 score): Substantial reductions for improvement
+-            if (creditScore >= 75) {
++            if (userCreditScore >= 75) {
+                 return (baseRequirement * 85) / 100; // 15% reduction
+-            } else if (creditScore >= 72) {
++            } else if (userCreditScore >= 72) {
+                 return (baseRequirement * 92) / 100; // 8% reduction
+             }
+         } else if (tier == RiskTier.TIER_4) {
+             // Tier 4 (60-69 score): Largest potential reductions
+-            if (creditScore >= 65) {
++            if (userCreditScore >= 65) {
+                 return (baseRequirement * 80) / 100; // 20% reduction
+-            } else if (creditScore >= 62) {
++            } else if (userCreditScore >= 62) {
+                 return (baseRequirement * 90) / 100; // 10% reduction
+             }
+         }
+@@ -1518,7 +1381,7 @@ contract LiquidityPool is
+     // SIZE CONCERN
+ 
+     // View function to check potential collateral reduction for a user
+-    /*function getCollateralReductionInfo(
++    function getCollateralReductionInfo(
+         address user
+     )
+         external
+@@ -1554,7 +1417,7 @@ contract LiquidityPool is
+     }
+     // SIZE CONCERN
+     // Enhanced function to check maximum withdrawable collateral
+-    /*function getMaxWithdrawableCollateral(
++    function getMaxWithdrawableCollateral(
+         address user,
+         address token
+     ) external view returns (uint256 maxWithdrawable) {
+@@ -1589,8 +1452,7 @@ contract LiquidityPool is
+         if (maxWithdrawable > currentBalance) {
+             maxWithdrawable = currentBalance;
+         }
+-    }*/
+-
++    }
+ 
+     // --- Additional View Functions for Test Compatibility ---
+     function getExchangeRate() external pure returns (uint256) {
+@@ -1610,11 +1472,6 @@ contract LiquidityPool is
+         return 1e18; // 1.0 multiplier
+     }
+ 
+-    function toggleZKProofRequirement() external onlyTimelock {
+-        zkProofRequired = !zkProofRequired;
+-        emit ZKProofRequirementToggled(zkProofRequired);
+-    }
+-
+     function getUtilizationRate() external view returns (uint256) {
+         if (totalFunds == 0) return 0;
+         uint256 totalBorrowed = 0;
+@@ -1694,6 +1551,7 @@ contract LiquidityPool is
+ 
+     // Error definitions
+     error OnlyTimelockLiquidityPool();
++    
+     function userPositions(address user) external view returns (uint256, uint256, uint256) {
+         return (userDebt[user], getTotalCollateralValue(user), borrowTimestamp[user]);
+     }
+@@ -1702,3 +1560,4 @@ contract LiquidityPool is
+         return (isLiquidatable[user], liquidationStartTime[user], GRACE_PERIOD);
+     }
+ }
++
+diff --git a/Lending (BC) + frontend/loan-management/backend/test/UserHistory.test.js b/Lending (BC) + frontend/loan-management/backend/test/UserHistory.test.js
+deleted file mode 100644
+index 2646da8..0000000
+--- a/Lending (BC) + frontend/loan-management/backend/test/UserHistory.test.js	
++++ /dev/null
+@@ -1,330 +0,0 @@
+-const { expect } = require("chai");
+-const { ethers } = require("hardhat");
+-
+-// Helper function to generate a unique nullifier for borrow operations
+-function generateNullifier(index = 0) {
+-    return ethers.keccak256(ethers.toUtf8Bytes(`nullifier_${Date.now()}_${index}`));
+-}
+-
+-describe("UserHistory Functionality", function () {
+-    let liquidityPool, lendingManager, stablecoinManager, interestRateModel, votingToken, nullifierRegistry;
+-    let owner, user1, user2, liquidator;
+-    let mockToken, mockPriceFeed;
+-
+-
+-    beforeEach(async function () {
+-        [owner, user1, user2, liquidator] = await ethers.getSigners();
+-
+-        // Deploy VotingToken
+-        const VotingToken = await ethers.getContractFactory("VotingToken");
+-        votingToken = await VotingToken.deploy(owner.address);
+-        await votingToken.waitForDeployment();
+-
+-        // Deploy StablecoinManager
+-        const StablecoinManager = await ethers.getContractFactory("StablecoinManager");
+-        stablecoinManager = await StablecoinManager.deploy(owner.address);
+-        await stablecoinManager.waitForDeployment();
+-
+-        // Deploy InterestRateModel
+-        const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+-        interestRateModel = await InterestRateModel.deploy(
+-            "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+-            owner.address,
+-            ethers.parseEther("0.05"),
+-            ethers.parseEther("0.8"),
+-            ethers.parseEther("0.1"),
+-            ethers.parseEther("0.3"),
+-            ethers.parseEther("0.1"),
+-            ethers.parseEther("1.0"),
+-            ethers.parseEther("0.05"),
+-            ethers.parseEther("0.03"),
+-            ethers.parseEther("0.2"),
+-            86400
+-        );
+-        await interestRateModel.waitForDeployment();
+-
+-        // Deploy NullifierRegistry
+-        const NullifierRegistry = await ethers.getContractFactory("NullifierRegistry");
+-        nullifierRegistry = await NullifierRegistry.deploy();
+-        await nullifierRegistry.waitForDeployment();
+-        await nullifierRegistry.initialize(owner.address);
+-
+-        // Deploy LiquidityPool
+-        const LiquidityPool = await ethers.getContractFactory("LiquidityPool");
+-        liquidityPool = await LiquidityPool.deploy();
+-        await liquidityPool.waitForDeployment();
+-
+-        // Initialize LiquidityPool
+-        await liquidityPool.initialize(
+-            owner.address, // timelock
+-            await stablecoinManager.getAddress(),
+-            ethers.ZeroAddress, // lendingManager (will be set later)
+-            await interestRateModel.getAddress(),
+-            ethers.ZeroAddress, // creditSystem
+-            await nullifierRegistry.getAddress()
+-        );
+-
+-        // Deploy LendingManager
+-        const LendingManager = await ethers.getContractFactory("LendingManager");
+-        lendingManager = await LendingManager.deploy(
+-            await liquidityPool.getAddress(),
+-            owner.address
+-        );
+-        await lendingManager.waitForDeployment();
+-
+-        // Set up contracts
+-        await liquidityPool.setLendingManager(await lendingManager.getAddress());
+-        await liquidityPool.setVotingToken(await votingToken.getAddress());
+-
+-        // Grant NULLIFIER_CONSUMER_ROLE to LiquidityPool
+-        const NULLIFIER_CONSUMER_ROLE = await nullifierRegistry.NULLIFIER_CONSUMER_ROLE();
+-        await nullifierRegistry.grantRole(NULLIFIER_CONSUMER_ROLE, await liquidityPool.getAddress());
+-
+-        // Grant MINTER_ROLE to LiquidityPool for voting token rewards
+-        const MINTER_ROLE = await votingToken.MINTER_ROLE();
+-        await votingToken.grantRole(MINTER_ROLE, await liquidityPool.getAddress());
+-
+-        // Setup accounts for nullifier generation
+-        await nullifierRegistry.connect(owner).selectAccounts([owner.address]);
+-        await nullifierRegistry.connect(user1).selectAccounts([user1.address]);
+-        await nullifierRegistry.connect(user2).selectAccounts([user2.address]);
+-        await nullifierRegistry.connect(liquidator).selectAccounts([liquidator.address]);
+-
+-        // Deploy mock token and price feed for collateral
+-        const MockToken = await ethers.getContractFactory("MockToken");
+-        mockToken = await MockToken.deploy("Mock Token", "MOCK");
+-        await mockToken.waitForDeployment();
+-
+-        const MockPriceFeed = await ethers.getContractFactory("MockPriceFeed");
+-        mockPriceFeed = await MockPriceFeed.deploy(200000000000, 8); // $2000 per token
+-        await mockPriceFeed.waitForDeployment();
+-
+-        // Setup collateral
+-        await liquidityPool.setAllowedCollateral(await mockToken.getAddress(), true);
+-        await liquidityPool.setPriceFeed(await mockToken.getAddress(), await mockPriceFeed.getAddress());
+-
+-        // Set credit scores for users
+-        await liquidityPool.setCreditScore(user1.address, 85);
+-        await liquidityPool.setCreditScore(user2.address, 80);
+-
+-        // Mint tokens to users
+-        await mockToken.mint(user1.address, ethers.parseEther("1000"));
+-        await mockToken.mint(user2.address, ethers.parseEther("1000"));
+-
+-        // Add funds to the pool
+-        await owner.sendTransaction({
+-            to: await liquidityPool.getAddress(),
+-            value: ethers.parseEther("100")
+-        });
+-    });
+-
+-    describe("UserHistory Struct", function () {
+-        it("should initialize UserHistory with zero values", async function () {
+-            const history = await liquidityPool.getUserHistory(user1.address);
+-            expect(history.firstInteractionTimestamp).to.equal(0);
+-            expect(history.liquidations).to.equal(0);
+-            expect(history.succesfullPayments).to.equal(0);
+-        });
+-
+-        it("should set firstInteractionTimestamp on first borrow", async function () {
+-            // Setup collateral for borrowing
+-            const borrowAmount = ethers.parseEther("1");
+-            const collateralAmount = ethers.parseEther("2"); // 2x collateral
+-
+-            await mockToken.connect(user1).approve(await liquidityPool.getAddress(), collateralAmount);
+-            await liquidityPool.connect(user1).depositCollateral(await mockToken.getAddress(), collateralAmount);
+-
+-            // Get timestamp before borrow
+-            const blockBefore = await ethers.provider.getBlock("latest");
+-            const timestampBefore = blockBefore.timestamp;
+-
+-            // Perform borrow
+-            const nullifier = generateNullifier(1);
+-            await liquidityPool.connect(user1).borrow(borrowAmount, nullifier, { value: 0 });
+-
+-            // Check that firstInteractionTimestamp was set
+-            const history = await liquidityPool.getUserHistory(user1.address);
+-            expect(history.firstInteractionTimestamp).to.be.greaterThan(timestampBefore);
+-            expect(history.firstInteractionTimestamp).to.be.greaterThan(0);
+-        });
+-
+-        it("should not update firstInteractionTimestamp on subsequent borrows", async function () {
+-            // Setup and perform first borrow
+-            const borrowAmount = ethers.parseEther("1");
+-            const collateralAmount = ethers.parseEther("4"); // Extra collateral for multiple borrows
+-
+-            await mockToken.connect(user1).approve(await liquidityPool.getAddress(), collateralAmount);
+-            await liquidityPool.connect(user1).depositCollateral(await mockToken.getAddress(), collateralAmount);
+-
+-            const nullifier1 = generateNullifier(1);
+-            await liquidityPool.connect(user1).borrow(borrowAmount, nullifier1, { value: 0 });
+-
+-            const historyAfterFirst = await liquidityPool.getUserHistory(user1.address);
+-            const firstTimestamp = historyAfterFirst.firstInteractionTimestamp;
+-
+-            // Repay the first loan
+-            await liquidityPool.connect(user1).repay({ value: borrowAmount });
+-
+-            // Perform second borrow
+-            const nullifier2 = generateNullifier(2);
+-            await liquidityPool.connect(user1).borrow(borrowAmount, nullifier2, { value: 0 });
+-
+-            const historyAfterSecond = await liquidityPool.getUserHistory(user1.address);
+-            expect(historyAfterSecond.firstInteractionTimestamp).to.equal(firstTimestamp);
+-        });
+-
+-        it("should increment succesfullPayments on full repayment", async function () {
+-            // Setup and borrow
+-            const borrowAmount = ethers.parseEther("1");
+-            const collateralAmount = ethers.parseEther("2");
+-
+-            await mockToken.connect(user1).approve(await liquidityPool.getAddress(), collateralAmount);
+-            await liquidityPool.connect(user1).depositCollateral(await mockToken.getAddress(), collateralAmount);
+-
+-            const nullifier = generateNullifier(1);
+-            await liquidityPool.connect(user1).borrow(borrowAmount, nullifier, { value: 0 });
+-
+-            // Check initial payment count
+-            let history = await liquidityPool.getUserHistory(user1.address);
+-            expect(history.succesfullPayments).to.equal(0);
+-
+-            // Repay the loan
+-            await liquidityPool.connect(user1).repay({ value: borrowAmount });
+-
+-            // Check that successful payments was incremented
+-            history = await liquidityPool.getUserHistory(user1.address);
+-            expect(history.succesfullPayments).to.equal(1);
+-        });
+-
+-        it("should increment succesfullPayments on installment payment", async function () {
+-            // Setup and borrow
+-            const borrowAmount = ethers.parseEther("12"); // Minimum for installments
+-            const collateralAmount = ethers.parseEther("24");
+-
+-            await mockToken.connect(user1).approve(await liquidityPool.getAddress(), collateralAmount);
+-            await liquidityPool.connect(user1).depositCollateral(await mockToken.getAddress(), collateralAmount);
+-
+-            const nullifier = generateNullifier(1);
+-            await liquidityPool.connect(user1).borrow(borrowAmount, nullifier, { value: 0 });
+-
+-            // Fast forward to make installment due
+-            await ethers.provider.send("evm_increaseTime", [30 * 24 * 60 * 60]); // 30 days
+-            await ethers.provider.send("evm_mine");
+-
+-            // Check initial payment count
+-            let history = await liquidityPool.getUserHistory(user1.address);
+-            expect(history.succesfullPayments).to.equal(0);
+-
+-            // Pay installment
+-            const installmentAmount = borrowAmount / 12n;
+-            await liquidityPool.connect(user1).repayInstallment({ value: installmentAmount });
+-
+-            // Check that successful payments was incremented
+-            history = await liquidityPool.getUserHistory(user1.address);
+-            expect(history.succesfullPayments).to.equal(1);
+-        });
+-
+-        it("should increment liquidations on liquidation", async function () {
+-            // Setup and borrow
+-            const borrowAmount = ethers.parseEther("1");
+-            const collateralAmount = ethers.parseEther("1.5"); // Minimal collateral for easier liquidation
+-
+-            await mockToken.connect(user2).approve(await liquidityPool.getAddress(), collateralAmount);
+-            await liquidityPool.connect(user2).depositCollateral(await mockToken.getAddress(), collateralAmount);
+-
+-            const nullifier = generateNullifier(1);
+-            await liquidityPool.connect(user2).borrow(borrowAmount, nullifier, { value: 0 });
+-
+-            // Check initial liquidation count
+-            let history = await liquidityPool.getUserHistory(user2.address);
+-            expect(history.liquidations).to.equal(0);
+-
+-            // Simulate liquidation by calling clearDebt through LendingManager
+-            await lendingManager.connect(owner).clearDebt(user2.address, borrowAmount);
+-
+-            // Check that liquidations was incremented
+-            history = await liquidityPool.getUserHistory(user2.address);
+-            expect(history.liquidations).to.equal(1);
+-        });
+-
+-        it("should return correct UserHistory via getUserHistory", async function () {
+-            // Setup and perform multiple operations
+-            const borrowAmount = ethers.parseEther("1");
+-            const collateralAmount = ethers.parseEther("2");
+-
+-            await mockToken.connect(user1).approve(await liquidityPool.getAddress(), collateralAmount);
+-            await liquidityPool.connect(user1).depositCollateral(await mockToken.getAddress(), collateralAmount);
+-
+-            // First borrow
+-            const nullifier1 = generateNullifier(1);
+-            await liquidityPool.connect(user1).borrow(borrowAmount, nullifier1, { value: 0 });
+-
+-            // Repay
+-            await liquidityPool.connect(user1).repay({ value: borrowAmount });
+-
+-            // Second borrow
+-            const nullifier2 = generateNullifier(2);
+-            await liquidityPool.connect(user1).borrow(borrowAmount, nullifier2, { value: 0 });
+-
+-            // Simulate liquidation
+-            await liquidityPool.clearDebt(user1.address, borrowAmount);
+-
+-            // Get final history
+-            const history = await liquidityPool.getUserHistory(user1.address);
+-
+-            expect(history.firstInteractionTimestamp).to.be.greaterThan(0);
+-            expect(history.succesfullPayments).to.equal(1); // One repayment
+-            expect(history.liquidations).to.equal(1); // One liquidation
+-        });
+-
+-        it("should emit UserHistoryUpdated events", async function () {
+-            // Setup collateral
+-            const borrowAmount = ethers.parseEther("1");
+-            const collateralAmount = ethers.parseEther("2");
+-
+-            await mockToken.connect(user1).approve(await liquidityPool.getAddress(), collateralAmount);
+-            await liquidityPool.connect(user1).depositCollateral(await mockToken.getAddress(), collateralAmount);
+-
+-            // Test first borrow event
+-            const nullifier = generateNullifier(1);
+-            await expect(liquidityPool.connect(user1).borrow(borrowAmount, nullifier, { value: 0 }))
+-                .to.emit(liquidityPool, "UserHistoryUpdated")
+-                .withArgs(user1.address, "first_borrow", await ethers.provider.getBlock("latest").then(b => b.timestamp + 1));
+-
+-            // Test repayment event
+-            await expect(liquidityPool.connect(user1).repay({ value: borrowAmount }))
+-                .to.emit(liquidityPool, "UserHistoryUpdated")
+-                .withArgs(user1.address, "repayment", await ethers.provider.getBlock("latest").then(b => b.timestamp + 1));
+-        });
+-
+-        it("should handle multiple users independently", async function () {
+-            // Setup for both users
+-            const borrowAmount = ethers.parseEther("1");
+-            const collateralAmount = ethers.parseEther("2");
+-
+-            // User1 operations
+-            await mockToken.connect(user1).approve(await liquidityPool.getAddress(), collateralAmount);
+-            await liquidityPool.connect(user1).depositCollateral(await mockToken.getAddress(), collateralAmount);
+-            const nullifier1 = generateNullifier(1);
+-            await liquidityPool.connect(user1).borrow(borrowAmount, nullifier1, { value: 0 });
+-            await liquidityPool.connect(user1).repay({ value: borrowAmount });
+-
+-            // User2 operations
+-            await mockToken.connect(user2).approve(await liquidityPool.getAddress(), collateralAmount);
+-            await liquidityPool.connect(user2).depositCollateral(await mockToken.getAddress(), collateralAmount);
+-            const nullifier2 = generateNullifier(2);
+-            await liquidityPool.connect(user2).borrow(borrowAmount, nullifier2, { value: 0 });
+-            await liquidityPool.clearDebt(user2.address, borrowAmount); // Simulate liquidation
+-
+-            // Check histories are independent
+-            const history1 = await liquidityPool.getUserHistory(user1.address);
+-            const history2 = await liquidityPool.getUserHistory(user2.address);
+-
+-            expect(history1.succesfullPayments).to.equal(1);
+-            expect(history1.liquidations).to.equal(0);
+-
+-            expect(history2.succesfullPayments).to.equal(0);
+-            expect(history2.liquidations).to.equal(1);
+-        });
+-    });
+-});
+diff --git a/Lending (BC) + frontend/loan-management/frontend/src/components/liquidity-pool/user/UserHistoryPanel.jsx b/Lending (BC) + frontend/loan-management/frontend/src/components/liquidity-pool/user/UserHistoryPanel.jsx
+deleted file mode 100644
+index fd7b7bf..0000000
+--- a/Lending (BC) + frontend/loan-management/frontend/src/components/liquidity-pool/user/UserHistoryPanel.jsx	
++++ /dev/null
+@@ -1,252 +0,0 @@
+-import { useState, useEffect } from 'react'
+-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+-import { Button } from '@/components/ui/button'
+-import { Alert, AlertDescription } from '@/components/ui/alert'
+-import { Badge } from '@/components/ui/badge'
+-import { 
+-  History, 
+-  Calendar, 
+-  TrendingUp, 
+-  AlertTriangle, 
+-  RefreshCw,
+-  Clock,
+-  CheckCircle,
+-  XCircle
+-} from 'lucide-react'
+-
+-export function UserHistoryPanel({ account, fetchUserHistory }) {
+-  const [userHistory, setUserHistory] = useState(null)
+-  const [loading, setLoading] = useState(false)
+-  const [error, setError] = useState('')
+-
+-  const fetchHistory = async () => {
+-    if (!account || !fetchUserHistory) return
+-    
+-    setLoading(true)
+-    setError('')
+-    
+-    try {
+-      const history = await fetchUserHistory(account)
+-      setUserHistory(history)
+-    } catch (err) {
+-      console.error('Error fetching user history:', err)
+-      setError('Failed to fetch user history')
+-    } finally {
+-      setLoading(false)
+-    }
+-  }
+-
+-  useEffect(() => {
+-    fetchHistory()
+-  }, [account, fetchUserHistory])
+-
+-  const formatTimestamp = (timestamp) => {
+-    if (!timestamp || timestamp === 0) return 'Never'
+-    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+-      year: 'numeric',
+-      month: 'short',
+-      day: 'numeric',
+-      hour: '2-digit',
+-      minute: '2-digit'
+-    })
+-  }
+-
+-  const getHistoryScore = () => {
+-    if (!userHistory) return 0
+-    
+-    const { liquidations, successfulPayments } = userHistory
+-    const totalInteractions = liquidations + successfulPayments
+-    
+-    if (totalInteractions === 0) return 0
+-    
+-    // Calculate score: successful payments are positive, liquidations are negative
+-    const score = ((successfulPayments - liquidations * 2) / totalInteractions) * 100
+-    return Math.max(0, Math.min(100, score))
+-  }
+-
+-  const getScoreColor = (score) => {
+-    if (score >= 80) return 'text-green-600'
+-    if (score >= 60) return 'text-yellow-600'
+-    if (score >= 40) return 'text-orange-600'
+-    return 'text-red-600'
+-  }
+-
+-  const getScoreBadgeVariant = (score) => {
+-    if (score >= 80) return 'default'
+-    if (score >= 60) return 'secondary'
+-    return 'destructive'
+-  }
+-
+-  if (loading) {
+-    return (
+-      <Card>
+-        <CardHeader>
+-          <CardTitle className="flex items-center gap-2">
+-            <History className="h-5 w-5" />
+-            User History
+-          </CardTitle>
+-        </CardHeader>
+-        <CardContent>
+-          <div className="flex items-center justify-center py-8">
+-            <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+-            Loading history...
+-          </div>
+-        </CardContent>
+-      </Card>
+-    )
+-  }
+-
+-  if (error) {
+-    return (
+-      <Card>
+-        <CardHeader>
+-          <CardTitle className="flex items-center gap-2">
+-            <History className="h-5 w-5" />
+-            User History
+-          </CardTitle>
+-        </CardHeader>
+-        <CardContent>
+-          <Alert variant="destructive">
+-            <AlertTriangle className="h-4 w-4" />
+-            <AlertDescription>{error}</AlertDescription>
+-          </Alert>
+-          <Button onClick={fetchHistory} className="mt-4" variant="outline">
+-            <RefreshCw className="h-4 w-4 mr-2" />
+-            Retry
+-          </Button>
+-        </CardContent>
+-      </Card>
+-    )
+-  }
+-
+-  if (!userHistory) {
+-    return (
+-      <Card>
+-        <CardHeader>
+-          <CardTitle className="flex items-center gap-2">
+-            <History className="h-5 w-5" />
+-            User History
+-          </CardTitle>
+-        </CardHeader>
+-        <CardContent>
+-          <div className="text-center py-8 text-muted-foreground">
+-            <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+-            <p>No history data available</p>
+-          </div>
+-        </CardContent>
+-      </Card>
+-    )
+-  }
+-
+-  const historyScore = getHistoryScore()
+-  const hasInteracted = userHistory.firstInteractionTimestamp > 0
+-
+-  return (
+-    <Card>
+-      <CardHeader>
+-        <div className="flex items-center justify-between">
+-          <CardTitle className="flex items-center gap-2">
+-            <History className="h-5 w-5" />
+-            User History
+-          </CardTitle>
+-          <Button onClick={fetchHistory} variant="outline" size="sm">
+-            <RefreshCw className="h-4 w-4" />
+-          </Button>
+-        </div>
+-      </CardHeader>
+-      <CardContent className="space-y-6">
+-        {/* History Score */}
+-        <div className="text-center">
+-          <div className="mb-2">
+-            <span className="text-sm text-muted-foreground">History Score</span>
+-          </div>
+-          <div className={`text-3xl font-bold ${getScoreColor(historyScore)}`}>
+-            {historyScore.toFixed(0)}%
+-          </div>
+-          <Badge variant={getScoreBadgeVariant(historyScore)} className="mt-2">
+-            {historyScore >= 80 ? 'Excellent' : 
+-             historyScore >= 60 ? 'Good' : 
+-             historyScore >= 40 ? 'Fair' : 'Poor'}
+-          </Badge>
+-        </div>
+-
+-        {/* First Interaction */}
+-        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+-          <div className="flex items-center gap-3">
+-            <Calendar className="h-5 w-5 text-blue-500" />
+-            <div>
+-              <p className="font-medium">First Interaction</p>
+-              <p className="text-sm text-muted-foreground">
+-                {formatTimestamp(userHistory.firstInteractionTimestamp)}
+-              </p>
+-            </div>
+-          </div>
+-          {hasInteracted && (
+-            <Badge variant="outline">
+-              <Clock className="h-3 w-3 mr-1" />
+-              Member
+-            </Badge>
+-          )}
+-        </div>
+-
+-        {/* Statistics Grid */}
+-        <div className="grid grid-cols-2 gap-4">
+-          {/* Successful Payments */}
+-          <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+-            <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+-            <div className="text-2xl font-bold text-green-700">
+-              {userHistory.successfulPayments}
+-            </div>
+-            <div className="text-sm text-green-600">
+-              Successful Payments
+-            </div>
+-          </div>
+-
+-          {/* Liquidations */}
+-          <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+-            <XCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
+-            <div className="text-2xl font-bold text-red-700">
+-              {userHistory.liquidations}
+-            </div>
+-            <div className="text-sm text-red-600">
+-              Liquidations
+-            </div>
+-          </div>
+-        </div>
+-
+-        {/* Performance Insights */}
+-        {hasInteracted && (
+-          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+-            <div className="flex items-center gap-2 mb-2">
+-              <TrendingUp className="h-4 w-4 text-blue-600" />
+-              <span className="font-medium text-blue-800">Performance Insights</span>
+-            </div>
+-            <div className="text-sm text-blue-700">
+-              {userHistory.liquidations === 0 && userHistory.successfulPayments > 0 && (
+-                <p>✅ Perfect payment record - no liquidations!</p>
+-              )}
+-              {userHistory.liquidations > 0 && userHistory.successfulPayments > userHistory.liquidations && (
+-                <p>⚠️ More successful payments than liquidations - improving trend</p>
+-              )}
+-              {userHistory.liquidations > userHistory.successfulPayments && (
+-                <p>🔴 Consider improving collateral management to avoid liquidations</p>
+-              )}
+-              {userHistory.successfulPayments === 0 && userHistory.liquidations === 0 && (
+-                <p>📊 New user - no payment history yet</p>
+-              )}
+-            </div>
+-          </div>
+-        )}
+-
+-        {!hasInteracted && (
+-          <Alert>
+-            <AlertTriangle className="h-4 w-4" />
+-            <AlertDescription>
+-              This user has not interacted with the protocol yet.
+-            </AlertDescription>
+-          </Alert>
+-        )}
+-      </CardContent>
+-    </Card>
+-  )
+-}

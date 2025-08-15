@@ -1,0 +1,30 @@
+{
+    "name": "lending-notification-service",
+    "version": "1.0.0",
+    "description": "Off-chain notification service for lending protocol",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "nodemon index.js",
+        "coverage": "npx hardhat coverage"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^16.3.1",
+        "ethers": "^6.8.1",
+        "express": "^5.1.0",
+        "nodemailer": "^6.9.7",
+        "twilio": "^4.19.0"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.2"
+    },
+    "keywords": [
+        "blockchain",
+        "lending",
+        "notifications",
+        "ethereum"
+    ],
+    "author": "Your Name",
+    "license": "MIT"
+}
