@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import "BytesUtils.sol"; // adjust path if needed
+import "./BytesUtils.sol";
 
 interface IAttestation {
     function verifyAndAttestOnChain(
