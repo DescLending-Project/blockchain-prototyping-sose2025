@@ -292,23 +292,28 @@ const PROPOSAL_OPTIONS = [
         ]
     },
     {
-        label: "RISC Zero Verifier",
-        contract: addresses.RiscZeroVerifier,
+        label: "Verifier Management",
+        contract: addresses.LiquidityPool,
         functions: [
             {
-                label: "Authorize Server",
-                selector: getSelector("authorizeServer(string,bool)"),
+                label: "Set Credit Score Contract",
+                selector: getSelector("setCreditScoreContract(address)"),
                 params: [
-                    { name: "serverName", type: "string", tooltip: "Name of the server to authorize/deauthorize" },
-                    { name: "authorized", type: "bool", tooltip: "Whether the server should be authorized (true/false)" }
+                    { name: "creditScoreContract", type: "address", tooltip: "Address of the new CreditScore contract" }
+                ]
+            },
+            {
+                label: "Authorize Server",
+                selector: getSelector("authorizeCreditScoreServer(string)"),
+                params: [
+                    { name: "serverName", type: "string", tooltip: "Name of the server to authorize (e.g., openbanking-api.example.com)" }
                 ]
             },
             {
                 label: "Authorize State Root Provider",
-                selector: getSelector("authorizeStateRootProvider(string,bool)"),
+                selector: getSelector("authorizeCreditScoreStateRootProvider(string)"),
                 params: [
-                    { name: "providerName", type: "string", tooltip: "Name of the state root provider to authorize/deauthorize" },
-                    { name: "authorized", type: "bool", tooltip: "Whether the provider should be authorized (true/false)" }
+                    { name: "providerName", type: "string", tooltip: "Name of the state root provider to authorize" }
                 ]
             },
             {

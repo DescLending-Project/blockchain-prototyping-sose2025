@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import "./interfaces/AggregatorV3Interface.sol";
+import "./interfaces/ICreditScore.sol";
 import "./StablecoinManager.sol";
 import "./LendingManager.sol";
 import "./InterestRateModel.sol";
@@ -14,16 +15,6 @@ struct UserHistory{
     uint256 firstInteractionTimestamp; // only set the first time borrowed
     uint256 liquidations; // amount of liquidations
     uint256 succesfullPayments; // amount of repayments
-}
-
-//interface for verifier
-interface ICreditScore {
-    function getCreditScore(address user) external view returns (
-        uint64 score,
-        bool isValid,
-        uint256 timestamp
-    );
-
 }
 
 contract LiquidityPool is
@@ -148,6 +139,13 @@ contract LiquidityPool is
         address indexed newContract
     );
     event RISC0ScoreToggled(bool useRISC0);
+    
+    // Events for verifier management
+    event GovernanceProposalExecuted(
+        string indexed proposalType,
+        address indexed target,
+        bool success
+    );
 
     // --- New for Partial Liquidation and Tiered Fees ---
     uint256 public constant SAFETY_BUFFER = 10; // 10% over-collateralization
@@ -349,13 +347,13 @@ contract LiquidityPool is
         if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
             try creditScoreContract.getCreditScore(user) returns (
                 uint64 ficoScore,
-                bool isValid,
+                bool isUnused,
                 uint256 timestamp
             ) {
-                if (isValid && ficoScore > 0 && block.timestamp <= timestamp + SCORE_EXPIRY_PERIOD) {
+                if (ficoScore > 0 && block.timestamp <= timestamp + SCORE_EXPIRY_PERIOD) {
                     score = convertFICOToContractScore(ficoScore);
-                    
-                    canUseScore = true; // Temporary -  this will be changed to actually use the logic from the Creditscore contract
+                    // Credit score can only be used if it's fresh (unused) and within validity period
+                    canUseScore = isUnused;
                     return (score, canUseScore);
                 }
             } catch {
@@ -755,8 +753,8 @@ contract LiquidityPool is
         // 2. SIMPLIFIED: Get credit score and usage status in ONE call
         (uint256 userCreditScore, bool canUseScore) = _getCreditScoreForBorrowing(msg.sender);
         
-        // NOTE: something like this will be added to the creditscore contract
-        // require(canUseScore, "Credit score already used for borrowing");
+        // Enforce fresh proof requirement - credit score must be unused
+        require(canUseScore, "Credit score already used for borrowing or invalid. Please submit a fresh proof.");
         
         // 3. Calculate risk tier from fetched credit score (no redundant calls)
         RiskTier tier = _getRiskTierFromScore(userCreditScore);
@@ -826,9 +824,10 @@ contract LiquidityPool is
         // 13. Transfer net amount to borrower (after deducting origination fee)
         payable(msg.sender).transfer(netAmount);
 
-        // TODO: set creditscore to used in the CreditScore.sol contract
-        // call a function passing the user
-
+        // 14. Mark credit score as used to enforce fresh proof requirement
+        if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
+            creditScoreContract.markCreditScoreAsUsed(msg.sender);
+        }
 
         emit LoanDisbursed(msg.sender, amount, adjustedRate);
         emit Borrowed(msg.sender, amount);
@@ -1588,6 +1587,102 @@ contract LiquidityPool is
 
     function liquidationInfo(address user) external view returns (bool, uint256, uint256) {
         return (isLiquidatable[user], liquidationStartTime[user], GRACE_PERIOD);
+    }
+
+    // ========== GOVERNANCE EXTENSIONS FOR VERIFIER MANAGEMENT ==========
+
+    /**
+     * @notice Authorize a server in the CreditScore contract through governance (via timelock)
+     * @param serverName Name of the server to authorize
+     */
+    function authorizeCreditScoreServer(string calldata serverName) external onlyTimelock {
+        require(address(creditScoreContract) != address(0), "CreditScore contract not set");
+        require(bytes(serverName).length > 0, "Invalid server name");
+        creditScoreContract.authorizeServer(serverName, true);
+        emit GovernanceProposalExecuted("authorize_server", address(0), true);
+    }
+
+    /**
+     * @notice Authorize a state root provider in the CreditScore contract through governance (via timelock)
+     * @param providerName Name of the state root provider to authorize
+     */
+    function authorizeCreditScoreStateRootProvider(string calldata providerName) external onlyTimelock {
+        require(address(creditScoreContract) != address(0), "CreditScore contract not set");
+        require(bytes(providerName).length > 0, "Invalid provider name");
+        creditScoreContract.authorizeStateRootProvider(providerName, true);
+        emit GovernanceProposalExecuted("authorize_state_root_provider", address(0), true);
+    }
+
+    /**
+     * @notice Governance-controlled credit score contract update with validation
+     * @param _creditScoreContract Address of the new CreditScore contract
+     */
+    function setCreditScoreContractWithValidation(address _creditScoreContract) external onlyTimelock {
+        require(_creditScoreContract != address(0), "Invalid contract address");
+        
+        // Update the contract address
+        address oldContract = address(creditScoreContract);
+        creditScoreContract = ICreditScore(_creditScoreContract);
+        
+        // Auto-enable RISC0 scores if a valid contract is set
+        if (_creditScoreContract != address(0)) {
+            useRISC0CreditScores = true;
+        }
+        
+        emit CreditScoreContractUpdated(oldContract, _creditScoreContract);
+        emit GovernanceProposalExecuted("setCreditScoreContract", _creditScoreContract, true);
+    }
+
+    /**
+     * @notice Governance-controlled RISC0 toggle with additional validation
+     * @param _useRISC0 Whether to use RISC0 scores
+     */
+    function toggleRISC0CreditScoresWithValidation(bool _useRISC0) external onlyTimelock {
+        if (_useRISC0) {
+            require(address(creditScoreContract) != address(0), "No credit score contract set");
+            
+            // Simply toggle - contract validation can be done at call time
+            useRISC0CreditScores = _useRISC0;
+            emit RISC0ScoreToggled(_useRISC0);
+            emit GovernanceProposalExecuted("toggleRISC0", address(creditScoreContract), true);
+        } else {
+            useRISC0CreditScores = _useRISC0;
+            emit RISC0ScoreToggled(_useRISC0);
+            emit GovernanceProposalExecuted("toggleRISC0", address(0), true);
+        }
+    }
+
+    /**
+     * @notice Emergency disable RISC0 scores (for governance emergency actions)
+     * @dev Can only be called by timelock (governance)
+     */
+    function emergencyDisableRISC0() external onlyTimelock {
+        if (useRISC0CreditScores) {
+            useRISC0CreditScores = false;
+            emit RISC0ScoreToggled(false);
+            emit GovernanceProposalExecuted("emergencyDisableRISC0", address(0), true);
+        }
+    }
+
+    /**
+     * @notice Get governance status and current settings
+     * @return governance Current timelock (governance) contract address
+     * @return risc0Enabled Whether RISC0 scores are enabled
+     * @return currentCreditContract Current credit score contract address  
+     * @return expiryPeriod Score expiry period in seconds
+     */
+    function getGovernanceStatus() external view returns (
+        address governance,
+        bool risc0Enabled,
+        address currentCreditContract,
+        uint256 expiryPeriod
+    ) {
+        return (
+            timelock, // The timelock is the governance mechanism
+            useRISC0CreditScores,
+            address(creditScoreContract),
+            SCORE_EXPIRY_PERIOD
+        );
     }
 }
 
