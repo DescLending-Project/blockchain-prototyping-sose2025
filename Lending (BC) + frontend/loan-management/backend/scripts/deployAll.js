@@ -1,5 +1,5 @@
 console.log('==============================');
-console.log('🚀 Starting deployAll2.js script');
+console.log('🚀 Starting deployAll.js script');
 console.log('==============================');
 const { ethers, upgrades, network } = require("hardhat");
 const { execSync } = require('child_process');
@@ -178,8 +178,10 @@ async function executeGovernanceProposal(governor, targets, values, calldatas, d
         const quorum = await governor.quorum(await governor.proposalSnapshot(proposalId));
         console.log(`Quorum required: ${quorum}`);
         console.log(`Votes for >= quorum: ${proposalVotes.forVotes >= quorum}`);
+
+
     } catch (error) {
-        console.log('Could not get detailed voting results');
+        console.log('Could not get detailed voting results:', error.message);
     }
 
     // 9. Queue the proposal
@@ -559,9 +561,11 @@ async function main() {
             await votingToken.grantRole(MINTER_ROLE, deployer.address);
         }
 
-        // Just mint 1 token to the deployer - enough for the very low quorum
-        console.log('Minting minimal voting tokens...');
-        await votingToken.mint(deployer.address, 10); // Mint 10 tokens for safety
+        // Mint minimal tokens for testing
+        const currentQuorum = await governor.quorum(await ethers.provider.getBlockNumber());
+        const tokensToMint = currentQuorum + 5n;
+
+        await votingToken.mint(deployer.address, tokensToMint);
         await votingToken.connect(deployer).delegate(deployer.address);
 
         // Wait for delegation to take effect
@@ -569,12 +573,7 @@ async function main() {
         await network.provider.send("evm_mine");
         await network.provider.send("evm_mine");
 
-        // Verify voting power
-        const votingPower = await votingToken.getVotes(deployer.address);
-        const quorum = await governor.quorum(await ethers.provider.getBlockNumber());
-        console.log(`Deployer voting power: ${votingPower}`);
-        console.log(`Quorum required: ${quorum}`);
-        console.log(`Meets quorum: ${votingPower >= quorum}`);
+
 
         // Create a governance proposal to whitelist LiquidityPool
         const whitelistCalldata = governor.interface.encodeFunctionData(
