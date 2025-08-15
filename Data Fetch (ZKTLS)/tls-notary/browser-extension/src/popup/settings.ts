@@ -34,10 +34,8 @@ async function saveSettings(): Promise<void> {
       tlsLocalPort
     });
 
-    console.log('Settings saved successfully!');
   } catch (error) {
     console.error('Error saving settings:', error);
-    console.log('Failed to save settings');
   }
 }
 

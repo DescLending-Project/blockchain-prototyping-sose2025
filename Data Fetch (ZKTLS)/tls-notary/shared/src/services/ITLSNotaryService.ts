@@ -1,5 +1,8 @@
 import type { TLSFormData, ProofRecord, VerifyProofResult } from "../types/tls";
 
+/**
+ * Interface for TLS Notary Service that handles TLS proof generation, verification, and management
+ */
 export interface ITLSNotaryService {
   sendRequest(input: TLSFormData): Promise<string>; // returns request ID
   getAllProofs(): Promise<ProofRecord[]>;           // returns all tracked proofs

@@ -31,25 +31,18 @@ export class TLSNotaryServiceBridge {
    * Initialize the bridge by subscribing to the shared module's TLSNotaryService
    */
   private async initialize(): Promise<void> {
-    console.log('Initializing TLSNotaryServiceBridge');
 
     // Get all proofs from the browser-extension's BrowserTLSNotaryService
     const proofs = await browserTLSNotaryService.getAllProofs();
-    console.log(`Retrieved ${proofs.length} proofs from BrowserTLSNotaryService`);
 
     // Initialize the shared module's TLSNotaryService with these proofs
     if (proofs.length > 0) {
-      console.log('Initializing TLSNotaryService with proofs from BrowserTLSNotaryService');
       // Cast TLSNotaryService to any to access the initializeProofs method
       // which is not part of the ITLSNotaryService interface
       (TLSNotaryService as any).initializeProofs(proofs);
     }
 
-    // Subscribe to the shared module's TLSNotaryService to get updates when proofs change
     this.unsubscribe = TLSNotaryService.subscribe((records: ProofRecord[]) => {
-      console.log(`Received ${records.length} records from TLSNotaryService`);
-
-      // For each record, add it to the browser-extension's BrowserTLSNotaryService
       records.forEach(async (record) => {
         await browserTLSNotaryService.addProofRecord(record);
       });
