@@ -252,7 +252,7 @@ const PROPOSAL_OPTIONS = [
                     },
                     {
                         label: "Set Emergency Multisig",
-                        selector: getSelector("setEmergencyMultisig(address[]"),
+                        selector: getSelector("setEmergencyMultisig(address[])"),
                         params: [
                             { name: "signers", type: "address[]", tooltip: "Array of multisig signer addresses (comma-separated)" }
                         ]
@@ -287,6 +287,35 @@ const PROPOSAL_OPTIONS = [
                     { name: "isStable", type: "bool", tooltip: "Is stablecoin? (true/false)" },
                     { name: "ltv", type: "uint256", tooltip: "Loan-to-value (percent)" },
                     { name: "newThreshold", type: "uint256", tooltip: "Liquidation threshold (percent)" }
+                ]
+            }
+        ]
+    },
+    {
+        label: "RISC Zero Verifier",
+        contract: addresses.RiscZeroVerifier,
+        functions: [
+            {
+                label: "Authorize Server",
+                selector: getSelector("authorizeServer(string,bool)"),
+                params: [
+                    { name: "serverName", type: "string", tooltip: "Name of the server to authorize/deauthorize" },
+                    { name: "authorized", type: "bool", tooltip: "Whether the server should be authorized (true/false)" }
+                ]
+            },
+            {
+                label: "Authorize State Root Provider",
+                selector: getSelector("authorizeStateRootProvider(string,bool)"),
+                params: [
+                    { name: "providerName", type: "string", tooltip: "Name of the state root provider to authorize/deauthorize" },
+                    { name: "authorized", type: "bool", tooltip: "Whether the provider should be authorized (true/false)" }
+                ]
+            },
+            {
+                label: "Set Timelock",
+                selector: getSelector("setTimelock(address)"),
+                params: [
+                    { name: "newTimelock", type: "address", tooltip: "New timelock address for access control" }
                 ]
             }
         ]

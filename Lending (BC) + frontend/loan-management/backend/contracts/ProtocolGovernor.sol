@@ -231,7 +231,7 @@ contract ProtocolGovernor is
     event QuorumPercentageChanged(uint256 newBasisPoints);
     event SetQuorumAttempt(uint256 newBasisPoints, address sender);
     bool public bootstrapMode = true;
-    uint256 public bootstrapQuorum = 1; // Very low quorum for deployment (1 vote)
+    uint256 public bootstrapQuorum = 100; // Bootstrap quorum for deployment (100 votes)
     event BootstrapModeDisabled();
 
     function disableBootstrapMode() external onlyGovernance {
