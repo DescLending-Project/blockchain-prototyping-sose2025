@@ -23,6 +23,8 @@ interface ICreditScore {
         bool isValid,
         uint256 timestamp
     );
+    
+    function markCreditScoreAsUsed(address user) external;
 
 }
 
@@ -77,6 +79,9 @@ contract LiquidityPool is
     ICreditScore public creditScoreContract;
     bool public useRISC0CreditScores; // Toggle for RISC0 vs local scores
     uint256 public constant SCORE_EXPIRY_PERIOD = 90 days; // How long RISC0 scores are valid
+    
+    // Fresh Credit Score Requirement
+    mapping(address => bool) public usedCreditScores;
 
     // Risk Tier Definitions (0-100 score range)
     enum RiskTier {
@@ -345,6 +350,11 @@ contract LiquidityPool is
      * @return canUseScore Whether score can be used for borrowing
      */
     function _getCreditScoreForBorrowing(address user) internal view returns (uint256 score, bool canUseScore) {
+        // Check if credit score has already been used
+        if (usedCreditScores[user]) {
+            return (0, false);
+        }
+        
         // Try RISC0 verified score first
         if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
             try creditScoreContract.getCreditScore(user) returns (
@@ -355,17 +365,17 @@ contract LiquidityPool is
                 if (isValid && ficoScore > 0 && block.timestamp <= timestamp + SCORE_EXPIRY_PERIOD) {
                     score = convertFICOToContractScore(ficoScore);
                     
-                    canUseScore = true; // Temporary -  this will be changed to actually use the logic from the Creditscore contract
+                    canUseScore = true;
                     return (score, canUseScore);
                 }
             } catch {
-
+ 
             }
         }
         
         // Use local stored score as fallback
         score = creditScore[user];
-        canUseScore = score > 0; // Local scores can always be used
+        canUseScore = score > 0 && !usedCreditScores[user]; // Local scores can be used if not already used
         return (score, canUseScore);
     }
 
@@ -755,8 +765,8 @@ contract LiquidityPool is
         // 2. SIMPLIFIED: Get credit score and usage status in ONE call
         (uint256 userCreditScore, bool canUseScore) = _getCreditScoreForBorrowing(msg.sender);
         
-        // NOTE: something like this will be added to the creditscore contract
-        // require(canUseScore, "Credit score already used for borrowing");
+        // Require that the credit score can be used for borrowing
+        require(canUseScore, "Credit score already used for borrowing or invalid. Please submit a fresh proof.");
         
         // 3. Calculate risk tier from fetched credit score (no redundant calls)
         RiskTier tier = _getRiskTierFromScore(userCreditScore);
@@ -827,8 +837,17 @@ contract LiquidityPool is
         totalFunds -= amount; // Update totalFunds to reflect the borrowed amount
         payable(msg.sender).transfer(netAmount);
 
-        // TODO: set creditscore to used in the CreditScore.sol contract
-        // call a function passing the user
+        // Mark the credit score as used in the RISC0 contract if it's being used
+        if (useRISC0CreditScores && address(creditScoreContract) != address(0)) {
+            try creditScoreContract.markCreditScoreAsUsed(msg.sender) {
+                // Successfully marked as used
+            } catch {
+                // Ignore if marking as used fails
+            }
+        } else {
+            // Mark the credit score as used in local storage
+            usedCreditScores[msg.sender] = true;
+        }
 
 
         emit LoanDisbursed(msg.sender, amount, adjustedRate);
@@ -913,6 +932,11 @@ contract LiquidityPool is
         // Refund excess
         if (msg.value > debt) {
             payable(msg.sender).transfer(msg.value - debt);
+        }
+
+        // Reset used credit score when debt is fully repaid
+        if (userDebt[msg.sender] == 0) {
+            usedCreditScores[msg.sender] = false;
         }
 
         emit Repaid(msg.sender, repayAmount);
@@ -1595,6 +1619,64 @@ contract LiquidityPool is
 
     function liquidationInfo(address user) external view returns (bool, uint256, uint256) {
         return (isLiquidatable[user], liquidationStartTime[user], GRACE_PERIOD);
+    }
+
+    // --- Fresh Credit Score Requirement Functions ---
+    mapping(address => bool) public authorizedCreditScoreServers;
+    mapping(address => bool) public authorizedStateRootProviders;
+    bool public governanceStatus;
+
+    /**
+     * @notice Authorize a credit score server
+     * @param server Address of the credit score server
+     */
+    function authorizeCreditScoreServer(address server) external onlyTimelock {
+        authorizedCreditScoreServers[server] = true;
+    }
+
+    /**
+     * @notice Authorize a state root provider
+     * @param provider Address of the state root provider
+     */
+    function authorizeCreditScoreStateRootProvider(address provider) external onlyTimelock {
+        authorizedStateRootProviders[provider] = true;
+    }
+
+    /**
+     * @notice Get governance status
+     * @return governanceAddress Current governance address
+     * @return risc0Enabled Whether RISC0 is enabled
+     * @return creditScoreContractAddress Credit score contract address
+     * @return scoreExpiryPeriod Score expiry period in seconds
+     */
+    function getGovernanceStatus() public view returns (
+        address governanceAddress,
+        bool risc0Enabled,
+        address creditScoreContractAddress,
+        uint256 scoreExpiryPeriod
+    ) {
+        return (
+            timelock,
+            useRISC0CreditScores,
+            address(creditScoreContract),
+            SCORE_EXPIRY_PERIOD
+        );
+    }
+
+    /**
+     * @notice Set governance status
+     * @param status New governance status
+     */
+    function setGovernanceStatus(bool status) external onlyTimelock {
+        governanceStatus = status;
+    }
+
+    /**
+     * @notice Reset used credit score for a user (for testing purposes)
+     * @param user Address of the user
+     */
+    function resetUsedCreditScore(address user) external onlyTimelock {
+        usedCreditScores[user] = false;
     }
 }
 

@@ -427,14 +427,14 @@ describe("LiquidityPool - Fresh Credit Score Requirement", function () {
         it("should allow timelock to authorize servers", async function () {
             await liquidityPool.setCreditScoreContract(await mockCreditScore.getAddress());
             
-            await expect(liquidityPool.authorizeCreditScoreServer("test-server"))
+            await expect(liquidityPool.authorizeCreditScoreServer(deployer.address))
                 .to.not.be.reverted;
         });
 
         it("should allow timelock to authorize state root providers", async function () {
             await liquidityPool.setCreditScoreContract(await mockCreditScore.getAddress());
             
-            await expect(liquidityPool.authorizeCreditScoreStateRootProvider("test-provider"))
+            await expect(liquidityPool.authorizeCreditScoreStateRootProvider(deployer.address))
                 .to.not.be.reverted;
         });
 

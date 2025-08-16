@@ -1491,6 +1491,12 @@ describe("Repayment Risk Adjustment", function() {
     });
 
     it("should increase repayment risk multiplier as repayment ratio drops", async function () {
+        // Ensure pool has enough funds
+        await deployer.sendTransaction({
+            to: await liquidityPool.getAddress(),
+            value: ethers.parseEther("20")
+        });
+        
         await liquidityPool.setCreditScore(user1.address, 95); // TIER_1
         await liquidityPool.setCreditScore(user2.address, 75); // TIER_3
         const depositAmt = ethers.parseEther("100");
@@ -1500,12 +1506,12 @@ describe("Repayment Risk Adjustment", function() {
         await glintToken.connect(user2).approve(await liquidityPool.getAddress(), depositAmt);
         await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), depositAmt);
         await liquidityPool.connect(user2).depositCollateral(await glintToken.getAddress(), depositAmt);
-        // Both borrow
+        // Both borrow (adjust amounts to be within tier limits)
         await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
-        await liquidityPool.connect(user2).borrow(ethers.parseEther("3"));
-        // Only repay part of user2's loan (repay 1 out of 4 total)
-        await liquidityPool.connect(user2).repay({ value: ethers.parseEther("1") });
-        // Now: totalBorrowedAllTime = 4, totalRepaidAllTime = 1
+        await liquidityPool.connect(user2).borrow(ethers.parseEther("1")); // Reduced from 3 to 1
+        // Only repay part of user2's loan (repay 1 out of 2 total)
+        await liquidityPool.connect(user2).repay({ value: ethers.parseEther("0.5") }); // Repay half
+        // Now: totalBorrowedAllTime = 2, totalRepaidAllTime = 0.5
         const totalBorrowed = await liquidityPool.totalBorrowedAllTime();
         const totalRepaid = await liquidityPool.totalRepaidAllTime();
         const repaymentRatio = await interestRateModel.getRepaymentRatio(totalBorrowed, totalRepaid);
@@ -1556,6 +1562,12 @@ describe("Repayment Risk Adjustment", function() {
     });
 
     it("should affect real-time return rate for lenders", async function () {
+        // Ensure pool has enough funds
+        await deployer.sendTransaction({
+            to: await liquidityPool.getAddress(),
+            value: ethers.parseEther("20")
+        });
+        
         await liquidityPool.setCreditScore(user1.address, 95); // TIER_1
         await liquidityPool.setCreditScore(user2.address, 75); // TIER_3
         const depositAmt = ethers.parseEther("100");
@@ -1566,10 +1578,10 @@ describe("Repayment Risk Adjustment", function() {
         await liquidityPool.connect(user1).depositCollateral(await glintToken.getAddress(), depositAmt);
         await liquidityPool.connect(user2).depositCollateral(await glintToken.getAddress(), depositAmt);
         await liquidityPool.connect(user1).borrow(ethers.parseEther("1"));
-        await liquidityPool.connect(user2).borrow(ethers.parseEther("3"));
+        await liquidityPool.connect(user2).borrow(ethers.parseEther("1")); // Reduced from 3 to 1
         // Only repay part of user2's loan
-        await liquidityPool.connect(user2).repay({ value: ethers.parseEther("1") });
-        // Now: totalBorrowedAllTime = 4, totalRepaidAllTime = 2
+        await liquidityPool.connect(user2).repay({ value: ethers.parseEther("0.5") }); // Repay half
+        // Now: totalBorrowedAllTime = 2, totalRepaidAllTime = 0.5
         // Real-time return rate should use dynamic rate calculation
         const rate = await lendingManager.getRealTimeReturnRate(user1.address);
         // The rate should be the dynamic lender rate

@@ -143,11 +143,39 @@ export default function App() {
       const contractInstances = {};
 
       try {
+        // Check if contracts exist at the addresses
+        console.log('Checking contract at liquidityPool address:', addresses.liquidityPool);
+        const liquidityPoolCode = await provider.getCode(addresses.liquidityPool);
+        console.log('LiquidityPool contract code:', liquidityPoolCode);
+        if (liquidityPoolCode === '0x') {
+          throw new Error(`No contract found at liquidityPool address: ${addresses.liquidityPool}`);
+        }
+
         contractInstances.liquidityPool = new ethers.Contract(
           addresses.liquidityPool,
           LiquidityPoolABI.abi,
           signer
         );
+
+        // Log contract instance details
+        console.log('LiquidityPool contract instance created:', contractInstances.liquidityPool);
+        console.log('LiquidityPool contract address:', contractInstances.liquidityPool.target);
+
+        // Test the liquidityPool contract with a simple call
+        console.log('Testing liquidityPool contract...');
+        try {
+          const balance = await contractInstances.liquidityPool.getBalance();
+          console.log('✅ LiquidityPool contract is working, balance:', balance.toString());
+        } catch (testError) {
+          console.error('❌ LiquidityPool contract test failed:', testError);
+          console.error('Error name:', testError.name);
+          console.error('Error message:', testError.message);
+          console.error('Error code:', testError.code);
+          if (testError.data) {
+            console.error('Error data:', testError.data);
+          }
+          throw new Error(`LiquidityPool contract is not working: ${testError.message}`);
+        }
 
         contractInstances.lendingManager = new ethers.Contract(
           addresses.lendingManager,
@@ -208,7 +236,19 @@ export default function App() {
         }
 
         // Test contract connectivity
-        await contractInstances.liquidityPool.getBalance();
+        console.log('Testing contract connectivity with getBalance...');
+        try {
+          const balance = await contractInstances.liquidityPool.getBalance();
+          console.log('✅ Contract connectivity test passed, balance:', balance.toString());
+        } catch (connectivityError) {
+          console.error('❌ Contract connectivity test failed:', connectivityError);
+          console.error('Error name:', connectivityError.name);
+          console.error('Error message:', connectivityError.message);
+          console.error('Error code:', connectivityError.code);
+          if (connectivityError.data) {
+            console.error('Error data:', connectivityError.data);
+          }
+        }
 
         // Set both the new contracts object and legacy contract references
         setContracts(contractInstances);
@@ -317,8 +357,19 @@ export default function App() {
     }
 
     console.log('Current networkName:', networkName);
-console.log('Contract addresses for network:', getContractAddresses(networkName));
-console.log('CreditScore address:', addresses.creditScoreVerifier);
+    console.log('Contract addresses for network:', addresses);
+    console.log('CreditScore address:', addresses.creditScoreVerifier);
+
+    // Validate all required addresses exist
+    const contractAddresses = getContractAddresses(networkName);
+    const requiredAddresses = ['liquidityPool', 'lendingManager', 'stablecoinManager', 'glintToken', 'votingToken', 'protocolGovernor', 'creditScoreVerifier'];
+    for (const key of requiredAddresses) {
+      if (!contractAddresses[key]) {
+        console.error(`Missing address for ${key}. Available addresses:`, Object.keys(contractAddresses));
+        throw new Error(`Missing address for ${key}`);
+      }
+      console.log(`${key}: ${contractAddresses[key]}`);
+    }
   };
 
   const disconnectWallet = async () => {
