@@ -414,6 +414,8 @@ describe("Complete Contract Coverage Tests", function () {
             expect(await liquidityPool.userDebt(borrower1.address)).to.equal(0n);
 
             // Test overpayment - should clear debt and refund excess
+            // Reset credit score before borrowing again
+            await liquidityPool.connect(owner).setCreditScore(borrower1.address, 80);
             await liquidityPool.connect(borrower1).borrow(ethers.parseEther("1"));
             const newDebt = await liquidityPool.userDebt(borrower1.address);
             const overpayment = newDebt + ethers.parseEther("2");

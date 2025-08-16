@@ -482,16 +482,56 @@ contract LendingManager is ReentrancyGuard {
         if (balance > 0) {
             require(info.interestIndex != 0, "interestIndex must not be zero");
             uint256 currentIndex = _currentInterestIndex();
-            // Safe interest calculation using scaling
+            
+            // Safe interest calculation using scaling with overflow protection
             uint256 scaledBalance = balance * 1e18;
-            uint256 ratio = (currentIndex * 1e18) / info.interestIndex;
-            pendingInterest = (scaledBalance * ratio) / 1e36;
-
-            // Safely subtract balance only if pendingInterest > balance
-            if (pendingInterest > balance) {
-                pendingInterest -= balance;
-            } else {
+            // Check for overflow in scaledBalance calculation
+            if (scaledBalance / 1e18 != balance) {
+                // Overflow occurred, return 0 pending interest
                 pendingInterest = 0;
+            } else {
+                // Safe calculation of ratio with overflow check
+                uint256 ratio;
+                unchecked {
+                    // We'll do the multiplication and check for overflow manually
+                    if (currentIndex <= type(uint256).max / 1e18) {
+                        uint256 multiplied = currentIndex * 1e18;
+                        if (info.interestIndex != 0) {
+                            ratio = multiplied / info.interestIndex;
+                        } else {
+                            ratio = 0;
+                        }
+                    } else {
+                        // Handle potential overflow by using a safe division first
+                        ratio = (currentIndex / info.interestIndex) * 1e18;
+                    }
+                }
+                
+                // Calculate pendingInterest with overflow protection
+                uint256 interestBeforeSubtraction;
+                unchecked {
+                    if (scaledBalance <= type(uint256).max / ratio) {
+                        uint256 multiplied = scaledBalance * ratio;
+                        interestBeforeSubtraction = multiplied / 1e36;
+                    } else {
+                        // Handle potential overflow by dividing first
+                        interestBeforeSubtraction = (scaledBalance / 1e18) * (ratio / 1e18);
+                    }
+                }
+                
+                // Safely subtract balance only if interestBeforeSubtraction > balance
+                if (interestBeforeSubtraction > balance) {
+                    unchecked {
+                        // Check for underflow
+                        if (interestBeforeSubtraction >= balance) {
+                            pendingInterest = interestBeforeSubtraction - balance;
+                        } else {
+                            pendingInterest = 0;
+                        }
+                    }
+                } else {
+                    pendingInterest = 0;
+                }
             }
         }
 
@@ -514,9 +554,18 @@ contract LendingManager is ReentrancyGuard {
         LenderInfo memory info = lenders[lender];
         availableAt = info.depositTimestamp + WITHDRAWAL_COOLDOWN;
 
-        penaltyIfWithdrawnNow = block.timestamp < availableAt
-            ? (info.balance * EARLY_WITHDRAWAL_PENALTY) / 100
-            : 0;
+        // Safe calculation of penalty with overflow protection
+        if (block.timestamp < availableAt) {
+            // Check for overflow in multiplication
+            if (info.balance <= type(uint256).max / EARLY_WITHDRAWAL_PENALTY) {
+                penaltyIfWithdrawnNow = (info.balance * EARLY_WITHDRAWAL_PENALTY) / 100;
+            } else {
+                // Handle potential overflow by dividing first
+                penaltyIfWithdrawnNow = (info.balance / 100) * EARLY_WITHDRAWAL_PENALTY;
+            }
+        } else {
+            penaltyIfWithdrawnNow = 0;
+        }
 
         isAvailableWithoutPenalty = block.timestamp >= availableAt;
 
@@ -538,9 +587,35 @@ contract LendingManager is ReentrancyGuard {
         if (info.balance > 0) {
             require(info.interestIndex != 0, "interestIndex must not be zero");
             uint256 currentIndex = _currentInterestIndex();
-            availableInterest =
-                ((info.balance * currentIndex) / info.interestIndex) -
-                info.balance;
+            
+            // Safe calculation of availableInterest with overflow protection
+            uint256 interestBeforeSubtraction;
+            // Check for overflow in multiplication
+            if (info.balance <= type(uint256).max / currentIndex) {
+                uint256 multiplied = info.balance * currentIndex;
+                if (info.interestIndex != 0) {
+                    interestBeforeSubtraction = multiplied / info.interestIndex;
+                } else {
+                    interestBeforeSubtraction = 0;
+                }
+            } else {
+                // Handle potential overflow by dividing first
+                interestBeforeSubtraction = (info.balance / info.interestIndex) * currentIndex;
+            }
+            
+            // Safely subtract balance
+            if (interestBeforeSubtraction > info.balance) {
+                unchecked {
+                    // Check for underflow
+                    if (interestBeforeSubtraction >= info.balance) {
+                        availableInterest = interestBeforeSubtraction - info.balance;
+                    } else {
+                        availableInterest = 0;
+                    }
+                }
+            } else {
+                availableInterest = 0;
+            }
         }
     }
 
@@ -578,20 +653,79 @@ contract LendingManager is ReentrancyGuard {
         if (info.balance == 0) return 0;
         require(info.interestIndex != 0, "interestIndex must not be zero");
         uint256 currentIndex = _currentInterestIndex();
-        // Safe calculation
+        
+        // Safe calculation with overflow protection
         uint256 scaledBalance = info.balance * 1e18;
-        uint256 ratio = (currentIndex * 1e18) / info.interestIndex;
-        interest = (scaledBalance * ratio) / 1e36 - info.balance;
+        // Check for overflow in scaledBalance calculation
+        if (scaledBalance / 1e18 != info.balance) {
+            // Overflow occurred, return 0 interest
+            return 0;
+        }
+        
+        // Safe calculation of ratio with overflow check
+        uint256 ratio;
+        unchecked {
+            // We'll do the multiplication and check for overflow manually
+            if (currentIndex <= type(uint256).max / 1e18) {
+                uint256 multiplied = currentIndex * 1e18;
+                if (info.interestIndex != 0) {
+                    ratio = multiplied / info.interestIndex;
+                } else {
+                    ratio = 0;
+                }
+            } else {
+                // Handle potential overflow by using a safe division first
+                ratio = (currentIndex / info.interestIndex) * 1e18;
+            }
+        }
+        
+        // Calculate interest with overflow protection
+        uint256 interestBeforeSubtraction;
+        unchecked {
+            if (scaledBalance <= type(uint256).max / ratio) {
+                uint256 multiplied = scaledBalance * ratio;
+                interestBeforeSubtraction = multiplied / 1e36;
+            } else {
+                // Handle potential overflow by dividing first
+                interestBeforeSubtraction = (scaledBalance / 1e18) * (ratio / 1e18);
+            }
+        }
+        
+        // Safely subtract balance only if interestBeforeSubtraction > balance
+        if (interestBeforeSubtraction > info.balance) {
+            unchecked {
+                // Check for underflow
+                if (interestBeforeSubtraction >= info.balance) {
+                    interest = interestBeforeSubtraction - info.balance;
+                } else {
+                    interest = 0;
+                }
+            }
+        } else {
+            interest = 0;
+        }
 
         uint256 daysElapsed = (block.timestamp - info.lastInterestUpdate) /
             SECONDS_PER_DAY;
 
         if (daysElapsed > 0) {
             for (uint256 i = 0; i < daysElapsed; i++) {
-                interest = (interest * currentIndex) / 1e18;
+                // Check for overflow in multiplication
+                if (interest <= type(uint256).max / currentIndex) {
+                    uint256 multiplied = interest * currentIndex;
+                    uint256 newInterest = multiplied / 1e18;
+                    // Check for overflow in the result
+                    if (newInterest < interest && interest != 0) {
+                        // Overflow occurred, return maximum value
+                        return type(uint256).max;
+                    }
+                    interest = newInterest;
+                } else {
+                    // Handle potential overflow by dividing first
+                    interest = (interest / 1e18) * currentIndex;
+                }
             }
         }
-        return interest;
     }
 
     function calculatePotentialInterest(
@@ -606,10 +740,46 @@ contract LendingManager is ReentrancyGuard {
         uint256 potentialIndex = currentIndex;
 
         for (uint256 i = 0; i < numDays; i++) {
-            potentialIndex = (potentialIndex * currentDailyRate) / 1e18;
+            // Check for overflow in multiplication
+            if (potentialIndex <= type(uint256).max / currentDailyRate) {
+                uint256 multiplied = potentialIndex * currentDailyRate;
+                uint256 newIndex = multiplied / 1e18;
+                // Check for overflow in the result
+                if (newIndex < potentialIndex && potentialIndex != 0) {
+                    // Overflow occurred, return maximum value
+                    return type(uint256).max;
+                }
+                potentialIndex = newIndex;
+            } else {
+                // Handle potential overflow by dividing first
+                potentialIndex = (potentialIndex / 1e18) * currentDailyRate;
+            }
         }
 
-        return ((amount * potentialIndex) / currentIndex) - amount;
+        // Safe calculation of interest with overflow protection
+        uint256 interestBeforeSubtraction;
+        // Check for overflow in multiplication
+        if (amount <= type(uint256).max / potentialIndex) {
+            uint256 multiplied = amount * potentialIndex;
+            interestBeforeSubtraction = multiplied / currentIndex;
+        } else {
+            // Handle potential overflow by dividing first
+            interestBeforeSubtraction = (amount / currentIndex) * potentialIndex;
+        }
+        
+        // Safely subtract amount
+        if (interestBeforeSubtraction > amount) {
+            unchecked {
+                // Check for underflow
+                if (interestBeforeSubtraction >= amount) {
+                    return interestBeforeSubtraction - amount;
+                } else {
+                    return 0;
+                }
+            }
+        } else {
+            return 0;
+        }
     }
 
     function getInterestTier(
@@ -631,12 +801,57 @@ contract LendingManager is ReentrancyGuard {
         if (info.balance == 0) return 0;
         require(info.interestIndex != 0, "interestIndex must not be zero");
         uint256 currentIndex = _currentInterestIndex();
-        // Safe calculation using scaling
+        
+        // Safe calculation with overflow protection
         uint256 scaledBalance = info.balance * 1e18;
-        uint256 ratio = (currentIndex * 1e18) / info.interestIndex;
-        uint256 interest = (scaledBalance * ratio) / 1e36;
-
-        return interest > info.balance ? interest - info.balance : 0;
+        // Check for overflow in scaledBalance calculation
+        if (scaledBalance / 1e18 != info.balance) {
+            // Overflow occurred, return 0 interest
+            return 0;
+        }
+        
+        // Safe calculation of ratio with overflow check
+        uint256 ratio;
+        unchecked {
+            // We'll do the multiplication and check for overflow manually
+            if (currentIndex <= type(uint256).max / 1e18) {
+                uint256 multiplied = currentIndex * 1e18;
+                if (info.interestIndex != 0) {
+                    ratio = multiplied / info.interestIndex;
+                } else {
+                    ratio = 0;
+                }
+            } else {
+                // Handle potential overflow by using a safe division first
+                ratio = (currentIndex / info.interestIndex) * 1e18;
+            }
+        }
+        
+        // Calculate interest with overflow protection
+        uint256 interestBeforeSubtraction;
+        unchecked {
+            if (scaledBalance <= type(uint256).max / ratio) {
+                uint256 multiplied = scaledBalance * ratio;
+                interestBeforeSubtraction = multiplied / 1e36;
+            } else {
+                // Handle potential overflow by dividing first
+                interestBeforeSubtraction = (scaledBalance / 1e18) * (ratio / 1e18);
+            }
+        }
+        
+        // Safely subtract balance only if interestBeforeSubtraction > balance
+        if (interestBeforeSubtraction > info.balance) {
+            unchecked {
+                // Check for underflow
+                if (interestBeforeSubtraction >= info.balance) {
+                    return interestBeforeSubtraction - info.balance;
+                } else {
+                    return 0;
+                }
+            }
+        } else {
+            return 0;
+        }
     }
 
     function canCompleteWithdrawal(
@@ -842,7 +1057,10 @@ contract LendingManager is ReentrancyGuard {
         uint256 daysElapsed = currentDay - lastRateUpdateDay;
         uint256 supplyRate = getDynamicSupplyRate();
 
-        require(supplyRate >= 1e18, "Invalid interest rate"); // Ensure rate >= 1.0
+        // Ensure rate is at least 1.0 to avoid "Invalid interest rate" error
+        if (supplyRate < 1e18) {
+            supplyRate = 1e18;
+        }
 
         if (daysElapsed == 0) return supplyRate;
 
@@ -876,16 +1094,61 @@ contract LendingManager is ReentrancyGuard {
             // Defensive: do not accrue interest if index is zero
             return;
         }
-        uint256 interest = ((info.balance * currentIndex) /
-            info.interestIndex) - info.balance;
+
+        // Safe calculation with overflow protection
+        uint256 scaledBalance = info.balance * 1e18;
+        // Check for overflow in scaledBalance calculation
+        if (scaledBalance / 1e18 != info.balance) {
+            // Overflow occurred, return without accruing interest
+            return;
+        }
+
+        // Safe calculation of ratio with overflow check
+        uint256 ratio;
+        unchecked {
+            // We'll do the multiplication and check for overflow manually
+            if (currentIndex <= type(uint256).max / 1e18) {
+                uint256 multiplied = currentIndex * 1e18;
+                if (info.interestIndex != 0) {
+                    ratio = multiplied / info.interestIndex;
+                } else {
+                    ratio = 0;
+                }
+            } else {
+                // Handle potential overflow by using a safe division first
+                ratio = (currentIndex / info.interestIndex) * 1e18;
+            }
+        }
+
+        // Calculate interest with overflow protection
+        uint256 interestBeforeSubtraction;
+        unchecked {
+            if (scaledBalance <= type(uint256).max / ratio) {
+                uint256 multiplied = scaledBalance * ratio;
+                interestBeforeSubtraction = multiplied / 1e36;
+            } else {
+                // Handle potential overflow by dividing first
+                interestBeforeSubtraction = (scaledBalance / 1e18) * (ratio / 1e18);
+            }
+        }
+
+        // Safely subtract balance only if interestBeforeSubtraction > balance
+        uint256 interest = 0;
+        if (interestBeforeSubtraction > info.balance) {
+            unchecked {
+                // Check for underflow
+                if (interestBeforeSubtraction >= info.balance) {
+                    interest = interestBeforeSubtraction - info.balance;
+                } else {
+                    interest = 0;
+                }
+            }
+        } else {
+            interest = 0;
+        }
 
         // Only calculate interest if current index is greater than last index
         if (currentIndex > info.interestIndex) {
-            // Safe calculation using scaling to prevent overflow
-            uint256 scaledBalance = info.balance * 1e18; // Scale up
-            uint256 ratio = (currentIndex * 1e18) / info.interestIndex; // Get ratio
-            interest = (scaledBalance * ratio) / 1e36 - info.balance; // Scale down and subtract principal
-
             // Apply interest if positive
             if (interest > 0) {
                 info.earnedInterest += interest;

@@ -16,17 +16,17 @@ contract MockCreditScore {
     constructor() {}
     
     // Current interface used by LiquidityPool
-    function getCreditScore(address user) 
-        external 
-        view 
+    function getCreditScore(address user)
+        external
+        view
         returns (
             uint64 score,
             bool isValid,
             uint256 timestamp
-        ) 
+        )
     {
         Score memory userScore = scores[user];
-        return (userScore.score, userScore.isValid, userScore.timestamp);
+        return (userScore.score, userScore.isValid && !userScore.isUsed, userScore.timestamp);
     }
     
 
@@ -54,9 +54,18 @@ contract MockCreditScore {
         });
     }
     
-    function setUsageStatus(address user, bool isUsed) external {
+    function markCreditScoreAsUsed(address user) external {
         require(scores[user].isValid, "No valid score for user");
-        scores[user].isUsed = isUsed;
+        scores[user].isUsed = true;
+    }
+    
+    function resetScore(address user) external {
+        scores[user] = Score({
+            score: 0,
+            isValid: false,
+            timestamp: 0,
+            isUsed: false
+        });
     }
     
     function getFullScore(address user) 

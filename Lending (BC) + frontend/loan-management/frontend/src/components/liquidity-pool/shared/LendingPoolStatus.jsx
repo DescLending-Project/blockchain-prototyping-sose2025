@@ -18,18 +18,23 @@ export function LendingPoolStatus({ contract }) {
 
     useEffect(() => {
         if (contract) {
-            loadPoolInfo()
-            checkNetwork()
+            console.log('LendingPoolStatus: contract provided, loading pool info');
+            loadPoolInfo().catch(err => {
+                console.error('Failed to load pool info on mount:', err);
+            });
+            checkNetwork();
 
             // Refresh pool info every 10 seconds
             const interval = setInterval(() => {
+                console.log('LendingPoolStatus: refreshing pool info');
                 loadPoolInfo().catch(err => {
-                    console.error('Failed to refresh pool info:', err)
-                })
-            }, 10000)
-            return () => clearInterval(interval)
+                    console.error('Failed to refresh pool info:', err);
+                });
+            }, 10000);
+            return () => clearInterval(interval);
         } else {
-            setLoading(false)
+            console.log('LendingPoolStatus: no contract provided');
+            setLoading(false);
         }
     }, [contract])
 
@@ -62,21 +67,32 @@ export function LendingPoolStatus({ contract }) {
 
             // Check if the function exists before calling it
             if (contract && contract.getBalance && typeof contract.getBalance === 'function') {
-                const totalFunds = await contract.getBalance()
+                console.log('Calling getBalance function directly');
+                const totalFunds = await contract.getBalance();
+                console.log('getBalance result:', totalFunds.toString());
                 setPoolInfo({
                     totalFunds: formatEther(totalFunds)
-                })
+                });
             } else {
                 // Fallback: try to get balance using provider
-                console.log('getBalance function not available, using fallback')
-                const contractAddress = await contract.getAddress()
-                const balance = await contract.provider.getBalance(contractAddress)
+                console.log('getBalance function not available, using fallback');
+                const contractAddress = await contract.getAddress();
+                console.log('Getting balance using provider for address:', contractAddress);
+                const balance = await contract.provider.getBalance(contractAddress);
+                console.log('Provider getBalance result:', balance.toString());
                 setPoolInfo({
                     totalFunds: formatEther(balance)
-                })
+                });
             }
         } catch (err) {
             console.error('Failed to load pool info:', err)
+            // Log detailed error information
+            console.error('Error name:', err.name)
+            console.error('Error message:', err.message)
+            console.error('Error code:', err.code)
+            if (err.data) {
+                console.error('Error data:', err.data)
+            }
             setError(err.message)
             // Set default values to prevent UI crash
             setPoolInfo({
